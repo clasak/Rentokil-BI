@@ -199,7 +199,7 @@ export default function PeoplePage() {
                     <tr key={i}>
                       <td className="py-1 pr-2 text-gray-700 truncate max-w-[100px]">{row.branch}</td>
                       {daysOfWeek.map(day => {
-                        const value = row[day as keyof typeof row] as number
+                        const value = (row as Record<string, string | number>)[day] as number
                         const bgColor = value > 100 ? 'bg-red-500' :
                                        value > 90 ? 'bg-orange-400' :
                                        value > 75 ? 'bg-yellow-400' :

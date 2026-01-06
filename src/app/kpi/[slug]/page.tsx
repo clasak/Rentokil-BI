@@ -70,7 +70,7 @@ export default function KPIDetailPage() {
         <div className="text-center">
           <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h2 className="text-lg font-semibold">KPI Not Found</h2>
-          <p className="text-gray-500">The KPI "{slug}" does not exist.</p>
+          <p className="text-gray-500">The KPI &ldquo;{slug}&rdquo; does not exist.</p>
           <Button asChild className="mt-4">
             <Link href="/">Back to Command Center</Link>
           </Button>

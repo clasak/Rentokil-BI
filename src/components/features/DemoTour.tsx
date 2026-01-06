@@ -88,7 +88,7 @@ export function DemoTour() {
                 <>
                   <li>• KPI detail with tabs: Overview, Drivers, Actions</li>
                   <li>• Reconciliation tab showing source vs. KPI total</li>
-                  <li>• Click "Lineage" to see data flow</li>
+                  <li>• Click &ldquo;Lineage&rdquo; to see data flow</li>
                 </>
               )}
               {tourStep === 2 && (
