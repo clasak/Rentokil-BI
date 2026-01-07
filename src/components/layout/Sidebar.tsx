@@ -135,7 +135,7 @@ export function Sidebar() {
                 Rentokil
               </text>
               <text x="0" y="52" fontFamily="Arial, Helvetica, sans-serif" fontSize="11" fontWeight="500" className="fill-gray-600 dark:fill-gray-300">
-                The leaders in Pest Control
+                The Experts in Pest Control
               </text>
             </svg>
             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Business Intelligence</p>
