@@ -124,12 +124,21 @@ export function Sidebar() {
       )}>
         {!sidebarCollapsed && (
           <div className="flex flex-col">
-            <img
-              src="/rentokil-logo.svg"
-              alt="Rentokil"
-              className="h-[72px] w-auto object-contain"
-            />
-            <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Business Intelligence</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" className="h-[60px] w-auto">
+              <defs>
+                <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#E4002B" />
+                  <stop offset="100%" stopColor="#B8001F" />
+                </linearGradient>
+              </defs>
+              <text x="0" y="32" fontFamily="Arial, Helvetica, sans-serif" fontSize="32" fontWeight="bold" fill="url(#logoGradient)">
+                Rentokil
+              </text>
+              <text x="0" y="52" fontFamily="Arial, Helvetica, sans-serif" fontSize="11" fontWeight="500" className="fill-gray-600 dark:fill-gray-300">
+                The leaders in Pest Control
+              </text>
+            </svg>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Business Intelligence</p>
           </div>
         )}
         {sidebarCollapsed && (
