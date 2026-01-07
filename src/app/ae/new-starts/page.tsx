@@ -200,18 +200,18 @@ export default function NewStartsPage() {
                   </TableRow>
                 ) : (
                   filteredEntries.map((entry) => (
-                    <TableRow key={entry.id} className="cursor-pointer hover:bg-gray-50">
+                    <TableRow key={entry.id} className="cursor-pointer hover:bg-muted/50">
                       <TableCell className="font-medium">{formatDate(entry.soldDate)}</TableCell>
                       <TableCell>
                         <div>
                           <p className="font-medium truncate max-w-[150px]">{entry.accountName}</p>
-                          <p className="text-xs text-gray-500 truncate max-w-[150px]">{entry.serviceAddress}</p>
+                          <p className="text-xs text-muted-foreground truncate max-w-[150px]">{entry.serviceAddress}</p>
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{entry.serviceType}</Badge>
                         {entry.frequency !== '1' && (
-                          <span className="text-xs text-gray-500 ml-1">/{entry.frequency}x yr</span>
+                          <span className="text-xs text-muted-foreground ml-1">/{entry.frequency}x yr</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(entry.initialJobPrice)}</TableCell>
@@ -221,12 +221,12 @@ export default function NewStartsPage() {
                       <TableCell>{entry.salesRepsInvolved}</TableCell>
                       <TableCell>
                         {entry.operationsManager || (
-                          <span className="text-gray-400 italic">Unassigned</span>
+                          <span className="text-muted-foreground italic">Unassigned</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {entry.confirmedStartDate ? formatDate(entry.confirmedStartDate) : (
-                          <span className="text-gray-400">TBD</span>
+                          <span className="text-muted-foreground">TBD</span>
                         )}
                       </TableCell>
                       <TableCell>{getStatusBadge(entry.status)}</TableCell>
@@ -240,16 +240,16 @@ export default function NewStartsPage() {
       </Card>
 
       {/* Legend */}
-      <Card className="bg-gray-50">
+      <Card className="bg-muted">
         <CardContent className="pt-4">
           <div className="flex flex-wrap gap-6 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-100 border border-red-300 rounded" />
-              <span className="text-gray-600">Sales fills in (RED columns)</span>
+              <div className="w-3 h-3 bg-red-100 dark:bg-red-950 border border-red-300 dark:border-red-800 rounded" />
+              <span className="text-muted-foreground">Sales fills in (RED columns)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-yellow-100 border border-yellow-300 rounded" />
-              <span className="text-gray-600">Ops Manager fills in (YELLOW columns)</span>
+              <div className="w-3 h-3 bg-yellow-100 dark:bg-yellow-950 border border-yellow-300 dark:border-yellow-800 rounded" />
+              <span className="text-muted-foreground">Ops Manager fills in (YELLOW columns)</span>
             </div>
           </div>
         </CardContent>

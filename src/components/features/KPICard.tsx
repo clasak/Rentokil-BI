@@ -64,7 +64,7 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <span className={cn(
-                  'font-medium text-gray-600',
+                  'font-medium text-gray-600 dark:text-gray-300',
                   compact ? 'text-xs' : 'text-sm'
                 )}>
                   {definition.name}
@@ -86,7 +86,7 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
               </div>
 
               <div className={cn(
-                'font-bold text-gray-900',
+                'font-bold text-gray-900 dark:text-white',
                 compact ? 'text-xl' : 'text-2xl'
               )}>
                 {formatValue(kpiValue.value)}
@@ -95,9 +95,9 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
               <div className="flex items-center gap-2 mt-1">
                 <div className={cn(
                   'flex items-center gap-1 text-sm font-medium',
-                  isPositive && 'text-green-600',
-                  isNegative && 'text-red-600',
-                  !isPositive && !isNegative && 'text-gray-500'
+                  isPositive && 'text-green-600 dark:text-green-400',
+                  isNegative && 'text-red-600 dark:text-red-400',
+                  !isPositive && !isNegative && 'text-gray-500 dark:text-gray-400'
                 )}>
                   {isPositive && <TrendingUp className="h-3 w-3" />}
                   {isNegative && <TrendingDown className="h-3 w-3" />}
@@ -108,7 +108,7 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
               </div>
 
               {kpiValue.target !== undefined && !compact && (
-                <div className="mt-2 text-xs text-gray-500">
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   Target: {formatValue(kpiValue.target)}
                 </div>
               )}
@@ -122,7 +122,7 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
                     <Line
                       type="monotone"
                       dataKey="value"
-                      stroke={isNegative ? '#ef4444' : '#22c55e'}
+                      stroke={isNegative ? '#ef4444' : '#E4002B'}
                       strokeWidth={2}
                       dot={false}
                     />

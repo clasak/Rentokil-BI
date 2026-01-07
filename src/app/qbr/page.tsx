@@ -370,15 +370,15 @@ export default function QBRPage() {
               <div>
                 <h4 className="font-semibold mb-3">Key Metrics to Watch</h4>
                 <ul className="space-y-2">
-                  <li className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <li className="flex items-center justify-between p-2 bg-muted rounded">
                     <span>Service Risk Index</span>
                     <Badge>Target: 90+</Badge>
                   </li>
-                  <li className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <li className="flex items-center justify-between p-2 bg-muted rounded">
                     <span>Stalled Opportunities</span>
                     <Badge>Target: &lt;$500K</Badge>
                   </li>
-                  <li className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <li className="flex items-center justify-between p-2 bg-muted rounded">
                     <span>DSO</span>
                     <Badge>Target: &lt;35 days</Badge>
                   </li>

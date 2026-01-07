@@ -161,12 +161,12 @@ export default function RegionDailyPage() {
       </div>
 
       {/* Date Header */}
-      <div className="flex items-center justify-between bg-gray-100 rounded-lg p-4">
+      <div className="flex items-center justify-between bg-muted rounded-lg p-4">
         <div className="flex items-center gap-3">
-          <MapPin className="h-5 w-5 text-gray-600" />
+          <MapPin className="h-5 w-5 text-muted-foreground" />
           <div>
             <p className="font-semibold">{REGION_NAMES[selectedRegion]}</p>
-            <p className="text-sm text-gray-500">{formatDate(selectedDate)}</p>
+            <p className="text-sm text-muted-foreground">{formatDate(selectedDate)}</p>
           </div>
         </div>
         <Badge variant={submittedCount === branches.length ? 'default' : 'secondary'}>
@@ -323,7 +323,7 @@ export default function RegionDailyPage() {
                 const onTrack = goal > 0 && inspPrp >= goal * 0.8
 
                 return (
-                  <TableRow key={branch.code} className={!entry ? 'bg-gray-50' : ''}>
+                  <TableRow key={branch.code} className={!entry ? 'bg-muted/50' : ''}>
                     <TableCell className="font-mono">{branch.code}</TableCell>
                     <TableCell className="font-medium max-w-[150px] truncate">{branch.name}</TableCell>
                     <TableCell className="max-w-[120px] truncate">{branch.branchManager}</TableCell>

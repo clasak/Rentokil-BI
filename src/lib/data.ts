@@ -175,7 +175,7 @@ function generateUsers(markets: Market[], branches: Branch[], teams: Team[]): Us
     })
   }
 
-  // Create VP/Directors (1-2 per market)
+  // Create Directors (1-2 per market)
   markets.forEach(market => {
     const numDirectors = randomInt(1, 2)
     for (let i = 0; i < numDirectors; i++) {
@@ -185,8 +185,8 @@ function generateUsers(markets: Market[], branches: Branch[], teams: Team[]): Us
         id: `USR-${String(userId++).padStart(5, '0')}`,
         name: `${firstName} ${lastName}`,
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
-        role: 'vp_director',
-        title: randomChoice(['Director Sales Ops', 'Director Operations', 'Regional Director']),
+        role: 'director',
+        title: randomChoice(['Director Business Intelligence', 'Director Operations', 'Regional Director']),
         assignedMarkets: [market.id],
         assignedBranches: branches.filter(b => b.marketId === market.id).map(b => b.id),
         assignedTeams: [],
@@ -214,9 +214,26 @@ function generateUsers(markets: Market[], branches: Branch[], teams: Team[]): Us
     }
   })
 
-  // Create Reps (3-8 per branch)
+  // Create Operations Managers (1 per branch)
   branches.forEach(branch => {
-    const numReps = randomInt(3, 8)
+    const firstName = randomChoice(firstNames)
+    const lastName = randomChoice(lastNames)
+    const branchTeams = teams.filter(t => t.branchId === branch.id)
+    result.push({
+      id: `USR-${String(userId++).padStart(5, '0')}`,
+      name: `${firstName} ${lastName}`,
+      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
+      role: 'ops_manager',
+      title: 'Operations Manager',
+      assignedMarkets: [branches.find(b => b.id === branch.id)?.marketId || ''],
+      assignedBranches: [branch.id],
+      assignedTeams: branchTeams.map(t => t.id),
+    })
+  })
+
+  // Create Account Executives (2-4 per branch)
+  branches.forEach(branch => {
+    const numReps = randomInt(2, 4)
     for (let i = 0; i < numReps; i++) {
       const firstName = randomChoice(firstNames)
       const lastName = randomChoice(lastNames)
@@ -225,7 +242,26 @@ function generateUsers(markets: Market[], branches: Branch[], teams: Team[]): Us
         name: `${firstName} ${lastName}`,
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
         role: 'rep',
-        title: randomChoice(['Sales Rep', 'Account Executive', 'Service Technician', 'Field Specialist']),
+        title: randomChoice(['Sales Rep', 'Account Executive']),
+        assignedMarkets: [branches.find(b => b.id === branch.id)?.marketId || ''],
+        assignedBranches: [branch.id],
+        assignedTeams: [randomChoice(teams.filter(t => t.branchId === branch.id))?.id || ''],
+      })
+    }
+  })
+
+  // Create Technicians (3-6 per branch)
+  branches.forEach(branch => {
+    const numTechs = randomInt(3, 6)
+    for (let i = 0; i < numTechs; i++) {
+      const firstName = randomChoice(firstNames)
+      const lastName = randomChoice(lastNames)
+      result.push({
+        id: `USR-${String(userId++).padStart(5, '0')}`,
+        name: `${firstName} ${lastName}`,
+        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
+        role: 'technician',
+        title: randomChoice(['Service Technician', 'Field Specialist']),
         assignedMarkets: [branches.find(b => b.id === branch.id)?.marketId || ''],
         assignedBranches: [branch.id],
         assignedTeams: [randomChoice(teams.filter(t => t.branchId === branch.id))?.id || ''],

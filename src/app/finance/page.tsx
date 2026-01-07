@@ -7,6 +7,7 @@ import { getInvoices, filterByRole } from '@/lib/data'
 import { calculateKPIValues, getARAgingBreakdown, getActionItems } from '@/lib/kpi-calculations'
 import { KPICard } from '@/components/features/KPICard'
 import { ActionList } from '@/components/features/ActionList'
+import { ChartTooltip } from '@/components/features/ChartTooltip'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -149,12 +150,7 @@ export default function FinancePage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="bucket" />
                   <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
-                  <Tooltip
-                    formatter={(value: number, name: string, props: any) => [
-                      formatCurrency(value),
-                      `${props.payload.count} invoices`
-                    ]}
-                  />
+                  <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
                   <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                     {arAgingChart.map((entry, index) => (
                       <Bar key={index} dataKey="amount" fill={entry.fill} />
@@ -199,7 +195,7 @@ export default function FinancePage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="period" />
                 <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
-                <Tooltip formatter={(value: number) => [formatCurrency(value), 'Revenue']} />
+                <Tooltip content={<ChartTooltip formatter={formatCurrency} valueLabel="Revenue" />} />
                 <Area
                   type="monotone"
                   dataKey="revenue"

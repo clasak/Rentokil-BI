@@ -1,6 +1,6 @@
 // Core domain types for Rentokil BI
 
-export type Role = 'exec' | 'vp_director' | 'manager' | 'rep'
+export type Role = 'exec' | 'director' | 'manager' | 'ops_manager' | 'rep' | 'technician'
 
 export type DemoMode = 'exec_bi_review' | 'sales_ops_execution' | 'branch_field_manager'
 

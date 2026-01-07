@@ -41,7 +41,7 @@ export function LineageModal({ open, onClose, kpi }: LineageModalProps) {
   const StatusIcon = ({ status }: { status?: string }) => {
     if (status === 'fresh') return <CheckCircle2 className="h-4 w-4 text-green-500" />
     if (status === 'stale') return <AlertTriangle className="h-4 w-4 text-yellow-500" />
-    return <Clock className="h-4 w-4 text-gray-400" />
+    return <Clock className="h-4 w-4 text-muted-foreground" />
   }
 
   return (
@@ -59,26 +59,26 @@ export function LineageModal({ open, onClose, kpi }: LineageModalProps) {
 
         <div className="py-4">
           {/* Visual Lineage */}
-          <div className="flex items-center justify-center gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-center gap-4 mb-6 p-4 bg-muted rounded-lg">
             <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mb-2">
-                <Database className="h-8 w-8 text-blue-600" />
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-950 rounded-lg flex items-center justify-center mb-2">
+                <Database className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="text-xs font-medium">Source Systems</div>
             </div>
-            <ArrowRight className="h-6 w-6 text-gray-400" />
+            <ArrowRight className="h-6 w-6 text-muted-foreground" />
             <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center mb-2">
-                <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-950 rounded-lg flex items-center justify-center mb-2">
+                <svg className="h-8 w-8 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
               <div className="text-xs font-medium">Data Warehouse</div>
             </div>
-            <ArrowRight className="h-6 w-6 text-gray-400" />
+            <ArrowRight className="h-6 w-6 text-muted-foreground" />
             <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center mb-2">
-                <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-950 rounded-lg flex items-center justify-center mb-2">
+                <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
@@ -92,10 +92,10 @@ export function LineageModal({ open, onClose, kpi }: LineageModalProps) {
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Database className="h-5 w-5 text-gray-500" />
+                  <Database className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <div className="font-medium">{kpi.primarySource}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {primarySourceData?.recordCount.toLocaleString()} records
                     </div>
                   </div>
@@ -106,7 +106,7 @@ export function LineageModal({ open, onClose, kpi }: LineageModalProps) {
                     <Badge variant={primarySourceData?.status === 'fresh' ? 'success' : 'warning'}>
                       {primarySourceData?.status || 'Unknown'}
                     </Badge>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-muted-foreground mt-1">
                       {primarySourceData?.lastRefresh &&
                         formatDistanceToNow(primarySourceData.lastRefresh, { addSuffix: true })}
                     </div>
@@ -115,8 +115,8 @@ export function LineageModal({ open, onClose, kpi }: LineageModalProps) {
               </div>
               {primarySourceData?.knownIssues && primarySourceData.knownIssues.length > 0 && (
                 <div className="mt-3 pt-3 border-t">
-                  <div className="text-xs text-yellow-600 font-medium mb-1">Known Issues:</div>
-                  <ul className="text-xs text-gray-600">
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mb-1">Known Issues:</div>
+                  <ul className="text-xs text-muted-foreground">
                     {primarySourceData.knownIssues.map((issue, i) => (
                       <li key={i}>• {issue}</li>
                     ))}
@@ -135,7 +135,7 @@ export function LineageModal({ open, onClose, kpi }: LineageModalProps) {
                   <Card key={index} className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Database className="h-4 w-4 text-gray-400" />
+                        <Database className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{source.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -152,15 +152,15 @@ export function LineageModal({ open, onClose, kpi }: LineageModalProps) {
           )}
 
           {/* Calculation Notes */}
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+          <div className="mt-4 p-4 bg-muted rounded-lg">
             <h4 className="text-sm font-semibold mb-2">Calculation</h4>
-            <code className="text-xs text-gray-600 whitespace-pre-wrap">
+            <code className="text-xs text-muted-foreground whitespace-pre-wrap">
               {kpi.calculationNotes}
             </code>
           </div>
 
           {/* Refresh Schedule */}
-          <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
+          <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
             <div>
               <span className="font-medium">Refresh Cadence:</span> {kpi.refreshCadence}
             </div>

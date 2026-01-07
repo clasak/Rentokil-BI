@@ -5,6 +5,7 @@ import { useAppStore, DEMO_MODE_CONFIG } from '@/store'
 import { KPICard } from '@/components/features/KPICard'
 import { VarianceNarrative } from '@/components/features/VarianceNarrative'
 import { ActionList } from '@/components/features/ActionList'
+import { ChartTooltip } from '@/components/features/ChartTooltip'
 import { TOP_10_KPIS } from '@/lib/kpis'
 import { calculateKPIValues, getVarianceDrivers, getActionItems } from '@/lib/kpi-calculations'
 import { KPIValue, ActionItem, VarianceDriver } from '@/types'
@@ -24,6 +25,13 @@ export default function CommandCenterPage() {
   const [varianceDrivers, setVarianceDrivers] = useState<VarianceDriver[]>([])
   const [actions, setActions] = useState<ActionItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [currentDate, setCurrentDate] = useState('')
+  const [currentTime, setCurrentTime] = useState('')
+
+  useEffect(() => {
+    setCurrentDate(new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
+    setCurrentTime(new Date().toLocaleTimeString())
+  }, [])
 
   useEffect(() => {
     // Simulate loading
@@ -81,9 +89,9 @@ export default function CommandCenterPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Command Center</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {config.persona} • {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Command Center</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {config.persona} • {currentDate || 'Loading...'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -102,14 +110,14 @@ export default function CommandCenterPage() {
           </Badge>
           <Badge variant="outline" className="gap-1">
             <Clock className="h-3 w-3" />
-            Last updated: {new Date().toLocaleTimeString()}
+            Last updated: {currentTime || '--:--:--'}
           </Badge>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+        <Card className="bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white">
           <CardContent className="pt-6">
             <div className="text-sm opacity-80">Revenue MTD</div>
             <div className="text-3xl font-bold mt-1">
@@ -136,19 +144,19 @@ export default function CommandCenterPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">KPI Health</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">KPI Health</div>
             <div className="flex items-center gap-4 mt-2">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{goodKpis.length}</div>
-                <div className="text-xs text-gray-500">Good</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{goodKpis.length}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Good</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">{warningKpis.length}</div>
-                <div className="text-xs text-gray-500">Warning</div>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{warningKpis.length}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Warning</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{criticalKpis.length}</div>
-                <div className="text-xs text-gray-500">Critical</div>
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400">{criticalKpis.length}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Critical</div>
               </div>
             </div>
           </CardContent>
@@ -156,9 +164,9 @@ export default function CommandCenterPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Priority Actions</div>
-            <div className="text-3xl font-bold mt-1">{actions.length}</div>
-            <div className="text-sm mt-2 text-gray-500">
+            <div className="text-sm text-gray-500 dark:text-gray-400">Priority Actions</div>
+            <div className="text-3xl font-bold mt-1 text-gray-900 dark:text-white">{actions.length}</div>
+            <div className="text-sm mt-2 text-gray-500 dark:text-gray-400">
               {actions.filter(a => a.severity === 'critical').length} critical
             </div>
           </CardContent>
@@ -171,7 +179,7 @@ export default function CommandCenterPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Top KPI Cards */}
           <div>
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <TrendingUp className="h-5 w-5" />
               Key Performance Indicators
             </h2>
@@ -196,20 +204,18 @@ export default function CommandCenterPage() {
               <CardTitle className="text-base">Revenue Trend (Last 12 Periods)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
+              <div className="h-64 [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={revenueChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`} />
-                    <Tooltip
-                      formatter={(value: number) => [formatCurrency(value), 'Revenue']}
-                    />
+                    <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
                     <Area
                       type="monotone"
                       dataKey="value"
-                      stroke="#00A651"
-                      fill="#00A65120"
+                      stroke="#E4002B"
+                      fill="#E4002B20"
                       strokeWidth={2}
                     />
                   </AreaChart>

@@ -198,7 +198,7 @@ export default function InvoiceDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {suggestedActions.map((action, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={i} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <span className="font-medium">{action.action}</span>
                       <Badge variant={
                         action.priority === 'critical' ? 'danger' :
@@ -294,25 +294,25 @@ export default function InvoiceDetailPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                    <FileText className="h-4 w-4 text-green-600" />
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center flex-shrink-0">
+                    <FileText className="h-4 w-4 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
                     <div className="font-medium text-sm">Invoice Created</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {format(invoice.invoiceDate, 'MMM d, yyyy')}
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    daysPastDue > 0 ? 'bg-red-100' : 'bg-gray-100'
+                    daysPastDue > 0 ? 'bg-red-100 dark:bg-red-950' : 'bg-muted'
                   }`}>
-                    <Calendar className={`h-4 w-4 ${daysPastDue > 0 ? 'text-red-600' : 'text-gray-600'}`} />
+                    <Calendar className={`h-4 w-4 ${daysPastDue > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
                   </div>
                   <div>
                     <div className="font-medium text-sm">Due Date</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {format(invoice.dueDate, 'MMM d, yyyy')}
                     </div>
                   </div>

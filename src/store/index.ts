@@ -5,6 +5,8 @@ import {
 } from '@/types'
 import { getUsers, getMarkets, regenerateData, setDataQualityIssues } from '@/lib/data'
 
+type Theme = 'light' | 'dark' | 'system'
+
 interface AppState {
   // Settings
   settings: AppSettings
@@ -37,6 +39,10 @@ interface AppState {
   setLineageModalOpen: (open: boolean) => void
   selectedKpiSlug: string | null
   setSelectedKpiSlug: (slug: string | null) => void
+
+  // Theme
+  theme: Theme
+  setTheme: (theme: Theme) => void
 
   // Current user context
   currentUser: User | null
@@ -179,6 +185,10 @@ export const useAppStore = create<AppState>()(
       selectedKpiSlug: null,
       setSelectedKpiSlug: (slug: string | null) => set({ selectedKpiSlug: slug }),
 
+      // Theme
+      theme: 'light' as Theme,
+      setTheme: (theme: Theme) => set({ theme }),
+
       // Current user
       currentUser: null,
 
@@ -220,6 +230,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         settings: state.settings,
         sidebarCollapsed: state.sidebarCollapsed,
+        theme: state.theme,
       }),
     }
   )
@@ -249,7 +260,7 @@ export const DEMO_MODE_CONFIG: Record<DemoMode, {
   },
   sales_ops_execution: {
     name: 'Sales Ops Execution',
-    persona: 'Jason (Director Sales Ops)',
+    persona: 'Jason Gonski (Director Business Intelligence)',
     description: 'Pipeline, hygiene, conversion, coaching, action lists',
     defaultRoute: '/sales',
     highlightedKpis: ['pipeline_30_60_90', 'win_rate', 'stalled_opps', 'crm_hygiene_score', 'avg_cycle_time_days'],
@@ -290,25 +301,39 @@ export const ROLE_PERMISSIONS: Record<Role, {
     canEdit: ['settings', 'targets'],
     canExport: ['all'],
   },
-  vp_director: {
-    label: 'VP / Director',
-    description: 'Access to assigned markets',
+  director: {
+    label: 'Director',
+    description: 'Access to assigned markets and regional data',
     canView: ['assigned_markets', 'team_data'],
     canEdit: ['team_targets'],
     canExport: ['assigned_markets'],
   },
   manager: {
-    label: 'Manager',
+    label: 'Branch Manager',
     description: 'Access to assigned branches and teams',
     canView: ['assigned_branches', 'team_members'],
     canEdit: ['team_activities'],
     canExport: ['assigned_branches'],
   },
+  ops_manager: {
+    label: 'Operations Manager',
+    description: 'Access to operations data and service metrics',
+    canView: ['assigned_branches', 'service_data', 'technician_data'],
+    canEdit: ['service_schedules', 'routes'],
+    canExport: ['operations_data'],
+  },
   rep: {
-    label: 'Rep',
+    label: 'Account Executive',
     description: 'Access to own accounts and opportunities',
     canView: ['own_accounts', 'own_opportunities'],
     canEdit: ['own_activities'],
     canExport: ['own_data'],
+  },
+  technician: {
+    label: 'Technician',
+    description: 'Access to own routes and service assignments',
+    canView: ['own_routes', 'assigned_services'],
+    canEdit: ['service_notes'],
+    canExport: ['own_services'],
   },
 }

@@ -149,33 +149,33 @@ export default function WBRPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500">Revenue MTD</div>
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Revenue MTD</div>
                 <div className="text-2xl font-bold">{revenueMTD ? formatCurrency(revenueMTD.value) : '-'}</div>
                 <div className={`text-sm ${revenueMTD && revenueMTD.deltaPercent > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {revenueMTD ? `${(revenueMTD.deltaPercent * 100).toFixed(1)}% vs prior` : ''}
                 </div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500">Variance to Target</div>
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Variance to Target</div>
                 <div className={`text-2xl font-bold ${varianceToTarget && varianceToTarget.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {varianceToTarget ? `${(varianceToTarget.value * 100).toFixed(1)}%` : '-'}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   {varianceToTarget && varianceToTarget.value >= 0 ? 'Ahead of plan' : 'Behind plan'}
                 </div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500">Pipeline (30/60/90)</div>
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Pipeline (30/60/90)</div>
                 <div className="text-2xl font-bold">{pipelineKpi ? formatCurrency(pipelineKpi.value) : '-'}</div>
                 <div className={`text-sm ${pipelineKpi && pipelineKpi.deltaPercent > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {pipelineKpi ? `${(pipelineKpi.deltaPercent * 100).toFixed(1)}% vs prior` : ''}
                 </div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500">Service Risk Index</div>
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Service Risk Index</div>
                 <div className="text-2xl font-bold">{serviceRisk ? Math.round(serviceRisk.value) : '-'}</div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   Target: 85+
                 </div>
               </div>
@@ -213,10 +213,10 @@ export default function WBRPage() {
             <div className="space-y-4">
               {criticalActions.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-red-600 mb-2">Critical</h4>
+                  <h4 className="font-medium text-red-600 dark:text-red-400 mb-2">Critical</h4>
                   <ul className="space-y-2">
                     {criticalActions.map(action => (
-                      <li key={action.id} className="flex items-center justify-between p-2 bg-red-50 rounded">
+                      <li key={action.id} className="flex items-center justify-between p-2 bg-red-50 dark:bg-red-950/50 rounded">
                         <span>{action.title}</span>
                         <Badge variant="danger">{formatCurrency(action.financialImpact)}</Badge>
                       </li>
@@ -226,10 +226,10 @@ export default function WBRPage() {
               )}
               {highActions.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-yellow-600 mb-2">High Priority</h4>
+                  <h4 className="font-medium text-yellow-600 dark:text-yellow-400 mb-2">High Priority</h4>
                   <ul className="space-y-2">
                     {highActions.map(action => (
-                      <li key={action.id} className="flex items-center justify-between p-2 bg-yellow-50 rounded">
+                      <li key={action.id} className="flex items-center justify-between p-2 bg-yellow-50 dark:bg-yellow-950/50 rounded">
                         <span>{action.title}</span>
                         <Badge variant="warning">{formatCurrency(action.financialImpact)}</Badge>
                       </li>

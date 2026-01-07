@@ -257,7 +257,7 @@ export default function OpsNewStartsPage() {
               <TableBody>
                 {filteredEntries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-gray-500 py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No entries in this queue
                     </TableCell>
                   </TableRow>
@@ -265,7 +265,7 @@ export default function OpsNewStartsPage() {
                   filteredEntries.map((entry) => (
                     <TableRow
                       key={entry.id}
-                      className={`cursor-pointer hover:bg-gray-50 ${entry.status === 'pending_ops' ? 'bg-red-50' : ''}`}
+                      className={`cursor-pointer hover:bg-muted/50 ${entry.status === 'pending_ops' ? 'bg-red-50 dark:bg-red-950/30' : ''}`}
                       onClick={() => handleEdit(entry)}
                     >
                       <TableCell>{getStatusBadge(entry.status)}</TableCell>
@@ -273,7 +273,7 @@ export default function OpsNewStartsPage() {
                       <TableCell>
                         <div>
                           <p className="font-medium truncate max-w-[150px]">{entry.accountName}</p>
-                          <p className="text-xs text-gray-500">{entry.serviceType}</p>
+                          <p className="text-xs text-muted-foreground">{entry.serviceType}</p>
                         </div>
                       </TableCell>
                       <TableCell>{entry.salesRepsInvolved}</TableCell>
@@ -282,12 +282,12 @@ export default function OpsNewStartsPage() {
                       </TableCell>
                       <TableCell>
                         {entry.operationsManager || (
-                          <span className="text-red-500 font-medium">Unassigned</span>
+                          <span className="text-red-500 dark:text-red-400 font-medium">Unassigned</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {entry.assignedSpecialist || (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -324,19 +324,19 @@ export default function OpsNewStartsPage() {
           {editingEntry && (
             <div className="space-y-6 py-4">
               {/* Sale Info (Read-only) */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-500 mb-2">Sale Info (from Account Exec)</h4>
+              <div className="bg-muted p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Sale Info (from Account Exec)</h4>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Sold:</span>{' '}
+                    <span className="text-muted-foreground">Sold:</span>{' '}
                     <span className="font-medium">{formatDate(editingEntry.soldDate)}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Initial:</span>{' '}
+                    <span className="text-muted-foreground">Initial:</span>{' '}
                     <span className="font-medium">{formatCurrency(editingEntry.initialJobPrice)}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Contract:</span>{' '}
+                    <span className="text-muted-foreground">Contract:</span>{' '}
                     <span className="font-medium">
                       {editingEntry.maintenancePrice > 0 ? `${formatCurrency(editingEntry.maintenancePrice)}/mo` : '-'}
                     </span>

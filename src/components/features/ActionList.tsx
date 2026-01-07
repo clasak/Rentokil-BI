@@ -68,8 +68,8 @@ export function ActionList({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-gray-500">
-            <Zap className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <Zap className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
             <p>No priority actions at this time</p>
           </div>
         </CardContent>
@@ -96,7 +96,7 @@ export function ActionList({
             <Link
               key={action.id}
               href={getActionLink(action)}
-              className="block hover:bg-gray-50 transition-colors"
+              className="block hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <div className="p-4">
                 <div className="flex items-start justify-between gap-4">
@@ -109,8 +109,8 @@ export function ActionList({
                         {getTypeLabel(action.type)}
                       </Badge>
                     </div>
-                    <h4 className="font-medium text-sm truncate">{action.title}</h4>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                    <h4 className="font-medium text-sm truncate text-gray-900 dark:text-white">{action.title}</h4>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
                       <span className="flex items-center gap-1">
                         <User className="h-3 w-3" />
                         {action.owner}
@@ -130,9 +130,9 @@ export function ActionList({
                   <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
                 </div>
 
-                <div className="mt-3 p-2 bg-blue-50 rounded text-xs">
-                  <span className="font-medium text-blue-700">Next Best Action: </span>
-                  <span className="text-blue-600">{action.nextBestAction}</span>
+                <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs">
+                  <span className="font-medium text-blue-700 dark:text-blue-300">Next Best Action: </span>
+                  <span className="text-blue-600 dark:text-blue-400">{action.nextBestAction}</span>
                 </div>
               </div>
             </Link>
@@ -140,7 +140,7 @@ export function ActionList({
         </div>
 
         {showViewAll && filteredActions.length > maxItems && (
-          <div className="p-4 border-t bg-gray-50">
+          <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <Button variant="ghost" className="w-full" asChild>
               <Link href="/kpi/stalled_opps">
                 View all {filteredActions.length} actions

@@ -7,6 +7,7 @@ import { getOpportunities, getUsers, filterByRole } from '@/lib/data'
 import { calculateKPIValues, getPipelineByStage, getActionItems } from '@/lib/kpi-calculations'
 import { KPICard } from '@/components/features/KPICard'
 import { ActionList } from '@/components/features/ActionList'
+import { ChartTooltip } from '@/components/features/ChartTooltip'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -120,12 +121,7 @@ export default function SalesPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" tickFormatter={(v) => formatCurrency(v)} />
                   <YAxis dataKey="name" type="category" width={100} />
-                  <Tooltip
-                    formatter={(value: number, name: string, props: any) => [
-                      formatCurrency(value),
-                      `${props.payload.count} opportunities`
-                    ]}
-                  />
+                  <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                     {funnelData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />

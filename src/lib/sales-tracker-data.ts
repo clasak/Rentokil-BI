@@ -198,7 +198,7 @@ export function generateAccountExecutiveData(name: string, seed?: string): Accou
   return {
     id: generateId(),
     name,
-    branch: 'Phoenix - Central',
+    branch: 'Houston - Midwest',
     areaManager: 'Mike Thompson',
     yearlyGoal: 200000,
     monthlyData,

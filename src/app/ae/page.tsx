@@ -361,17 +361,17 @@ export default function AccountExecutiveDashboard() {
                   pipeline.slice(0, 5).map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted hover:bg-muted/80 cursor-pointer"
                     >
                       <div>
                         <p className="font-medium text-sm truncate max-w-[150px]">{p.companyName}</p>
-                        <p className="text-xs text-gray-500">{p.service} • {p.leadType}</p>
+                        <p className="text-xs text-muted-foreground">{p.service} • {p.leadType}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-sm">
                           {formatCurrency(p.jobWorkPrice + p.termitePrice + (p.contractPrice * 12))}
                         </p>
-                        <p className="text-xs text-gray-500">{formatDate(p.date)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(p.date)}</p>
                       </div>
                     </div>
                   ))

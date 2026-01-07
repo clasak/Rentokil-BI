@@ -7,6 +7,7 @@ import { getAccounts, getServiceEvents, getComplaints, getTechnicianCapacity, fi
 import { calculateKPIValues, getActionItems } from '@/lib/kpi-calculations'
 import { KPICard } from '@/components/features/KPICard'
 import { ActionList } from '@/components/features/ActionList'
+import { ChartTooltip } from '@/components/features/ChartTooltip'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -130,7 +131,7 @@ export default function OpsPage() {
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip content={<ChartTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -170,7 +171,7 @@ export default function OpsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" domain={[0, 120]} tickFormatter={(v) => `${v}%`} />
                   <YAxis dataKey="name" type="category" width={100} />
-                  <Tooltip formatter={(v: number) => [`${v.toFixed(1)}%`, 'Utilization']} />
+                  <Tooltip content={<ChartTooltip formatter={(v) => `${v.toFixed(1)}%`} valueLabel="Utilization" />} />
                   <Bar dataKey="utilization" radius={[0, 4, 4, 0]}>
                     {branchCapacity.map((entry, index) => (
                       <Cell
@@ -200,7 +201,7 @@ export default function OpsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="type" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip content={<ChartTooltip />} />
                   <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

@@ -82,7 +82,7 @@ export default function GovernancePage() {
   const criticalIssues = qualityMetrics.filter(m => m.status === 'critical')
   const warningIssues = qualityMetrics.filter(m => m.status === 'warning')
 
-  const roles: Role[] = ['exec', 'vp_director', 'manager', 'rep']
+  const roles: Role[] = ['exec', 'director', 'manager', 'ops_manager', 'rep', 'technician']
 
   return (
     <div className="space-y-6">
@@ -443,11 +443,11 @@ export default function GovernancePage() {
                   { date: '2023-12-15', kpi: 'callback_rate', change: 'Extended callback window from 7 days to 14 days', user: 'Tom Wilson' },
                 ].map((log, i) => (
                   <div key={i} className="flex gap-4 p-4 border rounded-lg">
-                    <div className="text-sm text-gray-500 w-24 flex-shrink-0">{log.date}</div>
+                    <div className="text-sm text-muted-foreground w-24 flex-shrink-0">{log.date}</div>
                     <div className="flex-1">
-                      <code className="text-sm bg-gray-100 px-2 py-1 rounded">{log.kpi}</code>
+                      <code className="text-sm bg-muted px-2 py-1 rounded">{log.kpi}</code>
                       <p className="text-sm mt-1">{log.change}</p>
-                      <p className="text-xs text-gray-500 mt-1">Changed by {log.user}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Changed by {log.user}</p>
                     </div>
                   </div>
                 ))}

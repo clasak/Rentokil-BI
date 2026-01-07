@@ -44,8 +44,8 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-sm text-gray-500">Configure demo mode, role simulation, and data options</p>
+          <h1 className="text-2xl font-bold dark:text-gray-100">Settings</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Configure demo mode, role simulation, and data options</p>
         </div>
       </div>
 
@@ -71,15 +71,15 @@ export default function SettingsPage() {
                   key={mode}
                   onClick={() => setDemoMode(mode)}
                   className={`p-4 rounded-lg border-2 text-left transition-all ${
-                    isSelected ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'
+                    isSelected ? 'border-primary bg-primary/5' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold">{config.name}</span>
+                    <span className="font-semibold dark:text-gray-100">{config.name}</span>
                     {isSelected && <Badge variant="default">Active</Badge>}
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{config.persona}</p>
-                  <p className="text-xs text-gray-500">{config.description}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{config.persona}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{config.description}</p>
                 </button>
               )
             })}
@@ -89,8 +89,8 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium">Start Demo Tour</div>
-              <p className="text-sm text-gray-500">
+              <div className="font-medium dark:text-gray-100">Start Demo Tour</div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Guided walkthrough of key features for {DEMO_MODE_CONFIG[settings.demoMode].name}
               </p>
             </div>
@@ -116,25 +116,27 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium mb-2">Role</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-100">Role</label>
               <Select value={settings.role} onValueChange={(v) => setRole(v as Role)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="exec">Executive</SelectItem>
-                  <SelectItem value="vp_director">VP / Director (Area Manager)</SelectItem>
+                  <SelectItem value="director">Director</SelectItem>
                   <SelectItem value="manager">Branch Manager</SelectItem>
+                  <SelectItem value="ops_manager">Operations Manager</SelectItem>
                   <SelectItem value="rep">Account Executive</SelectItem>
+                  <SelectItem value="technician">Technician</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 {ROLE_PERMISSIONS[settings.role].description}
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">User</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-100">User</label>
               <Select
                 value={settings.userId}
                 onValueChange={setUserId}
@@ -156,35 +158,35 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="text-sm font-medium mb-2">Current Access Scope</div>
+          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="text-sm font-medium mb-2 dark:text-gray-100">Current Access Scope</div>
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <div className="text-gray-500">Role</div>
-                <div className="font-medium">{ROLE_PERMISSIONS[settings.role].label}</div>
+                <div className="text-gray-500 dark:text-gray-400">Role</div>
+                <div className="font-medium dark:text-gray-100">{ROLE_PERMISSIONS[settings.role].label}</div>
               </div>
               <div>
-                <div className="text-gray-500">Markets</div>
-                <div className="font-medium">{scope.markets.length} market(s)</div>
+                <div className="text-gray-500 dark:text-gray-400">Markets</div>
+                <div className="font-medium dark:text-gray-100">{scope.markets.length} market(s)</div>
               </div>
               <div>
-                <div className="text-gray-500">Scope</div>
-                <div className="font-medium">{scope.scope}</div>
+                <div className="text-gray-500 dark:text-gray-400">Scope</div>
+                <div className="font-medium dark:text-gray-100">{scope.scope}</div>
               </div>
             </div>
           </div>
 
           <div>
-            <div className="text-sm font-medium mb-2">Permissions</div>
+            <div className="text-sm font-medium mb-2 dark:text-gray-100">Permissions</div>
             <div className="flex flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">View:</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">View:</span>
                 {ROLE_PERMISSIONS[settings.role].canView.map(v => (
                   <Badge key={v} variant="outline" className="text-xs">{v.replace('_', ' ')}</Badge>
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Edit:</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Edit:</span>
                 {ROLE_PERMISSIONS[settings.role].canEdit.map(e => (
                   <Badge key={e} variant="secondary" className="text-xs">{e.replace('_', ' ')}</Badge>
                 ))}
@@ -214,7 +216,7 @@ export default function SettingsPage() {
                 className={`px-4 py-2 rounded-lg border-2 capitalize ${
                   settings.scenario === scenario
                     ? 'border-primary bg-primary/5 font-medium'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 dark:text-gray-100'
                 }`}
               >
                 {scenario}
@@ -238,11 +240,11 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium flex items-center gap-2">
+              <div className="font-medium flex items-center gap-2 dark:text-gray-100">
                 <AlertTriangle className="h-4 w-4 text-yellow-500" />
                 Inject Data Quality Issues
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Enable to show missing fields, stale data, and duplicates
               </p>
             </div>
@@ -253,9 +255,9 @@ export default function SettingsPage() {
           </div>
 
           {settings.dataQualityIssuesEnabled && (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="text-sm font-medium text-yellow-800 mb-2">Issues Being Simulated:</div>
-              <ul className="text-sm text-yellow-700 space-y-1">
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <div className="text-sm font-medium text-yellow-800 dark:text-yellow-300 mb-2">Issues Being Simulated:</div>
+              <ul className="text-sm text-yellow-700 dark:text-yellow-400 space-y-1">
                 <li>• Missing close dates on some opportunities</li>
                 <li>• Stale data source (Workforce/HR 6+ hours old)</li>
                 <li>• Duplicate invoices detected</li>
@@ -268,11 +270,11 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium flex items-center gap-2">
+              <div className="font-medium flex items-center gap-2 dark:text-gray-100">
                 <RefreshCw className="h-4 w-4" />
                 Refresh Data
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Regenerate synthetic data with slight variations (same entity IDs)
               </p>
             </div>
@@ -298,21 +300,21 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 bg-gray-50 rounded-lg text-center">
-              <div className="text-2xl font-bold">{markets.length}</div>
-              <div className="text-xs text-gray-500">Markets</div>
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+              <div className="text-2xl font-bold dark:text-gray-100">{markets.length}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Markets</div>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg text-center">
-              <div className="text-2xl font-bold">{users.length}</div>
-              <div className="text-xs text-gray-500">Users</div>
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+              <div className="text-2xl font-bold dark:text-gray-100">{users.length}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Users</div>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg text-center">
-              <div className="text-2xl font-bold">1,500</div>
-              <div className="text-xs text-gray-500">Accounts</div>
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+              <div className="text-2xl font-bold dark:text-gray-100">1,500</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Accounts</div>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg text-center">
-              <div className="text-2xl font-bold">2,500</div>
-              <div className="text-xs text-gray-500">Opportunities</div>
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+              <div className="text-2xl font-bold dark:text-gray-100">2,500</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Opportunities</div>
             </div>
           </div>
         </CardContent>

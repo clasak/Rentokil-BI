@@ -118,7 +118,7 @@ http://localhost:3000
    - Show how the RLS badge updates
    - Enable "Data Quality Issues" to show degraded state
 
-### Demo Mode 2: Sales Ops Execution (Jason - Director Sales Ops)
+### Demo Mode 2: Sales Ops Execution (Jason Gonski - Director Business Intelligence)
 
 **Goal**: Pipeline, hygiene, conversion, coaching, action lists
 

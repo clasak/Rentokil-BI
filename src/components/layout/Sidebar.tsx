@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -57,9 +58,13 @@ function getNavigationForRole(role: Role) {
       return { main: aeNav, showGovernance: false }
     case 'manager':
       return { main: executiveNav, showGovernance: true }
-    case 'vp_director':
+    case 'director':
     case 'exec':
       return { main: executiveNav, showGovernance: true }
+    case 'ops_manager':
+      return { main: executiveNav, showGovernance: true }
+    case 'technician':
+      return { main: executiveNav, showGovernance: false }
     default:
       return { main: executiveNav, showGovernance: true }
   }
@@ -68,8 +73,16 @@ function getNavigationForRole(role: Role) {
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarCollapsed, setSidebarCollapsed, settings: appSettings } = useAppStore()
+  const [isClient, setIsClient] = useState(false)
 
-  const { main: navigation, showGovernance } = getNavigationForRole(appSettings.role)
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Use default values during SSR to avoid hydration mismatch
+  const currentRole = isClient ? appSettings.role : 'exec'
+  const currentDemoMode = isClient ? appSettings.demoMode : 'exec_bi_review'
+  const { main: navigation, showGovernance } = getNavigationForRole(currentRole)
 
   const NavItem = ({ item }: { item: typeof executiveNav[0] }) => {
     const isActive = pathname === item.href ||
@@ -86,11 +99,11 @@ export function Sidebar() {
       >
         <item.icon className={cn(
           'h-5 w-5 flex-shrink-0',
-          isActive ? 'text-primary' : 'text-gray-500 group-hover:text-gray-700'
+          isActive ? 'text-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
         )} />
         {!sidebarCollapsed && (
           <span className={cn(
-            isActive ? 'text-primary' : 'text-gray-700'
+            isActive ? 'text-primary' : 'text-gray-700 dark:text-gray-200'
           )}>
             {item.name}
           </span>
@@ -101,28 +114,27 @@ export function Sidebar() {
 
   return (
     <div className={cn(
-      'flex flex-col h-full bg-white border-r transition-all duration-300',
+      'flex flex-col h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 transition-all duration-300',
       sidebarCollapsed ? 'w-16' : 'w-64'
     )}>
       {/* Logo */}
       <div className={cn(
-        'flex items-center h-16 px-4 border-b',
-        sidebarCollapsed ? 'justify-center' : 'justify-between'
+        'flex items-center px-4 border-b dark:border-gray-700',
+        sidebarCollapsed ? 'justify-center h-16' : 'justify-start h-24'
       )}>
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">R</span>
-            </div>
-            <div>
-              <h1 className="font-bold text-gray-900">Rentokil BI</h1>
-              <p className="text-xs text-gray-500">Business OS</p>
-            </div>
+          <div className="flex flex-col">
+            <img
+              src="/rentokil-logo.svg"
+              alt="Rentokil"
+              className="h-[72px] w-auto object-contain"
+            />
+            <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Business Intelligence</p>
           </div>
         )}
         {sidebarCollapsed && (
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">R</span>
+          <div className="w-11 h-11 bg-rentokil-red rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-2xl">R</span>
           </div>
         )}
       </div>
@@ -157,24 +169,26 @@ export function Sidebar() {
 
       {/* Role & Demo Mode Indicator */}
       {!sidebarCollapsed && (
-        <div className="p-4 border-t bg-gray-50">
-          <div className="text-xs text-gray-500 mb-1">Logged in as</div>
-          <div className="text-sm font-medium text-gray-900">
-            {appSettings.role === 'rep' && 'Account Executive'}
-            {appSettings.role === 'manager' && 'Branch Manager'}
-            {appSettings.role === 'vp_director' && 'Area Manager'}
-            {appSettings.role === 'exec' && 'Executive'}
+        <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Logged in as</div>
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {currentRole === 'rep' && 'Account Executive'}
+            {currentRole === 'manager' && 'Branch Manager'}
+            {currentRole === 'director' && 'Director'}
+            {currentRole === 'ops_manager' && 'Operations Manager'}
+            {currentRole === 'technician' && 'Technician'}
+            {currentRole === 'exec' && 'Executive'}
           </div>
-          <div className="text-xs text-gray-400 mt-1">
-            {appSettings.demoMode === 'exec_bi_review' && 'Exec BI Review'}
-            {appSettings.demoMode === 'sales_ops_execution' && 'Sales Ops'}
-            {appSettings.demoMode === 'branch_field_manager' && 'Branch Manager'}
+          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            {currentDemoMode === 'exec_bi_review' && 'Exec BI Review'}
+            {currentDemoMode === 'sales_ops_execution' && 'Sales Ops'}
+            {currentDemoMode === 'branch_field_manager' && 'Branch Manager'}
           </div>
         </div>
       )}
 
       {/* Collapse Button */}
-      <div className="p-2 border-t">
+      <div className="p-2 border-t dark:border-gray-700">
         <Button
           variant="ghost"
           size="sm"

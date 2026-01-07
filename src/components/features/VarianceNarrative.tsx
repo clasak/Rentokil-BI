@@ -57,36 +57,36 @@ export function VarianceNarrative({
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-gray-700 mb-4">
+        <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
           {generateNarrative()}
         </p>
 
         <div className="space-y-3">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Contributing Factors
           </h4>
           {drivers.map((driver, index) => (
             <div
               key={index}
-              className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+              className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0"
             >
               <div className="flex items-center gap-3">
                 {driver.direction === 'positive' ? (
-                  <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                    <TrendingUp className="h-3 w-3 text-green-600" />
+                  <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+                    <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
                   </div>
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
-                    <TrendingDown className="h-3 w-3 text-red-600" />
+                  <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+                    <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
                   </div>
                 )}
                 <div>
-                  <div className="text-sm font-medium">{driver.factor}</div>
-                  <div className="text-xs text-gray-500">{driver.explanation}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{driver.factor}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{driver.explanation}</div>
                 </div>
               </div>
               <div className={`text-sm font-semibold ${
-                driver.direction === 'positive' ? 'text-green-600' : 'text-red-600'
+                driver.direction === 'positive' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}>
                 {driver.direction === 'positive' ? '+' : '-'}{formatCurrency(Math.abs(driver.impact))}
               </div>

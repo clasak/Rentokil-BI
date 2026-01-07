@@ -299,17 +299,17 @@ export default function KPIDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <div className="text-sm text-gray-500">KPI Total</div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="text-sm text-muted-foreground">KPI Total</div>
                       <div className="text-2xl font-bold">{formatValue(reconciliation.kpiTotal)}</div>
                     </div>
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <div className="text-sm text-gray-500">Source Total</div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="text-sm text-muted-foreground">Source Total</div>
                       <div className="text-2xl font-bold">{formatValue(reconciliation.sourceTotal)}</div>
                     </div>
-                    <div className={`p-4 rounded-lg ${reconciliation.isWithinTolerance ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                      <div className="text-sm text-gray-500">Difference</div>
-                      <div className={`text-2xl font-bold ${reconciliation.isWithinTolerance ? 'text-green-600' : 'text-yellow-600'}`}>
+                    <div className={`p-4 rounded-lg ${reconciliation.isWithinTolerance ? 'bg-green-50 dark:bg-green-950/50' : 'bg-yellow-50 dark:bg-yellow-950/50'}`}>
+                      <div className="text-sm text-muted-foreground">Difference</div>
+                      <div className={`text-2xl font-bold ${reconciliation.isWithinTolerance ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
                         {formatValue(reconciliation.difference)}
                         <span className="text-sm font-normal ml-2">
                           ({((reconciliation.difference / reconciliation.kpiTotal) * 100).toFixed(3)}%)
@@ -320,12 +320,12 @@ export default function KPIDetailPage() {
 
                   <div className="border-t pt-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">Tolerance Threshold</span>
+                      <span className="text-sm text-muted-foreground">Tolerance Threshold</span>
                       <span className="text-sm font-medium">{reconciliation.tolerancePercent}%</span>
                     </div>
                     <Progress
                       value={Math.min(((reconciliation.difference / reconciliation.kpiTotal) * 100) / reconciliation.tolerancePercent * 100, 100)}
-                      className={reconciliation.isWithinTolerance ? 'bg-green-100' : 'bg-yellow-100'}
+                      className={reconciliation.isWithinTolerance ? 'bg-green-100 dark:bg-green-950' : 'bg-yellow-100 dark:bg-yellow-950'}
                     />
                   </div>
 
@@ -334,7 +334,7 @@ export default function KPIDetailPage() {
                       <h4 className="font-medium mb-2">Explanation of Differences</h4>
                       <ul className="space-y-2">
                         {reconciliation.explanations.map((exp, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
                             <span className="text-yellow-500">•</span>
                             {exp}
                           </li>
@@ -350,7 +350,7 @@ export default function KPIDetailPage() {
                   <CardTitle>Reconciliation Target</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">{definition.reconciliationTarget}</p>
+                  <p className="text-muted-foreground">{definition.reconciliationTarget}</p>
                 </CardContent>
               </Card>
             </>
@@ -372,7 +372,7 @@ export default function KPIDetailPage() {
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-medium">Slug</TableCell>
-                    <TableCell><code className="bg-gray-100 px-2 py-1 rounded">{definition.slug}</code></TableCell>
+                    <TableCell><code className="bg-muted px-2 py-1 rounded">{definition.slug}</code></TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-medium">Category</TableCell>

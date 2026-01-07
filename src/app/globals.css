@@ -10,19 +10,20 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 152 100% 32%;
-    --primary-foreground: 210 40% 98%;
+    /* Rentokil Red as primary: #E4002B = hsl(349, 100%, 45%) */
+    --primary: 349 100% 45%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 349 100% 95%;
+    --accent-foreground: 349 100% 45%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 152 100% 32%;
+    --ring: 349 100% 45%;
     --radius: 0.5rem;
     --success: 142 76% 36%;
     --warning: 38 92% 50%;
@@ -36,19 +37,20 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 152 100% 40%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Rentokil Red for dark mode */
+    --primary: 349 100% 50%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 349 100% 20%;
+    --accent-foreground: 349 100% 70%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 152 100% 40%;
+    --ring: 349 100% 50%;
   }
 }
 
@@ -64,7 +66,7 @@
 
 @layer components {
   .kpi-card {
-    @apply bg-white rounded-lg border shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer;
+    @apply bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer;
   }
 
   .kpi-card-header {
@@ -72,39 +74,39 @@
   }
 
   .kpi-value {
-    @apply text-2xl font-bold text-gray-900;
+    @apply text-2xl font-bold text-gray-900 dark:text-gray-100;
   }
 
   .kpi-delta-positive {
-    @apply text-green-600 text-sm font-medium;
+    @apply text-green-600 dark:text-green-400 text-sm font-medium;
   }
 
   .kpi-delta-negative {
-    @apply text-red-600 text-sm font-medium;
+    @apply text-red-600 dark:text-red-400 text-sm font-medium;
   }
 
   .kpi-label {
-    @apply text-sm text-gray-500 font-medium;
+    @apply text-sm text-gray-500 dark:text-gray-400 font-medium;
   }
 
   .action-list-item {
-    @apply p-4 border rounded-lg hover:bg-gray-50 transition-colors;
+    @apply p-4 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors;
   }
 
   .severity-critical {
-    @apply bg-red-100 text-red-800 border-red-200;
+    @apply bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800;
   }
 
   .severity-high {
-    @apply bg-orange-100 text-orange-800 border-orange-200;
+    @apply bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800;
   }
 
   .severity-medium {
-    @apply bg-yellow-100 text-yellow-800 border-yellow-200;
+    @apply bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800;
   }
 
   .severity-low {
-    @apply bg-blue-100 text-blue-800 border-blue-200;
+    @apply bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800;
   }
 
   .data-quality-good {
@@ -120,11 +122,11 @@
   }
 
   .nav-item {
-    @apply flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors;
+    @apply flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors;
   }
 
   .nav-item-active {
-    @apply bg-primary/10 text-primary hover:bg-primary/20;
+    @apply bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30;
   }
 }
 
@@ -139,13 +141,25 @@
   border-radius: 4px;
 }
 
+.dark ::-webkit-scrollbar-track {
+  background: #374151;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #6b7280;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 /* Print styles for PDF export */

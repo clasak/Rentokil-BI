@@ -23,8 +23,10 @@ export default function PeoplePage() {
   const { settings } = useAppStore()
   const [capacity, setCapacity] = useState<TechnicianCapacity[]>([])
   const [kpiValues, setKpiValues] = useState<Map<string, KPIValue>>(new Map())
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    setIsClient(true)
     setCapacity(getTechnicianCapacity())
     setKpiValues(calculateKPIValues())
   }, [settings])
@@ -62,15 +64,16 @@ export default function PeoplePage() {
     }
   }).sort((a, b) => b.utilization - a.utilization)
 
-  // Weekly heatmap data (simulated)
+  // Weekly heatmap data (simulated) - use deterministic values based on branch index
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const heatmapData = branches.slice(0, 8).map(branch => ({
+  const heatmapData = isClient ? branches.slice(0, 8).map((branch, branchIndex) => ({
     branch: branch.name.split(' - ')[1] || branch.name,
-    ...daysOfWeek.reduce((acc, day, i) => ({
+    ...daysOfWeek.reduce((acc, day, dayIndex) => ({
       ...acc,
-      [day]: 60 + Math.random() * 50 // 60-110% utilization
+      // Use deterministic formula based on branch and day index
+      [day]: 60 + ((branchIndex * 7 + dayIndex * 13 + 17) % 50)
     }), {})
-  }))
+  })) : []
 
   // Capacity distribution chart
   const capacityDistribution = [
