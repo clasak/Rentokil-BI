@@ -123,9 +123,9 @@ export default function SettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="exec">Executive</SelectItem>
-                  <SelectItem value="vp_director">VP / Director</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="rep">Rep</SelectItem>
+                  <SelectItem value="vp_director">VP / Director (Area Manager)</SelectItem>
+                  <SelectItem value="manager">Branch Manager</SelectItem>
+                  <SelectItem value="rep">Account Executive</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500 mt-2">
