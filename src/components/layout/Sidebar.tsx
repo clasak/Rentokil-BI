@@ -30,6 +30,7 @@ const aeNav = [
   { name: 'My Dashboard', href: '/ae', icon: LayoutDashboard },
   { name: 'New Proposal', href: '/ae/proposal/new', icon: Plus },
   { name: 'Log Sale', href: '/ae/sale/new', icon: ClipboardList },
+  { name: 'New Starts', href: '/ae/new-starts', icon: Truck },
 ]
 
 // Technician navigation
