@@ -9,7 +9,7 @@ import {
   LayoutDashboard, TrendingUp, Settings, FileText,
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
-  UserCircle, ClipboardList, Truck, Plus
+  ClipboardList, Truck, Upload
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -26,12 +26,34 @@ const executiveNav = [
   { name: 'Forecast', href: '/forecast', icon: Target },
 ]
 
+// Operations Manager specific navigation
+const opsManagerNav = [
+  { name: 'Command Center', href: '/', icon: LayoutDashboard },
+  { name: 'Operations', href: '/ops', icon: Wrench },
+  { name: 'New Starts', href: '/ops/new-starts', icon: Truck },
+  { name: 'Sales', href: '/sales', icon: TrendingUp },
+  { name: 'Finance', href: '/finance', icon: DollarSign },
+  { name: 'Forecast', href: '/forecast', icon: Target },
+]
+
 // Account Executive navigation
 const aeNav = [
   { name: 'My Dashboard', href: '/ae', icon: LayoutDashboard },
-  { name: 'New Proposal', href: '/ae/proposal/new', icon: Plus },
-  { name: 'Log Sale', href: '/ae/sale/new', icon: ClipboardList },
+  { name: 'Import Quote', href: '/ae/import', icon: Upload },
+  { name: 'Sales Tracker', href: '/ae/tracker/totals', icon: Target },
+  { name: 'Proposals', href: '/ae/tracker/proposals', icon: FileText },
+  { name: 'Sales', href: '/ae/tracker/sales', icon: ClipboardList },
   { name: 'New Starts', href: '/ae/new-starts', icon: Truck },
+]
+
+// Branch Manager navigation
+const branchManagerNav = [
+  { name: 'Command Center', href: '/', icon: LayoutDashboard },
+  { name: 'Daily Cadence', href: '/manager/daily-cadence', icon: CalendarDays },
+  { name: 'WIG Scorecard', href: '/manager/wig-scorecard', icon: Target },
+  { name: 'Sales', href: '/sales', icon: TrendingUp },
+  { name: 'Operations', href: '/ops', icon: Wrench },
+  { name: 'Forecast', href: '/forecast', icon: Target },
 ]
 
 // Technician navigation
@@ -56,17 +78,43 @@ function getNavigationForRole(role: Role) {
   switch (role) {
     case 'rep':
       return { main: aeNav, showGovernance: false }
+    case 'technician':
+      return { main: techNav, showGovernance: false }
+    case 'ops_manager':
+      return { main: opsManagerNav, showGovernance: true }
     case 'manager':
-      return { main: executiveNav, showGovernance: true }
-    case 'director':
+      return { main: branchManagerNav, showGovernance: true }
+    case 'sales_manager':
+    case 'region_director':
+    case 'market_director':
     case 'exec':
       return { main: executiveNav, showGovernance: true }
-    case 'ops_manager':
-      return { main: executiveNav, showGovernance: true }
-    case 'technician':
-      return { main: executiveNav, showGovernance: false }
     default:
       return { main: executiveNav, showGovernance: true }
+  }
+}
+
+// Get display label for role
+function getRoleLabel(role: Role): string {
+  switch (role) {
+    case 'exec':
+      return 'Executive'
+    case 'market_director':
+      return 'Market Director'
+    case 'region_director':
+      return 'Region Director'
+    case 'manager':
+      return 'Branch Manager'
+    case 'sales_manager':
+      return 'Sales Manager'
+    case 'ops_manager':
+      return 'Operations Manager'
+    case 'rep':
+      return 'Account Executive'
+    case 'technician':
+      return 'Technician'
+    default:
+      return 'User'
   }
 }
 
@@ -81,7 +129,7 @@ export function Sidebar() {
 
   // Use default values during SSR to avoid hydration mismatch
   const currentRole = isClient ? appSettings.role : 'exec'
-  const currentDemoMode = isClient ? appSettings.demoMode : 'exec_bi_review'
+  const currentDemoMode = isClient ? appSettings.demoMode : 'bi_leadership'
   const { main: navigation, showGovernance } = getNavigationForRole(currentRole)
 
   const NavItem = ({ item }: { item: typeof executiveNav[0] }) => {
@@ -181,17 +229,10 @@ export function Sidebar() {
         <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Logged in as</div>
           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            {currentRole === 'rep' && 'Account Executive'}
-            {currentRole === 'manager' && 'Branch Manager'}
-            {currentRole === 'director' && 'Director'}
-            {currentRole === 'ops_manager' && 'Operations Manager'}
-            {currentRole === 'technician' && 'Technician'}
-            {currentRole === 'exec' && 'Executive'}
+            {getRoleLabel(currentRole)}
           </div>
           <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            {currentDemoMode === 'exec_bi_review' && 'Exec BI Review'}
-            {currentDemoMode === 'sales_ops_execution' && 'Sales Ops'}
-            {currentDemoMode === 'branch_field_manager' && 'Branch Manager'}
+            {currentDemoMode === 'bi_leadership' && 'BI Leadership Demo'}
           </div>
         </div>
       )}

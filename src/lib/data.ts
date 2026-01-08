@@ -1,6 +1,6 @@
 import seedrandom from 'seedrandom'
 import {
-  Market, Branch, Team, Route, User, Account, Opportunity,
+  Market, Region, Branch, Team, Route, User, Account, Opportunity,
   Activity, ServiceEvent, Complaint, Invoice, TechnicianCapacity,
   KPIValue, DataSource, DataQualityMetric, ReconciliationItem,
   ActionItem, VarianceDriver, ForecastPoint, ForecastAssumption,
@@ -46,6 +46,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 // Data storage
 let markets: Market[] = []
+let regions: Region[] = []
 let branches: Branch[] = []
 let teams: Team[] = []
 let routes: Route[] = []
@@ -85,7 +86,33 @@ function generateMarkets(): Market[] {
   }))
 }
 
-function generateBranches(markets: Market[]): Branch[] {
+function generateRegions(markets: Market[]): Region[] {
+  // Map regions to markets based on geography
+  const regionData: { code: string; name: string; marketName: string }[] = [
+    { code: 'R16', name: 'Region 16 - Arkansas/Missouri', marketName: 'Midwest' },
+    { code: 'R23', name: 'Region 23 - Oklahoma/Kansas', marketName: 'Midwest' },
+    { code: 'R24', name: 'Region 24 - Illinois/Indiana', marketName: 'Midwest' },
+    { code: 'R52', name: 'Region 52 - Texas East', marketName: 'Southwest' },
+    { code: 'R54', name: 'Region 54 - Texas Central/West', marketName: 'Southwest' },
+    { code: 'R75', name: 'Region 75 - Atlantic', marketName: 'Mid-Atlantic' },
+    { code: 'R80', name: 'Region 80 - New England', marketName: 'Northeast' },
+    { code: 'R81', name: 'Region 81 - Southeast Atlantic', marketName: 'Southeast' },
+    { code: 'R90', name: 'Region 90 - Pacific Northwest', marketName: 'West Coast' },
+    { code: 'R91', name: 'Region 91 - California', marketName: 'West Coast' },
+  ]
+
+  return regionData.map((r) => {
+    const market = markets.find(m => m.name === r.marketName) || markets[0]
+    return {
+      id: `REG-${r.code}`,
+      code: r.code,
+      name: r.name,
+      marketId: market.id,
+    }
+  })
+}
+
+function generateBranches(markets: Market[], regions: Region[]): Branch[] {
   const branchNames = [
     'Downtown', 'Northside', 'Southside', 'Industrial', 'Metro',
     'Suburban', 'Central', 'Eastside', 'Westside', 'Commercial'
@@ -94,15 +121,17 @@ function generateBranches(markets: Market[]): Branch[] {
   const result: Branch[] = []
   let branchId = 1
 
-  markets.forEach(market => {
-    const numBranches = randomInt(3, 5)
+  // Generate branches for each region
+  regions.forEach(region => {
+    const numBranches = randomInt(2, 4)
     const shuffledNames = shuffleArray(branchNames)
 
     for (let i = 0; i < numBranches; i++) {
       result.push({
         id: `BR-${String(branchId++).padStart(4, '0')}`,
-        name: `${market.name} - ${shuffledNames[i]}`,
-        marketId: market.id,
+        name: `${region.name.split(' - ')[1] || region.code} - ${shuffledNames[i]}`,
+        marketId: region.marketId,
+        regionId: region.id,
         address: `${randomInt(100, 9999)} ${randomChoice(['Main St', 'Oak Ave', 'Commerce Blvd', 'Industrial Dr', 'Park Way'])}`,
       })
     }
@@ -149,7 +178,7 @@ function generateRoutes(branches: Branch[]): Route[] {
   return result
 }
 
-function generateUsers(markets: Market[], branches: Branch[], teams: Team[]): User[] {
+function generateUsers(markets: Market[], regions: Region[], branches: Branch[], teams: Team[]): User[] {
   const firstNames = ['John', 'Sarah', 'Michael', 'Emily', 'David', 'Jessica', 'Robert', 'Amanda', 'William', 'Jennifer',
     'James', 'Lisa', 'Christopher', 'Michelle', 'Daniel', 'Ashley', 'Matthew', 'Nicole', 'Andrew', 'Stephanie',
     'Susan', 'Jason', 'Karen', 'Brian', 'Nancy', 'Kevin', 'Betty', 'Mark', 'Dorothy', 'Steven']
@@ -159,113 +188,158 @@ function generateUsers(markets: Market[], branches: Branch[], teams: Team[]): Us
   const result: User[] = []
   let userId = 1
 
-  // Create executives (2-3)
-  for (let i = 0; i < 3; i++) {
+  // Helper to create user
+  const createUser = (role: Role, title: string, assignedMarkets: string[], assignedRegions: string[], assignedBranches: string[], assignedTeams: string[], extras?: { assignedReps?: string[], assignedTechnicians?: string[] }) => {
     const firstName = randomChoice(firstNames)
     const lastName = randomChoice(lastNames)
-    result.push({
+    return {
       id: `USR-${String(userId++).padStart(5, '0')}`,
       name: `${firstName} ${lastName}`,
       email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
-      role: 'exec',
-      title: randomChoice(['VP Business Intelligence', 'VP Operations', 'VP Sales']),
-      assignedMarkets: markets.map(m => m.id),
-      assignedBranches: [],
-      assignedTeams: [],
-    })
+      role,
+      title,
+      assignedMarkets,
+      assignedRegions,
+      assignedBranches,
+      assignedTeams,
+      ...extras,
+    }
   }
 
-  // Create Directors (1-2 per market)
+  // 1. Create executives (2-3) - sees all
+  for (let i = 0; i < 3; i++) {
+    result.push(createUser(
+      'exec',
+      randomChoice(['VP Business Intelligence', 'VP Operations', 'VP Sales']),
+      markets.map(m => m.id),
+      regions.map(r => r.id),
+      [],
+      []
+    ))
+  }
+
+  // 2. Create Market Directors (1 per market) - sees all regions/branches in their market
   markets.forEach(market => {
-    const numDirectors = randomInt(1, 2)
-    for (let i = 0; i < numDirectors; i++) {
-      const firstName = randomChoice(firstNames)
-      const lastName = randomChoice(lastNames)
-      result.push({
-        id: `USR-${String(userId++).padStart(5, '0')}`,
-        name: `${firstName} ${lastName}`,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
-        role: 'director',
-        title: randomChoice(['Director Business Intelligence', 'Director Operations', 'Regional Director']),
-        assignedMarkets: [market.id],
-        assignedBranches: branches.filter(b => b.marketId === market.id).map(b => b.id),
-        assignedTeams: [],
-      })
-    }
+    const marketRegions = regions.filter(r => r.marketId === market.id)
+    const marketBranches = branches.filter(b => b.marketId === market.id)
+    result.push(createUser(
+      'market_director',
+      'Market Director',
+      [market.id],
+      marketRegions.map(r => r.id),
+      marketBranches.map(b => b.id),
+      []
+    ))
   })
 
-  // Create Managers (1-2 per branch)
-  branches.forEach(branch => {
-    const numManagers = randomInt(1, 2)
-    for (let i = 0; i < numManagers; i++) {
-      const firstName = randomChoice(firstNames)
-      const lastName = randomChoice(lastNames)
-      const branchTeams = teams.filter(t => t.branchId === branch.id)
-      result.push({
-        id: `USR-${String(userId++).padStart(5, '0')}`,
-        name: `${firstName} ${lastName}`,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
-        role: 'manager',
-        title: 'Branch Manager',
-        assignedMarkets: [branches.find(b => b.id === branch.id)?.marketId || ''],
-        assignedBranches: [branch.id],
-        assignedTeams: branchTeams.slice(0, Math.ceil(branchTeams.length / numManagers)).map(t => t.id),
-      })
-    }
+  // 3. Create Region Directors (1 per region) - sees all branches in their region
+  regions.forEach(region => {
+    const regionBranches = branches.filter(b => b.regionId === region.id)
+    result.push(createUser(
+      'region_director',
+      'Region Director',
+      [region.marketId],
+      [region.id],
+      regionBranches.map(b => b.id),
+      []
+    ))
   })
 
-  // Create Operations Managers (1 per branch)
+  // 4. Create Branch Managers (1 per branch) - sees only their branch
   branches.forEach(branch => {
-    const firstName = randomChoice(firstNames)
-    const lastName = randomChoice(lastNames)
     const branchTeams = teams.filter(t => t.branchId === branch.id)
-    result.push({
-      id: `USR-${String(userId++).padStart(5, '0')}`,
-      name: `${firstName} ${lastName}`,
-      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
-      role: 'ops_manager',
-      title: 'Operations Manager',
-      assignedMarkets: [branches.find(b => b.id === branch.id)?.marketId || ''],
-      assignedBranches: [branch.id],
-      assignedTeams: branchTeams.map(t => t.id),
-    })
+    result.push(createUser(
+      'manager',
+      'Branch Manager',
+      [branch.marketId],
+      [branch.regionId],
+      [branch.id],
+      branchTeams.map(t => t.id)
+    ))
   })
 
-  // Create Account Executives (2-4 per branch)
+  // 5. Create Sales Managers (1 per branch) - will be linked to reps after they're created
+  const salesManagersByBranch: Record<string, User> = {}
+  branches.forEach(branch => {
+    const salesManager = createUser(
+      'sales_manager',
+      'Sales Manager',
+      [branch.marketId],
+      [branch.regionId],
+      [branch.id],
+      [],
+      { assignedReps: [] }
+    )
+    result.push(salesManager)
+    salesManagersByBranch[branch.id] = salesManager
+  })
+
+  // 6. Create Operations Managers (1 per branch) - will be linked to technicians after they're created
+  const opsManagersByBranch: Record<string, User> = {}
+  branches.forEach(branch => {
+    const branchTeams = teams.filter(t => t.branchId === branch.id)
+    const opsManager = createUser(
+      'ops_manager',
+      'Operations Manager',
+      [branch.marketId],
+      [branch.regionId],
+      [branch.id],
+      branchTeams.map(t => t.id),
+      { assignedTechnicians: [] }
+    )
+    result.push(opsManager)
+    opsManagersByBranch[branch.id] = opsManager
+  })
+
+  // 7. Create Account Executives (2-4 per branch) and link to sales managers
   branches.forEach(branch => {
     const numReps = randomInt(2, 4)
+    const branchRepIds: string[] = []
+
     for (let i = 0; i < numReps; i++) {
-      const firstName = randomChoice(firstNames)
-      const lastName = randomChoice(lastNames)
-      result.push({
-        id: `USR-${String(userId++).padStart(5, '0')}`,
-        name: `${firstName} ${lastName}`,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
-        role: 'rep',
-        title: randomChoice(['Sales Rep', 'Account Executive']),
-        assignedMarkets: [branches.find(b => b.id === branch.id)?.marketId || ''],
-        assignedBranches: [branch.id],
-        assignedTeams: [randomChoice(teams.filter(t => t.branchId === branch.id))?.id || ''],
-      })
+      const rep = createUser(
+        'rep',
+        randomChoice(['Sales Rep', 'Account Executive']),
+        [branch.marketId],
+        [branch.regionId],
+        [branch.id],
+        [randomChoice(teams.filter(t => t.branchId === branch.id))?.id || '']
+      )
+      result.push(rep)
+      branchRepIds.push(rep.id)
+    }
+
+    // Link reps to their Sales Manager
+    const salesManager = salesManagersByBranch[branch.id]
+    if (salesManager) {
+      salesManager.assignedReps = branchRepIds
     }
   })
 
-  // Create Technicians (3-6 per branch)
+  // 8. Create Technicians (3-6 per branch) and link subset to ops managers
   branches.forEach(branch => {
     const numTechs = randomInt(3, 6)
+    const branchTechIds: string[] = []
+
     for (let i = 0; i < numTechs; i++) {
-      const firstName = randomChoice(firstNames)
-      const lastName = randomChoice(lastNames)
-      result.push({
-        id: `USR-${String(userId++).padStart(5, '0')}`,
-        name: `${firstName} ${lastName}`,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@rentokil.com`,
-        role: 'technician',
-        title: randomChoice(['Service Technician', 'Field Specialist']),
-        assignedMarkets: [branches.find(b => b.id === branch.id)?.marketId || ''],
-        assignedBranches: [branch.id],
-        assignedTeams: [randomChoice(teams.filter(t => t.branchId === branch.id))?.id || ''],
-      })
+      const tech = createUser(
+        'technician',
+        randomChoice(['Service Technician', 'Field Specialist']),
+        [branch.marketId],
+        [branch.regionId],
+        [branch.id],
+        [randomChoice(teams.filter(t => t.branchId === branch.id))?.id || '']
+      )
+      result.push(tech)
+      branchTechIds.push(tech.id)
+    }
+
+    // Link subset of technicians to their Ops Manager (not all - they can toggle to see all)
+    const opsManager = opsManagersByBranch[branch.id]
+    if (opsManager) {
+      // Assign 2-3 technicians by default
+      const assignedCount = Math.min(randomInt(2, 3), branchTechIds.length)
+      opsManager.assignedTechnicians = branchTechIds.slice(0, assignedCount)
     }
   })
 
@@ -732,10 +806,11 @@ export function regenerateData(seed?: number) {
   }
 
   markets = generateMarkets()
-  branches = generateBranches(markets)
+  regions = generateRegions(markets)
+  branches = generateBranches(markets, regions)
   teams = generateTeams(branches)
   routes = generateRoutes(branches)
-  users = generateUsers(markets, branches, teams)
+  users = generateUsers(markets, regions, branches, teams)
   accounts = generateAccounts(markets, branches, users)
   opportunities = generateOpportunities(accounts, users)
   activities = generateActivities(accounts, opportunities, users)
@@ -752,6 +827,7 @@ regenerateData()
 
 // Export getters
 export const getMarkets = () => markets
+export const getRegions = () => regions
 export const getBranches = () => branches
 export const getTeams = () => teams
 export const getRoutes = () => routes
@@ -807,18 +883,107 @@ export function getInvoicesByAccount(accountId: string): Invoice[] {
   return invoices.filter(i => i.accountId === accountId)
 }
 
-// RLS filtering
-export function filterByRole(data: any[], role: Role, userId: string, marketIds: string[]): any[] {
+// Region query functions
+export function getRegionById(id: string): Region | undefined {
+  return regions.find(r => r.id === id)
+}
+
+export function getRegionsByMarket(marketId: string): Region[] {
+  return regions.filter(r => r.marketId === marketId)
+}
+
+export function getBranchesByRegion(regionId: string): Branch[] {
+  return branches.filter(b => b.regionId === regionId)
+}
+
+// Filter options for role-based filtering
+export interface FilterOptions {
+  showAllBranchTechnicians?: boolean
+}
+
+// RLS filtering with hierarchical role support
+export function filterByRole(
+  data: any[],
+  role: Role,
+  userId: string,
+  marketIds: string[],
+  options: FilterOptions = {}
+): any[] {
+  // Executives see everything
   if (role === 'exec') return data
 
   const user = getUserById(userId)
   if (!user) return data
 
   return data.filter(item => {
-    if (item.marketId && !user.assignedMarkets.includes(item.marketId)) return false
-    if (item.branchId && user.assignedBranches.length > 0 && !user.assignedBranches.includes(item.branchId)) return false
-    if (role === 'rep' && item.ownerId && item.ownerId !== userId) return false
-    return true
+    // Market-level filtering
+    if (item.marketId && !user.assignedMarkets.includes(item.marketId)) {
+      return false
+    }
+
+    // Region-level filtering (for market_director and region_director)
+    if (item.regionId && user.assignedRegions?.length > 0) {
+      if (!user.assignedRegions.includes(item.regionId)) {
+        return false
+      }
+    }
+
+    // Branch-level filtering
+    if (item.branchId && user.assignedBranches.length > 0) {
+      if (!user.assignedBranches.includes(item.branchId)) {
+        return false
+      }
+    }
+
+    // Role-specific filtering
+    switch (role) {
+      case 'market_director':
+      case 'region_director':
+      case 'manager':
+        // These roles see all data in their assigned scope (handled above)
+        return true
+
+      case 'sales_manager':
+        // Sales managers see only their assigned reps' data
+        if (item.ownerId && user.assignedReps?.length) {
+          return user.assignedReps.includes(item.ownerId)
+        }
+        return true
+
+      case 'ops_manager':
+        // Ops managers can toggle between assigned technicians and all branch technicians
+        if (item.technicianId) {
+          if (options.showAllBranchTechnicians) {
+            // Show all technicians in their branch
+            const branchTechs = users.filter(u =>
+              u.role === 'technician' &&
+              u.assignedBranches.some(b => user.assignedBranches.includes(b))
+            )
+            return branchTechs.some(t => t.id === item.technicianId)
+          } else {
+            // Show only assigned technicians
+            return user.assignedTechnicians?.includes(item.technicianId) ?? false
+          }
+        }
+        return true
+
+      case 'rep':
+        // Reps see only their own data
+        if (item.ownerId && item.ownerId !== userId) {
+          return false
+        }
+        return true
+
+      case 'technician':
+        // Technicians see only their own routes/services
+        if (item.technicianId && item.technicianId !== userId) {
+          return false
+        }
+        return true
+
+      default:
+        return true
+    }
   })
 }
 

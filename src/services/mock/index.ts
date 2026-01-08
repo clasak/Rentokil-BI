@@ -25,6 +25,9 @@ import {
   SalesTrackerService,
   NewStartService,
   DailySalesService,
+  SalesforceParserService,
+  StartPacketService,
+  PDFStorageService,
   CreateAccountInput,
   UpdateAccountInput,
   CreateOpportunityInput,
@@ -35,6 +38,36 @@ import {
   CreateInvoiceInput,
   UpdateInvoiceInput,
 } from '../types'
+
+import {
+  parseSalesforceQuote,
+  validateParsedDraft,
+  mapToNewStartInput,
+} from '@/lib/salesforce-parser'
+
+import {
+  createStartPacket,
+  generateOpsEmailNotification,
+  markEmailSent,
+} from '@/lib/start-packet-generator'
+
+import {
+  storePdf,
+  retrievePdf,
+  getPdfMetadata,
+  listStoredPdfs,
+  getPdfsForStartPacket,
+  deletePdf,
+  associatePdfWithStartPacket,
+  cleanupOldPdfs,
+  isStorageAvailable,
+} from '@/lib/pdf-storage'
+
+import type {
+  StartPacket,
+  StartPacketStatus,
+  OpsEmailResponse,
+} from '@/types/salesforce-quote'
 
 import {
   getMarkets,
@@ -637,6 +670,143 @@ const mockDailySalesService: DailySalesService = {
 }
 
 // =============================================================================
+// Salesforce Parser Service
+// =============================================================================
+
+const mockSalesforceParserService: SalesforceParserService = {
+  async parseQuote(text) {
+    return parseSalesforceQuote(text)
+  },
+  async validateDraft(draft) {
+    return validateParsedDraft(draft)
+  },
+  async mapToNewStartFields(draft) {
+    return mapToNewStartInput(draft)
+  },
+}
+
+// =============================================================================
+// Start Packet Service
+// =============================================================================
+
+// In-memory storage for start packets (demo mode)
+const startPacketsStore: Map<string, StartPacket> = new Map()
+
+const mockStartPacketService: StartPacketService = {
+  async create(input) {
+    const packet = createStartPacket(input.draft, {
+      pdfStorageKey: input.pdfStorageKey || null,
+    })
+    startPacketsStore.set(packet.id, packet)
+    console.log('[Mock StartPacket] Created:', packet.id)
+    return packet
+  },
+
+  async getById(id) {
+    return startPacketsStore.get(id) || null
+  },
+
+  async getAll() {
+    return Array.from(startPacketsStore.values())
+  },
+
+  async getByStatus(status) {
+    return Array.from(startPacketsStore.values()).filter(p => p.status === status)
+  },
+
+  async update(id, input) {
+    const existing = startPacketsStore.get(id)
+    if (!existing) return null
+
+    const updated: StartPacket = {
+      ...existing,
+      ...input,
+      updatedAt: new Date().toISOString(),
+    }
+    startPacketsStore.set(id, updated)
+    return updated
+  },
+
+  async delete(id) {
+    const existed = startPacketsStore.has(id)
+    startPacketsStore.delete(id)
+    return existed
+  },
+
+  async sendOpsNotification(packet, recipients) {
+    const notification = generateOpsEmailNotification(packet, recipients)
+
+    // Simulate API call to send email
+    console.log('[Mock StartPacket] Sending ops notification:', {
+      to: notification.to.length ? notification.to : 'default recipients',
+      subject: notification.subject,
+      startPacketId: packet.id,
+    })
+
+    // Update packet to mark email sent
+    const updated = markEmailSent(packet)
+    startPacketsStore.set(packet.id, updated)
+
+    const response: OpsEmailResponse = {
+      success: true,
+      emailPreview: {
+        to: notification.to.length
+          ? notification.to.join(', ')
+          : 'midwestmarketsalesentry@rentokil.com, brad.hudson@prestox.com',
+        subject: notification.subject,
+        body: notification.body,
+      },
+      message: 'Operations notification simulated (demo mode)',
+      actualEmailSent: false,
+    }
+
+    return response
+  },
+}
+
+// =============================================================================
+// PDF Storage Service
+// =============================================================================
+
+const mockPDFStorageService: PDFStorageService = {
+  async store(file, startPacketId) {
+    return storePdf(file, startPacketId)
+  },
+
+  async retrieve(key) {
+    return retrievePdf(key)
+  },
+
+  async getMetadata(key) {
+    return getPdfMetadata(key)
+  },
+
+  async list() {
+    return listStoredPdfs()
+  },
+
+  async getByStartPacket(startPacketId) {
+    return getPdfsForStartPacket(startPacketId)
+  },
+
+  async delete(key) {
+    return deletePdf(key)
+  },
+
+  async associateWithStartPacket(key, startPacketId) {
+    return associatePdfWithStartPacket(key, startPacketId)
+  },
+
+  async cleanup(maxAgeDays = 30) {
+    return cleanupOldPdfs(maxAgeDays)
+  },
+
+  isAvailable() {
+    return isStorageAvailable()
+  },
+}
+
+// =============================================================================
 // Mock Service Provider
 // =============================================================================
 
@@ -659,6 +829,9 @@ export const mockServiceProvider: ServiceProvider = {
   salesTracker: mockSalesTrackerService,
   newStarts: mockNewStartService,
   dailySales: mockDailySalesService,
+  salesforceParser: mockSalesforceParserService,
+  startPackets: mockStartPacketService,
+  pdfStorage: mockPDFStorageService,
 
   async refreshData(seed) {
     regenerateData(seed)

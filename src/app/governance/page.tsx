@@ -82,7 +82,7 @@ export default function GovernancePage() {
   const criticalIssues = qualityMetrics.filter(m => m.status === 'critical')
   const warningIssues = qualityMetrics.filter(m => m.status === 'warning')
 
-  const roles: Role[] = ['exec', 'director', 'manager', 'ops_manager', 'rep', 'technician']
+  const roles: Role[] = ['exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
 
   return (
     <div className="space-y-6">
@@ -95,16 +95,16 @@ export default function GovernancePage() {
       </div>
 
       <Tabs defaultValue="dictionary" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="dictionary" className="gap-2">
+        <TabsList id="governance-tabs">
+          <TabsTrigger value="dictionary" id="kpi-dictionary" className="gap-2">
             <Book className="h-4 w-4" />
             KPI Dictionary
           </TabsTrigger>
-          <TabsTrigger value="quality" className="gap-2">
+          <TabsTrigger value="quality" id="data-quality-panel" className="gap-2">
             <Database className="h-4 w-4" />
             Data Quality
           </TabsTrigger>
-          <TabsTrigger value="permissions" className="gap-2">
+          <TabsTrigger value="permissions" id="permissions-tab" className="gap-2">
             <Shield className="h-4 w-4" />
             Permissions
           </TabsTrigger>
@@ -210,56 +210,56 @@ export default function GovernancePage() {
         <TabsContent value="quality" className="space-y-6">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
+            <Card className="glow-success">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                    <CheckCircle className="h-6 w-6 text-green-600" />
+                  <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Data Sources</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Data Sources</div>
                     <div className="text-2xl font-bold">{dataSources.length}</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="glow-success">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                    <CheckCircle className="h-6 w-6 text-green-600" />
+                  <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Healthy</div>
-                    <div className="text-2xl font-bold text-green-600">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Healthy</div>
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                       {qualityMetrics.filter(m => m.status === 'good').length}
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="glow-warning">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
-                    <AlertTriangle className="h-6 w-6 text-yellow-600" />
+                  <div className="w-12 h-12 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                    <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Warnings</div>
-                    <div className="text-2xl font-bold text-yellow-600">{warningIssues.length}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Warnings</div>
+                    <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{warningIssues.length}</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="glow-danger">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  <div className="w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                    <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Critical</div>
-                    <div className="text-2xl font-bold text-red-600">{criticalIssues.length}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Critical</div>
+                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">{criticalIssues.length}</div>
                   </div>
                 </div>
               </CardContent>

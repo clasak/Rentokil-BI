@@ -79,7 +79,6 @@ http://localhost:3000
 - **QBR (/qbr)**: Quarterly Business Review with trends, initiatives tracking
 
 ### Settings (/settings)
-- Demo mode selector (3 modes)
 - Role simulator (Exec/VP/Manager/Rep)
 - Scenario toggles
 - Data quality injection
@@ -87,11 +86,11 @@ http://localhost:3000
 
 ---
 
-## 5-Minute Demo Script
+## Demo Script for Susan Michael & Jason Gonski
 
-### Demo Mode 1: Exec BI Review (Susan - VP BI)
+**Audience**: VP & Director of Business Intelligence
 
-**Goal**: Show governance, trust, forecast, variance, and scale story
+**Goal**: Full BI platform overview - governance, trust, forecast, variance, sales, ops, and scale story
 
 1. **Start at Command Center (/)**
    - Point out the 10 KPI cards with status indicators (green/yellow/red)
@@ -118,45 +117,19 @@ http://localhost:3000
    - Show how the RLS badge updates
    - Enable "Data Quality Issues" to show degraded state
 
-### Demo Mode 2: Sales Ops Execution (Jason Gonski - Director Business Intelligence)
+### Additional Demo Sections
 
-**Goal**: Pipeline, hygiene, conversion, coaching, action lists
+**Sales Analytics (/sales)**
+- Show pipeline funnel by stage
+- Point out the stalled opportunities action list
+- Review the Rep Coaching Panel
+- Drill into Opportunity Detail (/sales/opportunity/OPP-000001)
 
-1. **Sales Dashboard (/sales)**
-   - Show pipeline funnel by stage
-   - Point out the stalled opportunities action list
-   - Review the Rep Coaching Panel
-
-2. **Stalled Opportunities (/kpi/stalled_opps)**
-   - Drill into specific stalled deals
-   - Show next-best-action recommendations
-
-3. **Opportunity Detail (/sales/opportunity/OPP-000001)**
-   - Show risk factors and mitigation
-   - Review activity timeline
-   - Point out "Next Best Action" recommendation
-
-4. **CRM Hygiene (/kpi/crm_hygiene_score)**
-   - Show what's driving the score
-   - Drill to specific issues
-
-### Demo Mode 3: Branch/Field Manager
-
-**Goal**: Service quality, callbacks, capacity, retention risk
-
-1. **Operations Dashboard (/ops)**
-   - Show service status breakdown
-   - Review at-risk accounts
-   - Check branch capacity chart
-
-2. **People/Capacity (/people)**
-   - Show scheduling pressure heatmap
-   - Identify overutilized branches
-
-3. **Account Detail (/account/ACC-000001)**
-   - Show retention risk factors
-   - Review mitigation plan
-   - Check service history and complaints
+**Operations Analytics (/ops)**
+- Show service status breakdown
+- Review at-risk accounts
+- Check branch capacity chart
+- Show People/Capacity (/people) scheduling pressure
 
 ---
 

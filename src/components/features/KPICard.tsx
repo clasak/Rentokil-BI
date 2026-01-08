@@ -39,10 +39,21 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
   }
 
   const deltaPercent = kpiValue.deltaPercent * 100
-  const isPositive = definition.higherIsBetter ? deltaPercent > 0 : deltaPercent < 0
-  const isNegative = definition.higherIsBetter ? deltaPercent < 0 : deltaPercent > 0
+  // Determine if the CHANGE is good or bad based on higherIsBetter
+  const isPositiveChange = definition.higherIsBetter ? deltaPercent > 0 : deltaPercent < 0
+  const isNegativeChange = definition.higherIsBetter ? deltaPercent < 0 : deltaPercent > 0
 
-  const statusColors = {
+  // Glow matches border status - consistent visual language
+  // Red = critical (constant glow), Yellow = warning (pulse), Green = good (hover only)
+  const getGlowClass = () => {
+    if (kpiValue.status === 'critical') return 'glow-danger'
+    if (kpiValue.status === 'warning') return 'glow-warning'
+    if (kpiValue.status === 'good') return 'glow-success'
+    return '' // Neutral - no special glow
+  }
+
+  // Border color based on overall status vs target
+  const statusBorderStyles = {
     good: 'border-l-green-500',
     warning: 'border-l-yellow-500',
     critical: 'border-l-red-500',
@@ -54,8 +65,9 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
   return (
     <Link href={`/kpi/${kpiValue.slug}`}>
       <Card className={cn(
-        'hover:shadow-md transition-all cursor-pointer border-l-4',
-        statusColors[kpiValue.status],
+        'transition-all cursor-pointer border-l-4',
+        statusBorderStyles[kpiValue.status],
+        getGlowClass(),
         highlighted && 'ring-2 ring-primary ring-offset-2',
         compact ? 'p-3' : ''
       )}>
@@ -95,13 +107,13 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
               <div className="flex items-center gap-2 mt-1">
                 <div className={cn(
                   'flex items-center gap-1 text-sm font-medium',
-                  isPositive && 'text-green-600 dark:text-green-400',
-                  isNegative && 'text-red-600 dark:text-red-400',
-                  !isPositive && !isNegative && 'text-gray-500 dark:text-gray-400'
+                  isPositiveChange && 'text-green-600 dark:text-green-400',
+                  isNegativeChange && 'text-red-600 dark:text-red-400',
+                  !isPositiveChange && !isNegativeChange && 'text-gray-500 dark:text-gray-400'
                 )}>
-                  {isPositive && <TrendingUp className="h-3 w-3" />}
-                  {isNegative && <TrendingDown className="h-3 w-3" />}
-                  {!isPositive && !isNegative && <Minus className="h-3 w-3" />}
+                  {isPositiveChange && <TrendingUp className="h-3 w-3" />}
+                  {isNegativeChange && <TrendingDown className="h-3 w-3" />}
+                  {!isPositiveChange && !isNegativeChange && <Minus className="h-3 w-3" />}
                   <span>{deltaPercent > 0 ? '+' : ''}{deltaPercent.toFixed(1)}%</span>
                 </div>
                 <span className="text-xs text-gray-400">vs prior</span>
@@ -122,7 +134,7 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
                     <Line
                       type="monotone"
                       dataKey="value"
-                      stroke={isNegative ? '#ef4444' : '#E4002B'}
+                      stroke={isNegativeChange ? '#ef4444' : isPositiveChange ? '#22c55e' : '#E4002B'}
                       strokeWidth={2}
                       dot={false}
                     />

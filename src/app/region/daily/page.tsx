@@ -244,10 +244,20 @@ export default function RegionDailyPage() {
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} layout="vertical">
+                  <defs>
+                    <filter id="glow-region" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="blur"/>
+                      <feMerge>
+                        <feMergeNode in="blur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" />
                   <YAxis dataKey="name" type="category" width={60} />
                   <Tooltip
+                    cursor={false}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
                       const data = payload[0].payload
@@ -263,7 +273,7 @@ export default function RegionDailyPage() {
                       )
                     }}
                   />
-                  <Bar dataKey="inspPrp" name="Actual">
+                  <Bar dataKey="inspPrp" name="Actual" activeBar={{ filter: 'url(#glow-region)' }}>
                     {chartData.map((entry, index) => (
                       <Cell
                         key={index}
@@ -271,7 +281,7 @@ export default function RegionDailyPage() {
                       />
                     ))}
                   </Bar>
-                  <Bar dataKey="goal" name="Goal" fill="#e5e7eb" />
+                  <Bar dataKey="goal" name="Goal" fill="#e5e7eb" activeBar={{ filter: 'url(#glow-region)' }} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

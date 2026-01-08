@@ -3,7 +3,7 @@
 import { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
-import { DemoTour } from '@/components/features/DemoTour'
+import { DemoSpotlight } from '@/components/features/DemoSpotlight'
 import { DataQualityBanner } from '@/components/features/DataQualityBanner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -23,7 +23,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             {children}
           </main>
         </div>
-        <DemoTour />
+        <DemoSpotlight />
       </div>
     </TooltipProvider>
   )

@@ -40,9 +40,23 @@ interface AppState {
   selectedKpiSlug: string | null
   setSelectedKpiSlug: (slug: string | null) => void
 
+  // Presenter Mode
+  presenterMode: boolean
+  setPresenterMode: (active: boolean) => void
+  presenterMinimized: boolean
+  setPresenterMinimized: (minimized: boolean) => void
+  presenterStep: number
+  setPresenterStep: (step: number) => void
+  nextPresenterStep: () => void
+  prevPresenterStep: () => void
+
   // Theme
   theme: Theme
   setTheme: (theme: Theme) => void
+
+  // Ops Manager filter toggle
+  showAllBranchTechnicians: boolean
+  setShowAllBranchTechnicians: (show: boolean) => void
 
   // Current user context
   currentUser: User | null
@@ -60,13 +74,101 @@ const defaultFilters: GlobalFilters = {
 }
 
 const defaultSettings: AppSettings = {
-  demoMode: 'exec_bi_review',
+  demoMode: 'bi_leadership',
   role: 'exec',
   userId: 'USR-00001',
   selectedMarkets: [],
   scenario: 'base',
   dataQualityIssuesEnabled: false,
   refreshSeed: 12345,
+}
+
+// Presenter Mode Configuration with full scripts
+export interface PresenterStep {
+  title: string
+  route: string
+  script: string[]
+}
+
+export const PRESENTER_MODE_CONFIG: Record<DemoMode, {
+  name: string
+  persona: string
+  description: string
+  steps: PresenterStep[]
+}> = {
+  bi_leadership: {
+    name: 'BI Leadership Demo',
+    persona: 'Susan Michael & Jason Gonski',
+    description: 'Full BI platform overview for leadership',
+    steps: [
+      {
+        title: 'Command Center Overview',
+        route: '/',
+        script: [
+          "Welcome to the Rentokil Business Intelligence Command Center.",
+          "This is the executive view - a single pane of glass for the top KPIs that matter most.",
+          "Notice each card shows the current value, trend sparkline, and variance to target.",
+          "Red means we're behind plan, green means we're ahead, yellow is a warning zone.",
+          "The system pulls data from connected source systems and updates throughout the day."
+        ]
+      },
+      {
+        title: 'Revenue Deep Dive',
+        route: '/kpi/revenue_mtd',
+        script: [
+          "Let's drill into Revenue MTD to understand what's driving our variance.",
+          "The Overview tab shows the full calculation breakdown - actual vs target vs prior period.",
+          "Click the Drivers tab to see exactly what's causing us to be ahead or behind.",
+          "We can slice by market, product line, or customer segment to pinpoint the story.",
+          "The Lineage button shows exactly where this number comes from - full data traceability."
+        ]
+      },
+      {
+        title: 'Sales Dashboard',
+        route: '/sales',
+        script: [
+          "This is the Sales Operations dashboard for pipeline visibility.",
+          "At the top, we see pipeline health: total pipeline value, weighted pipeline, and stage distribution.",
+          "The conversion funnel shows how deals are progressing through stages.",
+          "CRM Hygiene Score tells us how clean our data is - missing fields, stale opportunities, etc.",
+          "Red flags here mean the pipeline number might not be trustworthy."
+        ]
+      },
+      {
+        title: 'Operations Dashboard',
+        route: '/ops',
+        script: [
+          "This is the Operations dashboard for service delivery metrics.",
+          "Service Risk Index is our composite score of quality, callbacks, and customer satisfaction.",
+          "Route efficiency shows how well we're utilizing our technicians.",
+          "Callback rate is critical - every callback is a customer we disappointed and money we lost.",
+          "Green means we're operating well, red means we need immediate attention."
+        ]
+      },
+      {
+        title: 'Forecast & Scenarios',
+        route: '/forecast',
+        script: [
+          "Now let's look at our 8-week rolling forecast.",
+          "We show three scenarios: Base case is our most likely outcome, Upside assumes tailwinds, Downside assumes headwinds.",
+          "The shaded confidence bands show our statistical uncertainty based on historical accuracy.",
+          "Below that, you can see our backtest results - how accurate we've been in prior periods.",
+          "This builds trust that our forecasts are grounded in reality, not wishful thinking."
+        ]
+      },
+      {
+        title: 'Governance & Data Quality',
+        route: '/governance',
+        script: [
+          "Finally, let's look at governance - this is what builds trust with leadership.",
+          "The KPI Dictionary shows every metric's definition, business owner, and calculation logic.",
+          "Data Quality shows freshness scores across all source systems - you can see when data was last refreshed.",
+          "The Permissions tab shows who can see what - full role-based access control visibility.",
+          "This transparency is how we ensure everyone trusts the numbers they're seeing."
+        ]
+      }
+    ]
+  }
 }
 
 export const useAppStore = create<AppState>()(
@@ -185,16 +287,45 @@ export const useAppStore = create<AppState>()(
       selectedKpiSlug: null,
       setSelectedKpiSlug: (slug: string | null) => set({ selectedKpiSlug: slug }),
 
+      // Presenter Mode
+      presenterMode: false,
+      setPresenterMode: (active: boolean) => set({ presenterMode: active, presenterStep: 0 }),
+      presenterMinimized: false,
+      setPresenterMinimized: (minimized: boolean) => set({ presenterMinimized: minimized }),
+      presenterStep: 0,
+      setPresenterStep: (step: number) => set({ presenterStep: step }),
+      nextPresenterStep: () => {
+        const state = get()
+        const demoMode = state.settings.demoMode in PRESENTER_MODE_CONFIG
+          ? state.settings.demoMode
+          : 'bi_leadership'
+        const config = PRESENTER_MODE_CONFIG[demoMode]
+        const maxStep = (config?.steps?.length || 1) - 1
+        if (state.presenterStep < maxStep) {
+          set({ presenterStep: state.presenterStep + 1 })
+        }
+      },
+      prevPresenterStep: () => {
+        const state = get()
+        if (state.presenterStep > 0) {
+          set({ presenterStep: state.presenterStep - 1 })
+        }
+      },
+
       // Theme
       theme: 'light' as Theme,
       setTheme: (theme: Theme) => set({ theme }),
+
+      // Ops Manager filter toggle
+      showAllBranchTechnicians: false,
+      setShowAllBranchTechnicians: (show: boolean) => set({ showAllBranchTechnicians: show }),
 
       // Current user
       currentUser: null,
 
       getCurrentUserScope: () => {
         const state = get()
-        const { role, selectedMarkets } = state.settings
+        const { role } = state.settings
         const markets = getMarkets()
 
         if (role === 'exec') {
@@ -214,14 +345,38 @@ export const useAppStore = create<AppState>()(
           .filter(m => user.assignedMarkets.includes(m.id))
           .map(m => m.name)
 
+        // Determine scope label based on role
+        let scopeLabel: string
+        switch (role) {
+          case 'rep':
+            scopeLabel = 'My Accounts'
+            break
+          case 'technician':
+            scopeLabel = 'My Routes'
+            break
+          case 'manager':
+            scopeLabel = `${user.assignedBranches.length} Branch${user.assignedBranches.length !== 1 ? 'es' : ''}`
+            break
+          case 'sales_manager':
+            scopeLabel = `${user.assignedReps?.length || 0} Account Executives`
+            break
+          case 'ops_manager':
+            scopeLabel = `${user.assignedTechnicians?.length || 0} Technicians`
+            break
+          case 'region_director':
+            scopeLabel = `${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
+            break
+          case 'market_director':
+            scopeLabel = marketNames.join(', ')
+            break
+          default:
+            scopeLabel = marketNames.join(', ')
+        }
+
         return {
           markets: user.assignedMarkets,
           branches: user.assignedBranches,
-          scope: role === 'rep'
-            ? 'My Accounts'
-            : role === 'manager'
-              ? `${user.assignedBranches.length} Branches`
-              : `${marketNames.join(', ')}`,
+          scope: scopeLabel,
         }
       },
     }),
@@ -231,7 +386,17 @@ export const useAppStore = create<AppState>()(
         settings: state.settings,
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
+        showAllBranchTechnicians: state.showAllBranchTechnicians,
       }),
+      // Migrate persisted state to fix invalid roles
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          const validRoles: Role[] = ['exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+          if (!validRoles.includes(state.settings.role)) {
+            state.settings.role = 'exec'
+          }
+        }
+      },
     }
   )
 )
@@ -245,43 +410,19 @@ export const DEMO_MODE_CONFIG: Record<DemoMode, {
   highlightedKpis: string[]
   tourSteps: { title: string; description: string; route: string }[]
 }> = {
-  exec_bi_review: {
-    name: 'Exec BI Review',
-    persona: 'Susan (VP Business Intelligence)',
-    description: 'Governance, trust, forecast, variance, scale story',
+  bi_leadership: {
+    name: 'BI Leadership Demo',
+    persona: 'Susan Michael & Jason Gonski',
+    description: 'Full BI platform overview for leadership',
     defaultRoute: '/',
-    highlightedKpis: ['revenue_mtd', 'variance_to_target_mtd', 'forecast_revenue_8w', 'service_risk_index', 'nrr'],
+    highlightedKpis: ['revenue_mtd', 'variance_to_target_mtd', 'forecast_revenue_8w', 'pipeline_30_60_90', 'win_rate', 'service_risk_index', 'nrr'],
     tourSteps: [
       { title: 'Command Center', description: 'Overview of all key metrics with variance and trends', route: '/' },
       { title: 'Revenue Variance', description: 'Deep dive into variance drivers and reconciliation', route: '/kpi/revenue_mtd' },
+      { title: 'Sales Dashboard', description: 'Pipeline health, stage conversion, and hygiene', route: '/sales' },
+      { title: 'Operations Dashboard', description: 'Service quality and capacity overview', route: '/ops' },
       { title: 'Forecast & Scenarios', description: 'Review forecast with confidence bands and backtest', route: '/forecast' },
       { title: 'Governance', description: 'KPI dictionary, data quality, and lineage', route: '/governance' },
-    ],
-  },
-  sales_ops_execution: {
-    name: 'Sales Ops Execution',
-    persona: 'Jason Gonski (Director Business Intelligence)',
-    description: 'Pipeline, hygiene, conversion, coaching, action lists',
-    defaultRoute: '/sales',
-    highlightedKpis: ['pipeline_30_60_90', 'win_rate', 'stalled_opps', 'crm_hygiene_score', 'avg_cycle_time_days'],
-    tourSteps: [
-      { title: 'Sales Dashboard', description: 'Pipeline health, stage conversion, and hygiene', route: '/sales' },
-      { title: 'Stalled Opportunities', description: 'Action list for stuck deals requiring attention', route: '/kpi/stalled_opps' },
-      { title: 'Rep Coaching', description: 'Performance rankings and coaching priorities', route: '/sales' },
-      { title: 'Opportunity Detail', description: 'Full context and next best action', route: '/sales/opportunity/OPP-000001' },
-    ],
-  },
-  branch_field_manager: {
-    name: 'Branch/Field Manager',
-    persona: 'Branch Manager',
-    description: 'Service quality, callbacks, route pressure, retention risk',
-    defaultRoute: '/ops',
-    highlightedKpis: ['service_risk_index', 'callback_rate', 'capacity_utilization', 'retention_risk', 'scheduling_pressure_index'],
-    tourSteps: [
-      { title: 'Operations Dashboard', description: 'Service quality and capacity overview', route: '/ops' },
-      { title: 'At-Risk Accounts', description: 'Accounts requiring immediate attention', route: '/kpi/retention_risk' },
-      { title: 'Capacity Management', description: 'Route utilization and scheduling pressure', route: '/people' },
-      { title: 'Account Detail', description: 'Full account context and mitigation plan', route: '/account/ACC-000001' },
     ],
   },
 }
@@ -301,24 +442,38 @@ export const ROLE_PERMISSIONS: Record<Role, {
     canEdit: ['settings', 'targets'],
     canExport: ['all'],
   },
-  director: {
-    label: 'Director',
-    description: 'Access to assigned markets and regional data',
-    canView: ['assigned_markets', 'team_data'],
-    canEdit: ['team_targets'],
-    canExport: ['assigned_markets'],
+  market_director: {
+    label: 'Market Director',
+    description: 'Access to all regions and branches within assigned market',
+    canView: ['market_data', 'all_regions', 'all_branches'],
+    canEdit: ['market_targets'],
+    canExport: ['market_data'],
+  },
+  region_director: {
+    label: 'Region Director',
+    description: 'Access to all branches within assigned region',
+    canView: ['region_data', 'all_region_branches'],
+    canEdit: ['region_targets'],
+    canExport: ['region_data'],
   },
   manager: {
     label: 'Branch Manager',
-    description: 'Access to assigned branches and teams',
-    canView: ['assigned_branches', 'team_members'],
+    description: 'Access to assigned branch data',
+    canView: ['branch_data', 'team_members'],
     canEdit: ['team_activities'],
-    canExport: ['assigned_branches'],
+    canExport: ['branch_data'],
+  },
+  sales_manager: {
+    label: 'Sales Manager',
+    description: 'Access to assigned Account Executives\' data',
+    canView: ['assigned_reps', 'rep_opportunities', 'rep_accounts'],
+    canEdit: ['rep_targets'],
+    canExport: ['sales_data'],
   },
   ops_manager: {
     label: 'Operations Manager',
-    description: 'Access to operations data and service metrics',
-    canView: ['assigned_branches', 'service_data', 'technician_data'],
+    description: 'Access to assigned technicians (toggle for all branch technicians)',
+    canView: ['assigned_technicians', 'service_data'],
     canEdit: ['service_schedules', 'routes'],
     canExport: ['operations_data'],
   },

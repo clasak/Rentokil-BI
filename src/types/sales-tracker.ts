@@ -1,8 +1,11 @@
 // Sales Tracker Types - matches CSV structure from Google Sheets
 
-export type LeadType = 'Inbound' | 'Outbound' | 'Referral' | 'Self-Gen' | 'Canvass' | ''
-export type ServiceType = 'Pest Control' | 'Termite' | 'Wildlife' | 'Mosquito' | 'Bed Bug' | 'Commercial' | ''
+export type LeadType = 'Inbound' | 'Outbound' | 'Referral' | 'Self-Gen' | 'Canvass' | 'In Bound' | ''
+export type ServiceType = 'Pest Control' | 'Termite' | 'Termite (Res)' | 'Wildlife' | 'Mosquito' | 'Bed Bug' | 'Commercial' | 'Rodent Control' | 'Gen Pest' | 'Exclusion' | 'Insulation' | ''
 export type JobType = 'One-Time' | 'Contract' | 'Recurring' | ''
+
+// Service categories for Totals Dashboard matrix
+export type ServiceCategory = 'Termite' | 'Pest Control' | 'Rodent' | 'Exclusion' | 'Insulation'
 
 // Individual proposal entry
 export interface Proposal {
@@ -147,3 +150,35 @@ export interface AEDashboardStats {
   goalProgress: number
   monthlyGoal: number
 }
+
+// Category breakdown for Totals Dashboard
+export interface CategoryMetrics {
+  category: ServiceCategory
+  proposalTotal: number
+  proposalCount: number
+  salesTotal: number
+  salesCount: number
+}
+
+// Monthly progression row for Totals Dashboard
+export interface MonthlyProgression {
+  month: string
+  totalProposals: number
+  totalSales: number
+  totalStartedSales: number
+  isq: number
+  personalGoal: number
+}
+
+// Totals Dashboard summary
+export interface TotalsDashboard {
+  year: number
+  yearlyGoal: number
+  yearlyActual: number
+  yearlyISQ: number
+  categoryBreakdown: CategoryMetrics[]
+  monthlyProgression: MonthlyProgression[]
+}
+
+// Month selector type
+export type MonthName = 'Jan' | 'Feb' | 'Mar' | 'Apr' | 'May' | 'Jun' | 'Jul' | 'Aug' | 'Sept' | 'Oct' | 'Nov' | 'Dec'

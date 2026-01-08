@@ -259,20 +259,63 @@ export function getRecentActivity(ae: AccountExecutive, limit: number = 10): (Pr
     .slice(0, limit)
 }
 
-// Store for current user's data (in-memory for demo)
-let currentAEData: AccountExecutive | null = null
+// Store for all AE data (multi-AE support)
+const aeDataStore: Map<string, AccountExecutive> = new Map()
+let currentAEId: string | null = null
+
+// List of available Account Executives
+export const AVAILABLE_AES = [
+  { id: 'cody-lytle', name: 'Cody Lytle', branch: 'Houston - Midwest' },
+  { id: 'sarah-johnson', name: 'Sarah Johnson', branch: 'Dallas - Central' },
+  { id: 'mike-williams', name: 'Mike Williams', branch: 'Austin - South' },
+  { id: 'jennifer-davis', name: 'Jennifer Davis', branch: 'San Antonio - West' },
+  { id: 'robert-martinez', name: 'Robert Martinez', branch: 'Fort Worth - North' },
+]
 
 export function initializeAEData(name: string = 'Cody Lytle'): AccountExecutive {
-  currentAEData = generateAccountExecutiveData(name, `ae-${name}-2026`)
-  return currentAEData
+  const ae = AVAILABLE_AES.find(a => a.name === name) || AVAILABLE_AES[0]
+  const aeId = ae.id
+
+  if (!aeDataStore.has(aeId)) {
+    const data = generateAccountExecutiveData(ae.name, `ae-${aeId}-2026`)
+    data.branch = ae.branch
+    aeDataStore.set(aeId, data)
+  }
+
+  currentAEId = aeId
+  return aeDataStore.get(aeId)!
 }
 
 export function getAEData(): AccountExecutive | null {
-  return currentAEData
+  if (!currentAEId) return null
+  return aeDataStore.get(currentAEId) || null
+}
+
+export function switchAE(aeId: string): AccountExecutive | null {
+  const ae = AVAILABLE_AES.find(a => a.id === aeId)
+  if (!ae) return null
+
+  if (!aeDataStore.has(aeId)) {
+    const data = generateAccountExecutiveData(ae.name, `ae-${aeId}-2026`)
+    data.branch = ae.branch
+    aeDataStore.set(aeId, data)
+  }
+
+  currentAEId = aeId
+  return aeDataStore.get(aeId)!
+}
+
+export function getCurrentAEId(): string | null {
+  return currentAEId
+}
+
+export function getAvailableAEs() {
+  return AVAILABLE_AES
 }
 
 export function addProposal(monthIndex: number, proposal: Omit<Proposal, 'id'>): Proposal {
-  if (!currentAEData) {
+  const aeData = getAEData()
+  if (!aeData) {
     throw new Error('AE data not initialized')
   }
 
@@ -281,10 +324,10 @@ export function addProposal(monthIndex: number, proposal: Omit<Proposal, 'id'>):
     id: generateId(),
   }
 
-  currentAEData.monthlyData[monthIndex].proposals.push(newProposal)
+  aeData.monthlyData[monthIndex].proposals.push(newProposal)
 
   // Recalculate summary
-  const monthData = currentAEData.monthlyData[monthIndex]
+  const monthData = aeData.monthlyData[monthIndex]
   monthData.proposalSummary = calculateProposalSummary(
     monthData.proposals,
     monthData.proposalSummary.proposalGoal
@@ -294,7 +337,8 @@ export function addProposal(monthIndex: number, proposal: Omit<Proposal, 'id'>):
 }
 
 export function addSale(monthIndex: number, sale: Omit<Sale, 'id'>): Sale {
-  if (!currentAEData) {
+  const aeData = getAEData()
+  if (!aeData) {
     throw new Error('AE data not initialized')
   }
 
@@ -303,10 +347,10 @@ export function addSale(monthIndex: number, sale: Omit<Sale, 'id'>): Sale {
     id: generateId(),
   }
 
-  currentAEData.monthlyData[monthIndex].sales.push(newSale)
+  aeData.monthlyData[monthIndex].sales.push(newSale)
 
   // Recalculate summary
-  const monthData = currentAEData.monthlyData[monthIndex]
+  const monthData = aeData.monthlyData[monthIndex]
   monthData.salesSummary = calculateSalesSummary(
     monthData.sales,
     monthData.salesSummary.monthISQ
@@ -316,9 +360,10 @@ export function addSale(monthIndex: number, sale: Omit<Sale, 'id'>): Sale {
 }
 
 export function markProposalSold(monthIndex: number, proposalId: string): void {
-  if (!currentAEData) return
+  const aeData = getAEData()
+  if (!aeData) return
 
-  const proposal = currentAEData.monthlyData[monthIndex].proposals.find(p => p.id === proposalId)
+  const proposal = aeData.monthlyData[monthIndex].proposals.find((p: Proposal) => p.id === proposalId)
   if (proposal) {
     proposal.sold = true
     proposal.dead = false
@@ -326,11 +371,348 @@ export function markProposalSold(monthIndex: number, proposalId: string): void {
 }
 
 export function markProposalDead(monthIndex: number, proposalId: string): void {
-  if (!currentAEData) return
+  const aeData = getAEData()
+  if (!aeData) return
 
-  const proposal = currentAEData.monthlyData[monthIndex].proposals.find(p => p.id === proposalId)
+  const proposal = aeData.monthlyData[monthIndex].proposals.find((p: Proposal) => p.id === proposalId)
   if (proposal) {
     proposal.sold = false
     proposal.dead = true
   }
+}
+
+// Convert a proposal to a sale (auto-migration when "Sold" is checked)
+export function convertProposalToSale(
+  monthIndex: number,
+  proposalId: string,
+  additionalData?: { pestPacId?: string; started?: boolean; paid?: boolean }
+): Sale | null {
+  const aeData = getAEData()
+  if (!aeData) return null
+
+  const proposal = aeData.monthlyData[monthIndex].proposals.find((p: Proposal) => p.id === proposalId)
+  if (!proposal) return null
+
+  // Mark the proposal as sold
+  proposal.sold = true
+  proposal.dead = false
+
+  // Create the sale from the proposal
+  const newSale: Sale = {
+    id: generateId(),
+    date: proposal.date,
+    companyName: proposal.companyName,
+    leadType: proposal.leadType,
+    service: proposal.service,
+    jobType: proposal.jobType,
+    jobWorkPrice: proposal.jobWorkPrice,
+    termitePrice: proposal.termitePrice,
+    contractPrice: proposal.contractPrice,
+    started: additionalData?.started ?? false,
+    paid: additionalData?.paid ?? false,
+    pestPacId: additionalData?.pestPacId ?? '',
+  }
+
+  // Add to sales
+  aeData.monthlyData[monthIndex].sales.push(newSale)
+
+  // Recalculate summaries
+  const monthData = aeData.monthlyData[monthIndex]
+  monthData.proposalSummary = calculateProposalSummary(
+    monthData.proposals,
+    monthData.proposalSummary.proposalGoal
+  )
+  monthData.salesSummary = calculateSalesSummary(
+    monthData.sales,
+    monthData.salesSummary.monthISQ
+  )
+
+  return newSale
+}
+
+// Update a proposal
+export function updateProposal(monthIndex: number, proposalId: string, updates: Partial<Proposal>): Proposal | null {
+  const aeData = getAEData()
+  if (!aeData) return null
+
+  const proposal = aeData.monthlyData[monthIndex].proposals.find((p: Proposal) => p.id === proposalId)
+  if (!proposal) return null
+
+  Object.assign(proposal, updates)
+
+  // Recalculate summary
+  const monthData = aeData.monthlyData[monthIndex]
+  monthData.proposalSummary = calculateProposalSummary(
+    monthData.proposals,
+    monthData.proposalSummary.proposalGoal
+  )
+
+  return proposal
+}
+
+// Update a sale
+export function updateSale(monthIndex: number, saleId: string, updates: Partial<Sale>): Sale | null {
+  const aeData = getAEData()
+  if (!aeData) return null
+
+  const sale = aeData.monthlyData[monthIndex].sales.find((s: Sale) => s.id === saleId)
+  if (!sale) return null
+
+  Object.assign(sale, updates)
+
+  // Recalculate summary
+  const monthData = aeData.monthlyData[monthIndex]
+  monthData.salesSummary = calculateSalesSummary(
+    monthData.sales,
+    monthData.salesSummary.monthISQ
+  )
+
+  return sale
+}
+
+// Delete a proposal
+export function deleteProposal(monthIndex: number, proposalId: string): boolean {
+  const aeData = getAEData()
+  if (!aeData) return false
+
+  const monthData = aeData.monthlyData[monthIndex]
+  const idx = monthData.proposals.findIndex((p: Proposal) => p.id === proposalId)
+  if (idx === -1) return false
+
+  monthData.proposals.splice(idx, 1)
+  monthData.proposalSummary = calculateProposalSummary(
+    monthData.proposals,
+    monthData.proposalSummary.proposalGoal
+  )
+
+  return true
+}
+
+// Delete a sale
+export function deleteSale(monthIndex: number, saleId: string): boolean {
+  const aeData = getAEData()
+  if (!aeData) return false
+
+  const monthData = aeData.monthlyData[monthIndex]
+  const idx = monthData.sales.findIndex((s: Sale) => s.id === saleId)
+  if (idx === -1) return false
+
+  monthData.sales.splice(idx, 1)
+  monthData.salesSummary = calculateSalesSummary(
+    monthData.sales,
+    monthData.salesSummary.monthISQ
+  )
+
+  return true
+}
+
+// Update monthly ISQ (Individual Sales Quota)
+export function updateMonthlyISQ(monthIndex: number, isq: number): void {
+  const aeData = getAEData()
+  if (!aeData) return
+
+  const monthData = aeData.monthlyData[monthIndex]
+  monthData.salesSummary.monthISQ = isq
+}
+
+// Store for monthly personal goals (separate from ISQ)
+const monthlyPersonalGoals: Record<number, number> = {}
+
+// Update monthly personal goal
+export function updateMonthlyPersonalGoal(monthIndex: number, goal: number): void {
+  monthlyPersonalGoals[monthIndex] = goal
+}
+
+// Get monthly personal goal
+export function getMonthlyPersonalGoal(monthIndex: number): number {
+  if (monthlyPersonalGoals[monthIndex] !== undefined) {
+    return monthlyPersonalGoals[monthIndex]
+  }
+  // Default to yearly goal / 12
+  const aeData = getAEData()
+  return aeData ? Math.round(aeData.yearlyGoal / 12) : 0
+}
+
+// Update yearly goal
+export function updateYearlyGoal(goal: number): void {
+  const aeData = getAEData()
+  if (!aeData) return
+  aeData.yearlyGoal = goal
+  aeData.yearlyTotals.goal = goal
+}
+
+// Get category metrics for totals dashboard
+export function getCategoryBreakdown(): import('@/types/sales-tracker').CategoryMetrics[] {
+  const aeData = getAEData()
+  if (!aeData) return []
+
+  const categories: import('@/types/sales-tracker').ServiceCategory[] = ['Termite', 'Pest Control', 'Rodent', 'Exclusion', 'Insulation']
+
+  return categories.map(category => {
+    let proposalTotal = 0
+    let proposalCount = 0
+    let salesTotal = 0
+    let salesCount = 0
+
+    aeData.monthlyData.forEach((m: MonthlyData) => {
+      m.proposals.forEach((p: Proposal) => {
+        const matchesCategory = matchServiceToCategory(p.service, category)
+        if (matchesCategory) {
+          proposalCount++
+          proposalTotal += p.jobWorkPrice + p.termitePrice + (p.contractPrice * 12)
+        }
+      })
+      m.sales.forEach((s: Sale) => {
+        const matchesCategory = matchServiceToCategory(s.service, category)
+        if (matchesCategory) {
+          salesCount++
+          salesTotal += s.jobWorkPrice + s.termitePrice + (s.contractPrice * 12)
+        }
+      })
+    })
+
+    return { category, proposalTotal, proposalCount, salesTotal, salesCount }
+  })
+}
+
+// Helper to match service type to category
+function matchServiceToCategory(service: string, category: import('@/types/sales-tracker').ServiceCategory): boolean {
+  switch (category) {
+    case 'Termite':
+      return service.toLowerCase().includes('termite')
+    case 'Pest Control':
+      return service === 'Pest Control' || service === 'Gen Pest' || service === 'Mosquito' || service === 'Bed Bug'
+    case 'Rodent':
+      return service.toLowerCase().includes('rodent') || service === 'Wildlife'
+    case 'Exclusion':
+      return service.toLowerCase().includes('exclusion')
+    case 'Insulation':
+      return service.toLowerCase().includes('insulation')
+    default:
+      return false
+  }
+}
+
+// Get monthly progression data for totals dashboard
+export function getMonthlyProgression(): import('@/types/sales-tracker').MonthlyProgression[] {
+  const aeData = getAEData()
+  if (!aeData) return []
+
+  return aeData.monthlyData.map((m: MonthlyData, index: number) => ({
+    month: m.month,
+    totalProposals: m.proposalSummary.totalProposals,
+    totalSales: m.salesSummary.totalSales,
+    totalStartedSales: m.sales.filter((s: Sale) => s.started).reduce((sum: number, s: Sale) =>
+      sum + s.jobWorkPrice + s.termitePrice + (s.contractPrice * 12), 0
+    ),
+    isq: m.salesSummary.monthISQ,
+    personalGoal: getMonthlyPersonalGoal(index),
+  }))
+}
+
+// Get totals dashboard data
+export function getTotalsDashboard(): import('@/types/sales-tracker').TotalsDashboard | null {
+  const aeData = getAEData()
+  if (!aeData) return null
+
+  const yearlyActual = aeData.monthlyData.reduce(
+    (sum: number, m: MonthlyData) => sum + m.salesSummary.grandTotal, 0
+  )
+  const yearlyISQ = aeData.monthlyData.reduce(
+    (sum: number, m: MonthlyData) => sum + m.salesSummary.monthISQ, 0
+  )
+
+  return {
+    year: aeData.yearlyTotals.year,
+    yearlyGoal: aeData.yearlyGoal,
+    yearlyActual,
+    yearlyISQ,
+    categoryBreakdown: getCategoryBreakdown(),
+    monthlyProgression: getMonthlyProgression(),
+  }
+}
+
+// Get open proposals (not sold, not dead) for a month
+export function getOpenProposals(monthIndex: number): Proposal[] {
+  const aeData = getAEData()
+  if (!aeData) return []
+  return aeData.monthlyData[monthIndex]?.proposals.filter((p: Proposal) => !p.sold && !p.dead) || []
+}
+
+// Get all proposals for a month
+export function getMonthProposals(monthIndex: number): Proposal[] {
+  const aeData = getAEData()
+  if (!aeData) return []
+  return aeData.monthlyData[monthIndex]?.proposals || []
+}
+
+// Get all sales for a month
+export function getMonthSales(monthIndex: number): Sale[] {
+  const aeData = getAEData()
+  if (!aeData) return []
+  return aeData.monthlyData[monthIndex]?.sales || []
+}
+
+// CSV Export utilities
+export function exportProposalsToCSV(monthIndex: number): string {
+  const aeData = getAEData()
+  if (!aeData) return ''
+
+  const proposals = aeData.monthlyData[monthIndex]?.proposals || []
+  const headers = ['Date', 'Company Name', 'Lead Type', 'Service', 'Job Type', 'Job Work $', 'Termite $', 'Contract $', 'Sold', 'Dead']
+  const rows = proposals.map((p: Proposal) => [
+    p.date,
+    `"${p.companyName}"`,
+    p.leadType,
+    p.service,
+    p.jobType,
+    p.jobWorkPrice.toFixed(2),
+    p.termitePrice.toFixed(2),
+    p.contractPrice.toFixed(2),
+    p.sold ? 'Yes' : 'No',
+    p.dead ? 'Yes' : 'No'
+  ].join(','))
+
+  return [headers.join(','), ...rows].join('\n')
+}
+
+export function exportSalesToCSV(monthIndex: number): string {
+  const aeData = getAEData()
+  if (!aeData) return ''
+
+  const sales = aeData.monthlyData[monthIndex]?.sales || []
+  const headers = ['Date', 'Company Name', 'Lead Type', 'Service', 'Job Type', 'Job Work $', 'Termite $', 'Contract $', 'Started', 'Paid', 'PestPac ID']
+  const rows = sales.map((s: Sale) => [
+    s.date,
+    `"${s.companyName}"`,
+    s.leadType,
+    s.service,
+    s.jobType,
+    s.jobWorkPrice.toFixed(2),
+    s.termitePrice.toFixed(2),
+    s.contractPrice.toFixed(2),
+    s.started ? 'Yes' : 'No',
+    s.paid ? 'Yes' : 'No',
+    s.pestPacId
+  ].join(','))
+
+  return [headers.join(','), ...rows].join('\n')
+}
+
+export function exportYearlyTotalsToCSV(): string {
+  const aeData = getAEData()
+  if (!aeData) return ''
+
+  const progression = getMonthlyProgression()
+  const headers = ['Month', 'Total Proposals', 'Total Sales', 'Started Sales $', 'ISQ $', 'Personal Goal $']
+  const rows = progression.map(m => [
+    m.month,
+    m.totalProposals,
+    m.totalSales,
+    m.totalStartedSales.toFixed(2),
+    m.isq.toFixed(2),
+    m.personalGoal.toFixed(2)
+  ].join(','))
+
+  return [headers.join(','), ...rows].join('\n')
 }

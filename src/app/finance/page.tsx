@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, AreaChart, Area
+  ResponsiveContainer, AreaChart, Area, Cell
 } from 'recharts'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { DollarSign, Clock, ChevronRight, AlertTriangle, TrendingUp } from 'lucide-react'
@@ -93,41 +93,41 @@ export default function FinancePage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className="glow-info">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-blue-600" />
+              <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <div className="text-sm text-gray-500">Total AR Balance</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Total AR Balance</div>
                 <div className="text-2xl font-bold">{formatCurrency(totalAR)}</div>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glow-danger">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
+              <div className="w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <div className="text-sm text-gray-500">Total Overdue</div>
-                <div className="text-2xl font-bold text-red-600">{formatCurrency(totalOverdue)}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Total Overdue</div>
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totalOverdue)}</div>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glow-success">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+              <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <div className="text-sm text-gray-500">Collections MTD</div>
-                <div className="text-2xl font-bold text-green-600">{formatCurrency(paidMTD)}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Collections MTD</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(paidMTD)}</div>
               </div>
             </div>
           </CardContent>
@@ -147,13 +147,26 @@ export default function FinancePage() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={arAgingChart}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <defs>
+                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="2" result="blur"/>
+                      <feMerge>
+                        <feMergeNode in="blur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="dark:opacity-30" />
                   <XAxis dataKey="bucket" />
                   <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
-                  <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
-                  <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                  <Tooltip content={<ChartTooltip formatter={formatCurrency} />} cursor={false} />
+                  <Bar
+                    dataKey="amount"
+                    radius={[4, 4, 0, 0]}
+                    activeBar={{ filter: 'url(#glow)' }}
+                  >
                     {arAgingChart.map((entry, index) => (
-                      <Bar key={index} dataKey="amount" fill={entry.fill} />
+                      <Cell key={index} fill={entry.fill} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -192,16 +205,26 @@ export default function FinancePage() {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={revenueTrendChart}>
-                <CartesianGrid strokeDasharray="3 3" />
+                <defs>
+                  <filter id="glow-area" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="2" result="blur"/>
+                    <feMerge>
+                      <feMergeNode in="blur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="dark:opacity-30" />
                 <XAxis dataKey="period" />
                 <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
-                <Tooltip content={<ChartTooltip formatter={formatCurrency} valueLabel="Revenue" />} />
+                <Tooltip content={<ChartTooltip formatter={formatCurrency} valueLabel="Revenue" />} cursor={false} />
                 <Area
                   type="monotone"
                   dataKey="revenue"
                   stroke="#00A651"
                   fill="#00A65120"
                   strokeWidth={2}
+                  activeDot={{ r: 6, filter: 'url(#glow-area)' }}
                 />
               </AreaChart>
             </ResponsiveContainer>

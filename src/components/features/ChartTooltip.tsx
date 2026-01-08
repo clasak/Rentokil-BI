@@ -19,7 +19,9 @@ export function ChartTooltip({ active, payload, label, formatter, valueLabel }: 
         border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`,
         borderRadius: '8px',
         padding: '8px 12px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        boxShadow: isDark
+          ? '0 0 20px rgba(255, 255, 255, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+          : '0 0 15px rgba(0, 0, 0, 0.15), 0 4px 6px -1px rgba(0, 0, 0, 0.1)',
       }}
     >
       {label && (

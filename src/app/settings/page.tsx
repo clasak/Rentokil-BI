@@ -1,6 +1,6 @@
 "use client"
 
-import { useAppStore, DEMO_MODE_CONFIG, ROLE_PERMISSIONS } from '@/store'
+import { useAppStore, PRESENTER_MODE_CONFIG, ROLE_PERMISSIONS } from '@/store'
 import { getMarkets, getUsers, regenerateData } from '@/lib/data'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Settings, Shield, Users, Target, Database, RefreshCw, AlertTriangle, Play } from 'lucide-react'
+import { Settings, Shield, Users, Target, Database, RefreshCw, AlertTriangle, Presentation } from 'lucide-react'
 import { Role, DemoMode, Scenario } from '@/types'
 
 export default function SettingsPage() {
@@ -26,7 +26,7 @@ export default function SettingsPage() {
     setScenario,
     setDataQualityIssuesEnabled,
     refreshData,
-    setTourActive,
+    setPresenterMode,
     getCurrentUserScope,
   } = useAppStore()
 
@@ -62,8 +62,8 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(Object.keys(DEMO_MODE_CONFIG) as DemoMode[]).map((mode) => {
-              const config = DEMO_MODE_CONFIG[mode]
+            {(Object.keys(PRESENTER_MODE_CONFIG) as DemoMode[]).map((mode) => {
+              const config = PRESENTER_MODE_CONFIG[mode]
               const isSelected = settings.demoMode === mode
 
               return (
@@ -80,6 +80,7 @@ export default function SettingsPage() {
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{config.persona}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{config.description}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{config.steps.length} steps</p>
                 </button>
               )
             })}
@@ -89,14 +90,17 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium dark:text-gray-100">Start Demo Tour</div>
+              <div className="font-medium dark:text-gray-100">Presenter Mode</div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Guided walkthrough of key features for {DEMO_MODE_CONFIG[settings.demoMode].name}
+                Floating panel with talking points for {PRESENTER_MODE_CONFIG[settings.demoMode]?.name || 'BI Leadership Demo'}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Keyboard: Arrow keys to navigate, M to minimize, Esc to exit
               </p>
             </div>
-            <Button onClick={() => setTourActive(true)} className="gap-2">
-              <Play className="h-4 w-4" />
-              Start Tour
+            <Button onClick={() => setPresenterMode(true)} className="gap-2 bg-rentokil-red hover:bg-rentokil-darkred">
+              <Presentation className="h-4 w-4" />
+              Start Presenter Mode
             </Button>
           </div>
         </CardContent>
@@ -123,8 +127,10 @@ export default function SettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="exec">Executive</SelectItem>
-                  <SelectItem value="director">Director</SelectItem>
+                  <SelectItem value="market_director">Market Director</SelectItem>
+                  <SelectItem value="region_director">Region Director</SelectItem>
                   <SelectItem value="manager">Branch Manager</SelectItem>
+                  <SelectItem value="sales_manager">Sales Manager</SelectItem>
                   <SelectItem value="ops_manager">Operations Manager</SelectItem>
                   <SelectItem value="rep">Account Executive</SelectItem>
                   <SelectItem value="technician">Technician</SelectItem>

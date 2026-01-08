@@ -54,20 +54,24 @@ export default function SalesPage() {
     name: stageLabels[stage.stage] || stage.stage,
     value: stage.value,
     count: stage.count,
-    fill: stage.stage === 'prospect' ? '#e0e7ff' :
-          stage.stage === 'qualified' ? '#c7d2fe' :
-          stage.stage === 'proposal' ? '#a5b4fc' :
-          '#818cf8'
+    // Distinct colors for each stage (with glow support)
+    fill: stage.stage === 'prospect' ? '#94a3b8' :      // Gray/Slate
+          stage.stage === 'qualified' ? '#3b82f6' :     // Blue
+          stage.stage === 'proposal' ? '#f59e0b' :      // Amber/Yellow
+          '#22c55e'                                      // Green (Negotiation - closest to close)
   }))
 
   // Rep performance data
   const users = getUsers().filter(u => u.role === 'rep' || u.role === 'manager')
-  const repPerformance = users.slice(0, 10).map(user => {
+  const repPerformance = users.slice(0, 10).map((user, index) => {
     const userOpps = opportunities.filter(o => o.ownerId === user.id)
     const stalledOpps = userOpps.filter(o => o.isStalled)
     const stalledValue = stalledOpps.reduce((sum, o) => sum + o.amount, 0)
     const totalPipeline = userOpps.filter(o => !['closed_won', 'closed_lost'].includes(o.stage))
       .reduce((sum, o) => sum + o.amount, 0)
+
+    // Deterministic hygiene score based on user index and stalled count
+    const hygieneScore = 95 - (stalledOpps.length * 3) - (index * 2)
 
     return {
       id: user.id,
@@ -76,7 +80,7 @@ export default function SalesPage() {
       totalPipeline,
       stalledCount: stalledOpps.length,
       stalledValue,
-      hygieneScore: 70 + Math.random() * 25,
+      hygieneScore: Math.max(60, Math.min(98, hygieneScore)),
     }
   }).sort((a, b) => b.stalledValue - a.stalledValue)
 
@@ -97,7 +101,7 @@ export default function SalesPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div id="sales-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {salesKpis.map(slug => {
           const kpiValue = kpiValues.get(slug)
           if (!kpiValue) return null
@@ -107,7 +111,7 @@ export default function SalesPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pipeline Funnel */}
-        <Card>
+        <Card id="pipeline-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
@@ -118,11 +122,20 @@ export default function SalesPage() {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={funnelData} layout="vertical">
+                  <defs>
+                    <filter id="glow-sales" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="blur"/>
+                      <feMerge>
+                        <feMergeNode in="blur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" tickFormatter={(v) => formatCurrency(v)} />
                   <YAxis dataKey="name" type="category" width={100} />
-                  <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  <Tooltip content={<ChartTooltip formatter={formatCurrency} />} cursor={false} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} activeBar={{ filter: 'url(#glow-sales)' }}>
                     {funnelData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
@@ -143,7 +156,7 @@ export default function SalesPage() {
       </div>
 
       {/* Rep Coaching Panel */}
-      <Card>
+      <Card id="conversion-funnel">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -189,11 +202,11 @@ export default function SalesPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/sales?rep=${rep.id}`}>
-                        <ChevronRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    {rep.stalledCount > 0 && (
+                      <Badge variant="outline" className="text-xs cursor-default" title={`${rep.stalledCount} stalled opportunities`}>
+                        {rep.stalledCount} stalled
+                      </Badge>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -203,7 +216,7 @@ export default function SalesPage() {
       </Card>
 
       {/* At-Risk Opportunities Table */}
-      <Card>
+      <Card id="hygiene-score">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-yellow-500" />

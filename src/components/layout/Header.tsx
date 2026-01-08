@@ -22,11 +22,30 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   Search, Bell, RefreshCw, User, Shield, Map,
-  Play, Settings, HelpCircle, Sun, Moon, Monitor,
+  Presentation, ExternalLink, Settings, HelpCircle, Sun, Moon, Monitor,
   AlertTriangle, CheckCircle, Clock, LogOut
 } from 'lucide-react'
-import { Role, DemoMode } from '@/types'
+import { Role } from '@/types'
+
+// All roles now use the same Command Center route
+// The page dynamically shows role-appropriate content
+const ROLE_DEFAULT_ROUTES: Record<Role, string> = {
+  exec: '/',
+  market_director: '/',
+  region_director: '/',
+  manager: '/',
+  sales_manager: '/',
+  ops_manager: '/',
+  rep: '/',
+  technician: '/',
+}
 
 export function Header() {
   const router = useRouter()
@@ -40,10 +59,9 @@ export function Header() {
   const {
     settings,
     setRole,
-    setDemoMode,
     refreshData,
     getCurrentUserScope,
-    setTourActive,
+    setPresenterMode,
     theme,
     setTheme,
   } = useAppStore()
@@ -97,6 +115,7 @@ export function Header() {
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm">
       {/* Search */}
       <div className="flex-1 max-w-xl">
@@ -152,7 +171,7 @@ export function Header() {
         <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <Shield className="h-4 w-4 text-gray-600 dark:text-gray-400" />
           <span className="text-sm font-medium dark:text-gray-200">
-            Viewing as: <span className="text-primary">{isClient ? ROLE_PERMISSIONS[settings.role].label : 'Loading...'}</span>
+            Viewing as: <span className="text-primary">{isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'Executive') : 'Loading...'}</span>
           </span>
           <span className="text-gray-400">|</span>
           <Map className="h-4 w-4 text-gray-600 dark:text-gray-400" />
@@ -164,101 +183,153 @@ export function Header() {
 
       {/* Right side controls */}
       <div className="flex items-center gap-3">
-        {/* Demo Mode Selector */}
-        <Select
-          value={isClient ? settings.demoMode : 'exec_bi_review'}
-          onValueChange={(value) => setDemoMode(value as DemoMode)}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Demo Mode" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="exec_bi_review">Exec BI Review</SelectItem>
-            <SelectItem value="sales_ops_execution">Sales Ops</SelectItem>
-            <SelectItem value="branch_field_manager">Branch Manager</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Demo Mode Display */}
+        <div className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm font-medium">
+          BI Leadership Demo
+        </div>
 
         {/* Role Selector */}
-        <Select
-          value={isClient ? settings.role : 'exec'}
-          onValueChange={(value) => setRole(value as Role)}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="exec">Executive</SelectItem>
-            <SelectItem value="director">Director</SelectItem>
-            <SelectItem value="manager">Branch Manager</SelectItem>
-            <SelectItem value="ops_manager">Ops Manager</SelectItem>
-            <SelectItem value="rep">Account Exec</SelectItem>
-            <SelectItem value="technician">Technician</SelectItem>
-          </SelectContent>
-        </Select>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Select
+                value={isClient ? settings.role : 'exec'}
+                onValueChange={(value) => {
+                  const newRole = value as Role
+                  setRole(newRole)
+                  // Navigate to the appropriate default route for this role
+                  router.push(ROLE_DEFAULT_ROUTES[newRole])
+                }}
+              >
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="exec">Executive</SelectItem>
+                  <SelectItem value="market_director">Market Director</SelectItem>
+                  <SelectItem value="region_director">Region Director</SelectItem>
+                  <SelectItem value="manager">Branch Manager</SelectItem>
+                  <SelectItem value="sales_manager">Sales Manager</SelectItem>
+                  <SelectItem value="ops_manager">Ops Manager</SelectItem>
+                  <SelectItem value="rep">Account Exec</SelectItem>
+                  <SelectItem value="technician">Technician</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Switch user role to view different dashboards</p>
+          </TooltipContent>
+        </Tooltip>
 
-        {/* Tour Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setTourActive(true)}
-          className="gap-2"
-        >
-          <Play className="h-4 w-4" />
-          Demo Tour
-        </Button>
+        {/* Presenter Mode */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPresenterMode(true)}
+              className="gap-2"
+            >
+              <Presentation className="h-4 w-4" />
+              Present
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Start presentation mode with guided tour</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Speaker Notes (opens in new window) */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open('/presenter', '_blank', 'width=500,height=700')}
+              className="gap-1"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Open speaker notes in new window</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Theme Toggle */}
-        <Select
-          value={isClient ? theme : 'light'}
-          onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
-        >
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Theme" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="light">
-              <div className="flex items-center gap-2">
-                <Sun className="h-4 w-4" />
-                Light
-              </div>
-            </SelectItem>
-            <SelectItem value="dark">
-              <div className="flex items-center gap-2">
-                <Moon className="h-4 w-4" />
-                Dark
-              </div>
-            </SelectItem>
-            <SelectItem value="system">
-              <div className="flex items-center gap-2">
-                <Monitor className="h-4 w-4" />
-                System
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Select
+                value={isClient ? theme : 'light'}
+                onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
+              >
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Theme" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">
+                    <div className="flex items-center gap-2">
+                      <Sun className="h-4 w-4" />
+                      Light
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="dark">
+                    <div className="flex items-center gap-2">
+                      <Moon className="h-4 w-4" />
+                      Dark
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="system">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4" />
+                      System
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Change color theme</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Refresh Data */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => {
-            refreshData()
-            window.location.reload()
-          }}
-          title="Refresh Data"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                refreshData()
+                window.location.reload()
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Regenerate sample data with new seed</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Notifications */}
         <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-            </Button>
-          </DialogTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                </Button>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>View notifications and alerts</p>
+            </TooltipContent>
+          </Tooltip>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Notifications</DialogTitle>
@@ -300,11 +371,18 @@ export function Header() {
 
         {/* User */}
         <Dialog open={userMenuOpen} onOpenChange={setUserMenuOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-            </Button>
-          </DialogTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>User profile and settings</p>
+            </TooltipContent>
+          </Tooltip>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
               <DialogTitle>User Profile</DialogTitle>
@@ -315,7 +393,7 @@ export function Header() {
                   <User className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                  <div className="font-semibold text-lg">{isClient ? ROLE_PERMISSIONS[settings.role].label : 'User'}</div>
+                  <div className="font-semibold text-lg">{isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'User') : 'User'}</div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">{isClient ? scope.scope : 'Loading...'}</div>
                 </div>
               </div>
@@ -336,7 +414,7 @@ export function Header() {
                   className="w-full justify-start gap-2"
                   onClick={() => {
                     setUserMenuOpen(false)
-                    router.push('/help')
+                    router.push('/settings')
                   }}
                 >
                   <HelpCircle className="h-4 w-4" />
@@ -356,5 +434,6 @@ export function Header() {
         </Dialog>
       </div>
     </header>
+    </TooltipProvider>
   )
 }

@@ -31,6 +31,9 @@ import {
   SalesTrackerService,
   NewStartService,
   DailySalesService,
+  SalesforceParserService,
+  StartPacketService,
+  PDFStorageService,
 } from '../types'
 
 // import { supabase } from './client'
@@ -539,6 +542,84 @@ const supabaseDailySalesService: DailySalesService = {
 }
 
 // =============================================================================
+// Supabase Salesforce Parser Service (Placeholder)
+// =============================================================================
+
+const supabaseSalesforceParserService: SalesforceParserService = {
+  async parseQuote(text) {
+    notImplemented('SalesforceParserService.parseQuote')
+  },
+  async validateDraft(draft) {
+    notImplemented('SalesforceParserService.validateDraft')
+  },
+  async mapToNewStartFields(draft) {
+    notImplemented('SalesforceParserService.mapToNewStartFields')
+  },
+}
+
+// =============================================================================
+// Supabase Start Packet Service (Placeholder)
+// =============================================================================
+
+const supabaseStartPacketService: StartPacketService = {
+  async create(input) {
+    notImplemented('StartPacketService.create')
+  },
+  async getById(id) {
+    notImplemented('StartPacketService.getById')
+  },
+  async getAll() {
+    notImplemented('StartPacketService.getAll')
+  },
+  async getByStatus(status) {
+    notImplemented('StartPacketService.getByStatus')
+  },
+  async update(id, input) {
+    notImplemented('StartPacketService.update')
+  },
+  async delete(id) {
+    notImplemented('StartPacketService.delete')
+  },
+  async sendOpsNotification(packet, recipients) {
+    notImplemented('StartPacketService.sendOpsNotification')
+  },
+}
+
+// =============================================================================
+// Supabase PDF Storage Service (Placeholder)
+// =============================================================================
+
+const supabasePDFStorageService: PDFStorageService = {
+  async store(file, startPacketId) {
+    notImplemented('PDFStorageService.store')
+  },
+  async retrieve(key) {
+    notImplemented('PDFStorageService.retrieve')
+  },
+  async getMetadata(key) {
+    notImplemented('PDFStorageService.getMetadata')
+  },
+  async list() {
+    notImplemented('PDFStorageService.list')
+  },
+  async getByStartPacket(startPacketId) {
+    notImplemented('PDFStorageService.getByStartPacket')
+  },
+  async delete(key) {
+    notImplemented('PDFStorageService.delete')
+  },
+  async associateWithStartPacket(key, startPacketId) {
+    notImplemented('PDFStorageService.associateWithStartPacket')
+  },
+  async cleanup(maxAgeDays) {
+    notImplemented('PDFStorageService.cleanup')
+  },
+  isAvailable() {
+    return false // Supabase storage not configured
+  },
+}
+
+// =============================================================================
 // Supabase Service Provider
 // =============================================================================
 
@@ -561,6 +642,9 @@ export const supabaseServiceProvider: ServiceProvider = {
   salesTracker: supabaseSalesTrackerService,
   newStarts: supabaseNewStartService,
   dailySales: supabaseDailySalesService,
+  salesforceParser: supabaseSalesforceParserService,
+  startPackets: supabaseStartPacketService,
+  pdfStorage: supabasePDFStorageService,
 
   async refreshData(seed) {
     // In Supabase mode, data is persistent - no refresh needed

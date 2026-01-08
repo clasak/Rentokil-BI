@@ -156,6 +156,15 @@ export default function QBRPage() {
             <div className="h-72 mb-6">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={qoqTrends}>
+                  <defs>
+                    <filter id="glow-qbr" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="blur"/>
+                      <feMerge>
+                        <feMergeNode in="blur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="quarter" />
                   <YAxis yAxisId="left" tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} />
@@ -166,9 +175,10 @@ export default function QBRPage() {
                         ? formatCurrency(value)
                         : `${(value * 100).toFixed(1)}%`
                     }
+                    cursor={false}
                   />
-                  <Bar yAxisId="left" dataKey="revenue" fill="#00A651" name="Revenue" />
-                  <Bar yAxisId="left" dataKey="pipeline" fill="#6366f1" name="Pipeline" />
+                  <Bar yAxisId="left" dataKey="revenue" fill="#00A651" name="Revenue" activeBar={{ filter: 'url(#glow-qbr)' }} />
+                  <Bar yAxisId="left" dataKey="pipeline" fill="#6366f1" name="Pipeline" activeBar={{ filter: 'url(#glow-qbr)' }} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

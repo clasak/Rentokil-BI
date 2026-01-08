@@ -5,83 +5,105 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Development Commands
 
 ```bash
-npm run dev      # Start development server at http://localhost:3000
-npm run build    # Production build (required before deploying)
-npm run lint     # Run ESLint
-npm start        # Start production server
+npm run dev        # Start dev server with auto cache fix (http://localhost:3000)
+npm run dev:clean  # Clear .next cache and start dev server
+npm run build      # Production build
+npm run lint       # Run ESLint
+npm run clean      # Clear .next and node_modules cache
+npm run reset      # Clean and restart dev server
 ```
 
 ## Architecture Overview
 
-This is a **Next.js 14 App Router** demo application for Rentokil pest control business intelligence. It uses **synthetic deterministic data** (seeded random generation) with no external database.
+**Next.js 14 App Router** demo for Rentokil pest control BI. Uses **synthetic deterministic data** (seeded random generation) with no external database.
 
-### Core Patterns
+### Data Flow
 
-**Data Layer** (`/src/lib/`):
-- `kpis.ts` - Single source of truth for 20 KPI definitions with full metadata
-- `data.ts` - Synthetic data generation (accounts, opportunities, invoices, etc.)
-- `kpi-calculations.ts` - All KPI value calculations derived from `kpis.ts`
-- `sales-tracker-data.ts` - Account Executive sales tracker matching Google Sheets CSV format
-- `new-start-data.ts` - Sales-to-Ops handoff tracking
-- `daily-sales-data.ts` - Branch Manager daily activity tracker with 65+ branches
+```
+/src/lib/kpis.ts (KPI definitions - single source of truth)
+       ↓
+/src/lib/kpi-calculations.ts (value calculations)
+       ↓
+/src/lib/data.ts (synthetic data: accounts, opportunities, invoices, service events)
+       ↓
+/src/store/index.ts (Zustand state: role, scenario, filters, presenter mode)
+       ↓
+React components consume via useAppStore()
+```
 
-**State Management** (`/src/store/index.ts`):
-- Zustand store with settings (demo mode, role, scenario, seed)
-- Role-based filtering: `exec`, `vp_director`, `manager`, `rep`
-- Three demo modes: `exec_bi_review`, `sales_ops_execution`, `branch_field_manager`
+### Role Hierarchy (8 roles)
 
-**Types** (`/src/types/`):
-- `index.ts` - Core domain types (Role, User, Account, Opportunity, KPIDefinition, etc.)
-- `sales-tracker.ts` - AE proposal/sale tracking types
+```
+exec → market_director → region_director → manager
+                                              ↓
+                              sales_manager ← → ops_manager
+                                    ↓               ↓
+                                   rep         technician
+```
+
+Navigation and data visibility change based on role:
+- **exec/directors/managers**: Command center routes (`/`, `/sales`, `/ops`, `/finance`, `/governance`)
+- **rep**: Account Executive routes (`/ae/*`)
+- **technician**: Technician routes (`/tech/*`)
+
+### State Management (`/src/store/index.ts`)
+
+Zustand store with persistence. Key state:
+- `settings.role` - Current role for RLS simulation
+- `settings.demoMode` - Demo mode (currently only `bi_leadership`)
+- `settings.scenario` - Forecast scenario (`base`, `upside`, `downside`)
+- `presenterMode` - Guided demo walkthrough with spotlight overlays
+- `theme` - Light/dark/system theme
+
+### Types (`/src/types/`)
+
+- `index.ts` - Core: Role, User, Account, Opportunity, KPIDefinition, Invoice, ServiceEvent
+- `sales-tracker.ts` - AE proposal/sale tracking (mirrors Google Sheets CSV)
 - `new-start-log.ts` - Sales→Ops handoff types
-- `daily-sales-cadence.ts` - Branch Manager daily metrics types
-
-### Role-Based Navigation
-
-The sidebar navigation changes based on the selected role:
-- **Account Executive (`rep`)**: `/ae/*` routes (personal dashboard, proposals, sales, new starts)
-- **Branch Manager+ (`manager`, `vp_director`, `exec`)**: `/` routes (command center, sales, ops, finance, governance)
+- `daily-sales-cadence.ts` - Branch Manager daily metrics
 
 ### Key Routes
 
 | Route | Purpose |
 |-------|---------|
 | `/` | Executive Command Center (top 10 KPIs) |
-| `/kpi/[slug]` | KPI detail with 5 tabs (Overview, Drivers, Actions, Reconcile, Definition) |
-| `/ae` | Account Executive personal dashboard |
-| `/ae/new-starts` | Sales→Ops handoff log |
-| `/branch/daily` | Branch Manager daily sales cadence entry |
-| `/region/daily` | Area Manager regional rollup view |
-| `/ops/new-starts` | Ops Manager new start queue |
+| `/kpi/[slug]` | KPI detail (Overview, Drivers, Actions, Reconcile, Definition tabs) |
+| `/sales`, `/ops`, `/finance` | Department dashboards |
+| `/forecast` | 8-week forecast with scenarios and backtest |
 | `/governance` | KPI Dictionary, Data Quality, Permissions |
-| `/settings` | Demo mode, role simulation, data controls |
+| `/ae/*` | Account Executive personal routes |
+| `/tech/*` | Technician routes |
+| `/presenter` | Presenter mode launcher |
+| `/wbr`, `/qbr` | Weekly/Quarterly Business Review (PDF export) |
 
 ### CSV Data Structures
 
-The app mirrors actual Google Sheets structures used by the field:
+App mirrors Google Sheets used in the field:
+1. **Sales Tracker** (`sales-tracker-data.ts`): Proposals/sales with Job Work, Termite, Contract pricing
+2. **New Start Log** (`new-start-data.ts`): RED columns (AE) → YELLOW columns (Ops)
+3. **Daily Sales Cadence** (`daily-sales-data.ts`): Branch metrics with optional TAP Leads column
 
-1. **Sales Tracker** (`sales-tracker-data.ts`): Monthly proposals/sales with Job Work, Termite, Contract pricing
-2. **New Start Log** (`new-start-data.ts`): RED columns (AE fills) → YELLOW columns (Ops fills)
-3. **Daily Sales Cadence** (`daily-sales-data.ts`): Branch metrics with TAP Leads column (optional for backwards compatibility)
+### Adding New Features
 
-### UI Components
+**New KPI**: Add to `/src/lib/kpis.ts` → calculation in `/src/lib/kpi-calculations.ts`
 
-- **shadcn/ui** components in `/src/components/ui/`
-- **Layout** components: `Sidebar.tsx`, `Header.tsx`, `MainLayout.tsx`
-- **Feature** components: `KPICard.tsx`, `ActionList.tsx`, `VarianceNarrative.tsx`, `LineageModal.tsx`
+**New Google Sheets integration**:
+1. Types in `/src/types/` matching CSV columns exactly
+2. Data generation in `/src/lib/`
+3. Handle optional columns for backwards compatibility
+4. Role-appropriate pages in `/src/app/`
+5. Update sidebar in `/src/components/layout/Sidebar.tsx`
+
+### Theme System
+
+ThemeProvider in `/src/components/providers/ThemeProvider.tsx` supports:
+- Light, dark, and system-preference modes
+- Persisted via Zustand store
+- Toggle in Header component
 
 ### Data Generation
 
-All synthetic data uses `seedrandom` for deterministic generation:
-- Same seed = same data every time
-- Refresh button changes seed for variation
-- Data volumes: ~1,500 accounts, ~2,500 opportunities, ~12,000 service events
-
-### Adding New Google Sheets Integrations
-
-When adding support for new CSV structures:
-1. Create types in `/src/types/` matching the CSV columns exactly
-2. Create data layer in `/src/lib/` with generation functions
-3. Handle optional columns (like TAP Leads) for backwards compatibility
-4. Create role-appropriate pages in `/src/app/`
-5. Update sidebar navigation in `/src/components/layout/Sidebar.tsx` for the appropriate role
+All synthetic data uses `seedrandom` for determinism:
+- Same seed = identical data
+- Refresh button changes seed
+- Volumes: ~1,500 accounts, ~2,500 opportunities, ~12,000 service events

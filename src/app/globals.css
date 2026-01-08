@@ -162,6 +162,686 @@
   background: #9ca3af;
 }
 
+/* ===========================================
+   GLOBAL GLOW HOVER EFFECTS
+   All interactive elements glow on hover
+   =========================================== */
+
+/* Glow color variables */
+:root {
+  --glow-neutral: rgba(100, 116, 139, 0.25);
+  --glow-primary: rgba(228, 0, 43, 0.35);
+  --glow-success: rgba(34, 197, 94, 0.4);
+  --glow-warning: rgba(234, 179, 8, 0.5);
+  --glow-danger: rgba(239, 68, 68, 0.7);
+}
+
+.dark {
+  --glow-neutral: rgba(148, 163, 184, 0.3);
+  --glow-primary: rgba(228, 0, 43, 0.55);
+  --glow-success: rgba(34, 197, 94, 0.55);
+  --glow-warning: rgba(234, 179, 8, 0.65);
+  --glow-danger: rgba(239, 68, 68, 0.85);
+}
+
+/* Cards - use neutral glow ONLY if no status glow class is applied */
+[class*="rounded-lg"][class*="border"]:not(.glow-danger):not(.glow-warning):not(.glow-success):hover,
+[class*="rounded-xl"][class*="border"]:not(.glow-danger):not(.glow-warning):not(.glow-success):hover {
+  box-shadow: 0 0 20px var(--glow-neutral), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark [class*="rounded-lg"][class*="border"]:not(.glow-danger):not(.glow-warning):not(.glow-success):hover,
+.dark [class*="rounded-xl"][class*="border"]:not(.glow-danger):not(.glow-warning):not(.glow-success):hover {
+  box-shadow: 0 0 25px var(--glow-neutral), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+/* Buttons - primary buttons get brand glow, others neutral */
+button:hover,
+[role="button"]:hover,
+a[class*="btn"]:hover {
+  box-shadow: 0 0 15px var(--glow-neutral);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark button:hover,
+.dark [role="button"]:hover {
+  box-shadow: 0 0 20px var(--glow-neutral);
+}
+
+/* Primary buttons get Rentokil brand glow */
+button[class*="bg-primary"]:hover,
+[class*="btn-primary"]:hover {
+  box-shadow: 0 0 18px var(--glow-primary);
+}
+
+.dark button[class*="bg-primary"]:hover,
+.dark [class*="btn-primary"]:hover {
+  box-shadow: 0 0 22px var(--glow-primary);
+}
+
+/* Table rows */
+tbody tr:hover {
+  box-shadow: 0 0 15px var(--glow-neutral);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark tbody tr:hover {
+  box-shadow: 0 0 20px var(--glow-neutral);
+}
+
+/* Links and navigation items */
+.nav-item:hover {
+  box-shadow: 0 0 12px var(--glow-neutral);
+}
+
+/* Tab triggers */
+[role="tab"]:hover {
+  box-shadow: 0 0 10px var(--glow-neutral);
+  transition: box-shadow 0.2s ease;
+}
+
+/* Action list items */
+.action-list-item:hover {
+  box-shadow: 0 0 15px var(--glow-neutral);
+}
+
+/* KPI Cards - neutral fallback, status classes override */
+.kpi-card:hover {
+  box-shadow: 0 0 20px var(--glow-neutral);
+}
+
+/* ===========================================
+   KPI STATUS-BASED GLOW EFFECTS
+   Green = ahead/good, Yellow = warning, Red = behind/critical
+   =========================================== */
+
+/* Good status - Green glow */
+.kpi-status-good:hover {
+  box-shadow: 0 0 20px var(--glow-success), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark .kpi-status-good:hover {
+  box-shadow: 0 0 25px var(--glow-success), 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Warning status - Yellow glow */
+.kpi-status-warning:hover {
+  box-shadow: 0 0 20px var(--glow-warning), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark .kpi-status-warning:hover {
+  box-shadow: 0 0 25px var(--glow-warning), 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Critical status - Red glow */
+.kpi-status-critical:hover {
+  box-shadow: 0 0 20px var(--glow-danger), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark .kpi-status-critical:hover {
+  box-shadow: 0 0 25px var(--glow-danger), 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Neutral status - Subtle gray glow */
+.kpi-status-neutral:hover {
+  box-shadow: 0 0 15px var(--glow-neutral), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark .kpi-status-neutral:hover {
+  box-shadow: 0 0 20px var(--glow-neutral), 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Progress bars */
+[role="progressbar"]:hover {
+  box-shadow: 0 0 8px var(--glow-neutral);
+  transition: box-shadow 0.2s ease;
+}
+
+/* Input elements */
+input:hover,
+select:hover,
+textarea:hover {
+  box-shadow: 0 0 10px var(--glow-neutral);
+  transition: box-shadow 0.2s ease;
+}
+
+/* Dropdown items */
+[role="menuitem"]:hover,
+[role="option"]:hover {
+  box-shadow: 0 0 10px var(--glow-neutral);
+}
+
+/* ===========================================
+   COLOR-MATCHED GLOW EFFECTS
+   - Red/Critical: CONSTANT glow (always on) for attention
+   - Yellow/Warning: PULSING glow animation for caution
+   - Green/Success: Glow on HOVER only
+   =========================================== */
+
+/* Pulse animation for warnings */
+@keyframes pulse-warning {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--glow-warning);
+  }
+  50% {
+    box-shadow: 0 0 18px var(--glow-warning);
+  }
+}
+
+@keyframes pulse-warning-text {
+  0%, 100% {
+    text-shadow: 0 0 6px rgba(234, 179, 8, 0.4);
+  }
+  50% {
+    text-shadow: 0 0 14px rgba(234, 179, 8, 0.7);
+  }
+}
+
+/* Badge pulse animation for warning badges */
+@keyframes pulse-warning-badge {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(234, 179, 8, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(234, 179, 8, 0.6);
+  }
+}
+
+.animate-pulse-warning-badge {
+  animation: pulse-warning-badge 2s ease-in-out infinite;
+}
+
+/* GREEN: Glow on hover only - for non-card elements (cards use .glow-success) */
+span[class*="bg-green"]:hover,
+div[class*="bg-green"]:not([class*="rounded-lg"]):not([class*="rounded-xl"]):hover {
+  box-shadow: 0 0 12px var(--glow-success);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark span[class*="bg-green"]:hover,
+.dark div[class*="bg-green"]:not([class*="rounded-lg"]):not([class*="rounded-xl"]):hover {
+  box-shadow: 0 0 15px var(--glow-success);
+}
+
+/* YELLOW/AMBER: Constant pulsing glow for badges and small elements only (not cards - use .glow-warning for cards) */
+span[class*="bg-yellow"],
+span[class*="bg-amber"],
+div[class*="bg-yellow"]:not([class*="rounded-lg"]):not([class*="rounded-xl"]),
+div[class*="bg-amber"]:not([class*="rounded-lg"]):not([class*="rounded-xl"]) {
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+.dark span[class*="bg-yellow"],
+.dark span[class*="bg-amber"],
+.dark div[class*="bg-yellow"]:not([class*="rounded-lg"]):not([class*="rounded-xl"]),
+.dark div[class*="bg-amber"]:not([class*="rounded-lg"]):not([class*="rounded-xl"]) {
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+/* Yellow text gets text-shadow pulse */
+.text-yellow-400, .text-yellow-500, .text-yellow-600, .text-yellow-700,
+.text-amber-400, .text-amber-500, .text-amber-600, .text-amber-700 {
+  animation: pulse-warning-text 2s ease-in-out infinite;
+}
+
+/* RED: Constant glow for badges and small elements only (not cards - use .glow-danger for cards) */
+span[class*="bg-red"],
+div[class*="bg-red"]:not([class*="rounded-lg"]):not([class*="rounded-xl"]) {
+  box-shadow: 0 0 12px var(--glow-danger);
+}
+
+.dark span[class*="bg-red"],
+.dark div[class*="bg-red"]:not([class*="rounded-lg"]):not([class*="rounded-xl"]) {
+  box-shadow: 0 0 18px var(--glow-danger);
+}
+
+/* Red text gets constant text-shadow */
+.text-red-400, .text-red-500, .text-red-600, .text-red-700 {
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+.dark .text-red-400, .dark .text-red-500, .dark .text-red-600, .dark .text-red-700 {
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
+}
+
+/* Blue elements glow blue */
+:root {
+  --glow-info: rgba(59, 130, 246, 0.4);
+}
+.dark {
+  --glow-info: rgba(59, 130, 246, 0.55);
+}
+
+[class*="text-blue"]:hover,
+[class*="bg-blue"]:hover,
+[class*="border-blue"]:hover {
+  box-shadow: 0 0 12px var(--glow-info);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark [class*="text-blue"]:hover,
+.dark [class*="bg-blue"]:hover,
+.dark [class*="border-blue"]:hover {
+  box-shadow: 0 0 15px var(--glow-info);
+}
+
+/* Orange elements glow orange */
+:root {
+  --glow-orange: rgba(249, 115, 22, 0.4);
+}
+.dark {
+  --glow-orange: rgba(249, 115, 22, 0.55);
+}
+
+[class*="text-orange"]:hover,
+[class*="bg-orange"]:hover,
+[class*="border-orange"]:hover {
+  box-shadow: 0 0 12px var(--glow-orange);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark [class*="text-orange"]:hover,
+.dark [class*="bg-orange"]:hover,
+.dark [class*="border-orange"]:hover {
+  box-shadow: 0 0 15px var(--glow-orange);
+}
+
+/* Purple/Indigo elements glow purple */
+:root {
+  --glow-purple: rgba(139, 92, 246, 0.4);
+}
+.dark {
+  --glow-purple: rgba(139, 92, 246, 0.55);
+}
+
+[class*="text-purple"]:hover,
+[class*="bg-purple"]:hover,
+[class*="border-purple"]:hover,
+[class*="text-indigo"]:hover,
+[class*="bg-indigo"]:hover,
+[class*="border-indigo"]:hover {
+  box-shadow: 0 0 12px var(--glow-purple);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark [class*="text-purple"]:hover,
+.dark [class*="bg-purple"]:hover,
+.dark [class*="border-purple"]:hover,
+.dark [class*="text-indigo"]:hover,
+.dark [class*="bg-indigo"]:hover,
+.dark [class*="border-indigo"]:hover {
+  box-shadow: 0 0 15px var(--glow-purple);
+}
+
+/* Primary (Rentokil Red) elements glow brand red */
+[class*="text-primary"]:hover,
+[class*="bg-primary"]:hover,
+[class*="border-primary"]:hover {
+  box-shadow: 0 0 12px var(--glow-primary);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark [class*="text-primary"]:hover,
+.dark [class*="bg-primary"]:hover,
+.dark [class*="border-primary"]:hover {
+  box-shadow: 0 0 15px var(--glow-primary);
+}
+
+/* ===========================================
+   CARD COLOR GLOW HELPERS
+   Apply these classes to cards for color-matched glows
+   =========================================== */
+
+/* GREEN cards: Glow on hover only */
+.glow-success:hover {
+  box-shadow: 0 0 20px var(--glow-success), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+.dark .glow-success:hover {
+  box-shadow: 0 0 25px var(--glow-success), 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* YELLOW cards: Constant pulsing glow */
+@keyframes pulse-warning-card {
+  0%, 100% {
+    box-shadow: 0 0 12px var(--glow-warning), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 25px var(--glow-warning), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+}
+@keyframes pulse-warning-card-dark {
+  0%, 100% {
+    box-shadow: 0 0 15px var(--glow-warning), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px var(--glow-warning), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.glow-warning {
+  animation: pulse-warning-card 2s ease-in-out infinite !important;
+}
+.dark .glow-warning {
+  animation: pulse-warning-card-dark 2s ease-in-out infinite !important;
+}
+
+/* RED cards: Constant glow (always on) - prominent for attention */
+.glow-danger {
+  box-shadow: 0 0 25px var(--glow-danger), 0 0 50px rgba(239, 68, 68, 0.3), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+.dark .glow-danger {
+  box-shadow: 0 0 35px var(--glow-danger), 0 0 60px rgba(239, 68, 68, 0.4), 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+.glow-info:hover {
+  box-shadow: 0 0 20px var(--glow-info), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+.dark .glow-info:hover {
+  box-shadow: 0 0 25px var(--glow-info), 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+.glow-primary:hover {
+  box-shadow: 0 0 20px var(--glow-primary), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+.dark .glow-primary:hover {
+  box-shadow: 0 0 25px var(--glow-primary), 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ===========================================
+   RECHARTS GLOW EFFECTS
+   Charts glow with their fill color on hover
+   =========================================== */
+
+/* Green chart elements (#22c55e) */
+.recharts-bar-rectangle[fill="#22c55e"]:hover,
+.recharts-rectangle[fill="#22c55e"]:hover,
+.recharts-cell[fill="#22c55e"]:hover,
+.recharts-sector[fill="#22c55e"]:hover,
+path[fill="#22c55e"]:hover,
+rect[fill="#22c55e"]:hover {
+  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.6));
+}
+.dark .recharts-bar-rectangle[fill="#22c55e"]:hover,
+.dark .recharts-rectangle[fill="#22c55e"]:hover,
+.dark .recharts-cell[fill="#22c55e"]:hover,
+.dark .recharts-sector[fill="#22c55e"]:hover,
+.dark path[fill="#22c55e"]:hover,
+.dark rect[fill="#22c55e"]:hover {
+  filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.8));
+}
+
+/* Yellow/Amber chart elements (#f59e0b, #eab308) */
+.recharts-bar-rectangle[fill="#f59e0b"]:hover,
+.recharts-rectangle[fill="#f59e0b"]:hover,
+.recharts-cell[fill="#f59e0b"]:hover,
+.recharts-sector[fill="#f59e0b"]:hover,
+path[fill="#f59e0b"]:hover,
+rect[fill="#f59e0b"]:hover,
+.recharts-bar-rectangle[fill="#eab308"]:hover,
+.recharts-rectangle[fill="#eab308"]:hover,
+.recharts-cell[fill="#eab308"]:hover,
+.recharts-sector[fill="#eab308"]:hover,
+path[fill="#eab308"]:hover,
+rect[fill="#eab308"]:hover {
+  filter: drop-shadow(0 0 8px rgba(234, 179, 8, 0.6));
+}
+.dark .recharts-bar-rectangle[fill="#f59e0b"]:hover,
+.dark .recharts-rectangle[fill="#f59e0b"]:hover,
+.dark .recharts-cell[fill="#f59e0b"]:hover,
+.dark .recharts-sector[fill="#f59e0b"]:hover,
+.dark path[fill="#f59e0b"]:hover,
+.dark rect[fill="#f59e0b"]:hover,
+.dark .recharts-bar-rectangle[fill="#eab308"]:hover,
+.dark .recharts-rectangle[fill="#eab308"]:hover,
+.dark .recharts-cell[fill="#eab308"]:hover,
+.dark .recharts-sector[fill="#eab308"]:hover,
+.dark path[fill="#eab308"]:hover,
+.dark rect[fill="#eab308"]:hover {
+  filter: drop-shadow(0 0 12px rgba(234, 179, 8, 0.8));
+}
+
+/* Red chart elements (#ef4444) */
+.recharts-bar-rectangle[fill="#ef4444"]:hover,
+.recharts-rectangle[fill="#ef4444"]:hover,
+.recharts-cell[fill="#ef4444"]:hover,
+.recharts-sector[fill="#ef4444"]:hover,
+path[fill="#ef4444"]:hover,
+rect[fill="#ef4444"]:hover {
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+}
+.dark .recharts-bar-rectangle[fill="#ef4444"]:hover,
+.dark .recharts-rectangle[fill="#ef4444"]:hover,
+.dark .recharts-cell[fill="#ef4444"]:hover,
+.dark .recharts-sector[fill="#ef4444"]:hover,
+.dark path[fill="#ef4444"]:hover,
+.dark rect[fill="#ef4444"]:hover {
+  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8));
+}
+
+/* Orange chart elements (#f97316) */
+.recharts-bar-rectangle[fill="#f97316"]:hover,
+.recharts-rectangle[fill="#f97316"]:hover,
+.recharts-cell[fill="#f97316"]:hover,
+.recharts-sector[fill="#f97316"]:hover,
+path[fill="#f97316"]:hover,
+rect[fill="#f97316"]:hover {
+  filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.6));
+}
+.dark .recharts-bar-rectangle[fill="#f97316"]:hover,
+.dark .recharts-rectangle[fill="#f97316"]:hover,
+.dark .recharts-cell[fill="#f97316"]:hover,
+.dark .recharts-sector[fill="#f97316"]:hover,
+.dark path[fill="#f97316"]:hover,
+.dark rect[fill="#f97316"]:hover {
+  filter: drop-shadow(0 0 12px rgba(249, 115, 22, 0.8));
+}
+
+/* Blue chart elements (#3b82f6, #6366f1) */
+.recharts-bar-rectangle[fill="#3b82f6"]:hover,
+.recharts-rectangle[fill="#3b82f6"]:hover,
+.recharts-cell[fill="#3b82f6"]:hover,
+.recharts-sector[fill="#3b82f6"]:hover,
+path[fill="#3b82f6"]:hover,
+rect[fill="#3b82f6"]:hover,
+.recharts-bar-rectangle[fill="#6366f1"]:hover,
+.recharts-rectangle[fill="#6366f1"]:hover,
+.recharts-cell[fill="#6366f1"]:hover,
+.recharts-sector[fill="#6366f1"]:hover,
+path[fill="#6366f1"]:hover,
+rect[fill="#6366f1"]:hover {
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
+}
+.dark .recharts-bar-rectangle[fill="#3b82f6"]:hover,
+.dark .recharts-rectangle[fill="#3b82f6"]:hover,
+.dark .recharts-cell[fill="#3b82f6"]:hover,
+.dark .recharts-sector[fill="#3b82f6"]:hover,
+.dark path[fill="#3b82f6"]:hover,
+.dark rect[fill="#3b82f6"]:hover,
+.dark .recharts-bar-rectangle[fill="#6366f1"]:hover,
+.dark .recharts-rectangle[fill="#6366f1"]:hover,
+.dark .recharts-cell[fill="#6366f1"]:hover,
+.dark .recharts-sector[fill="#6366f1"]:hover,
+.dark path[fill="#6366f1"]:hover,
+.dark rect[fill="#6366f1"]:hover {
+  filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.8));
+}
+
+/* Rentokil Red chart elements (#E4002B) */
+.recharts-bar-rectangle[fill="#E4002B"]:hover,
+.recharts-rectangle[fill="#E4002B"]:hover,
+.recharts-cell[fill="#E4002B"]:hover,
+.recharts-sector[fill="#E4002B"]:hover,
+path[fill="#E4002B"]:hover,
+rect[fill="#E4002B"]:hover,
+path[stroke="#E4002B"]:hover {
+  filter: drop-shadow(0 0 8px rgba(228, 0, 43, 0.6));
+}
+.dark .recharts-bar-rectangle[fill="#E4002B"]:hover,
+.dark .recharts-rectangle[fill="#E4002B"]:hover,
+.dark .recharts-cell[fill="#E4002B"]:hover,
+.dark .recharts-sector[fill="#E4002B"]:hover,
+.dark path[fill="#E4002B"]:hover,
+.dark rect[fill="#E4002B"]:hover,
+.dark path[stroke="#E4002B"]:hover {
+  filter: drop-shadow(0 0 12px rgba(228, 0, 43, 0.8));
+}
+
+/* Purple chart elements (#8b5cf6) */
+.recharts-bar-rectangle[fill="#8b5cf6"]:hover,
+.recharts-rectangle[fill="#8b5cf6"]:hover,
+.recharts-cell[fill="#8b5cf6"]:hover,
+.recharts-sector[fill="#8b5cf6"]:hover,
+path[fill="#8b5cf6"]:hover,
+rect[fill="#8b5cf6"]:hover {
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
+}
+.dark .recharts-bar-rectangle[fill="#8b5cf6"]:hover,
+.dark .recharts-rectangle[fill="#8b5cf6"]:hover,
+.dark .recharts-cell[fill="#8b5cf6"]:hover,
+.dark .recharts-sector[fill="#8b5cf6"]:hover,
+.dark path[fill="#8b5cf6"]:hover,
+.dark rect[fill="#8b5cf6"]:hover {
+  filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.8));
+}
+
+/* Gray/Slate chart elements (#64748b, #94a3b8) */
+.recharts-bar-rectangle[fill="#64748b"]:hover,
+.recharts-rectangle[fill="#64748b"]:hover,
+.recharts-cell[fill="#64748b"]:hover,
+.recharts-sector[fill="#64748b"]:hover,
+path[fill="#64748b"]:hover,
+rect[fill="#64748b"]:hover,
+.recharts-bar-rectangle[fill="#94a3b8"]:hover,
+.recharts-rectangle[fill="#94a3b8"]:hover,
+.recharts-cell[fill="#94a3b8"]:hover,
+.recharts-sector[fill="#94a3b8"]:hover,
+path[fill="#94a3b8"]:hover,
+rect[fill="#94a3b8"]:hover {
+  filter: drop-shadow(0 0 8px rgba(148, 163, 184, 0.5));
+}
+.dark .recharts-bar-rectangle[fill="#64748b"]:hover,
+.dark .recharts-rectangle[fill="#64748b"]:hover,
+.dark .recharts-cell[fill="#64748b"]:hover,
+.dark .recharts-sector[fill="#64748b"]:hover,
+.dark path[fill="#64748b"]:hover,
+.dark rect[fill="#64748b"]:hover,
+.dark .recharts-bar-rectangle[fill="#94a3b8"]:hover,
+.dark .recharts-rectangle[fill="#94a3b8"]:hover,
+.dark .recharts-cell[fill="#94a3b8"]:hover,
+.dark .recharts-sector[fill="#94a3b8"]:hover,
+.dark path[fill="#94a3b8"]:hover,
+.dark rect[fill="#94a3b8"]:hover {
+  filter: drop-shadow(0 0 12px rgba(148, 163, 184, 0.7));
+}
+
+/* Line chart strokes - match the stroke color */
+path[stroke="#22c55e"]:hover { filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.7)); }
+path[stroke="#ef4444"]:hover { filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.7)); }
+path[stroke="#f59e0b"]:hover { filter: drop-shadow(0 0 6px rgba(234, 179, 8, 0.7)); }
+path[stroke="#3b82f6"]:hover { filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.7)); }
+path[stroke="#8b5cf6"]:hover { filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.7)); }
+
+.dark path[stroke="#22c55e"]:hover { filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.9)); }
+.dark path[stroke="#ef4444"]:hover { filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.9)); }
+.dark path[stroke="#f59e0b"]:hover { filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.9)); }
+.dark path[stroke="#3b82f6"]:hover { filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.9)); }
+.dark path[stroke="#8b5cf6"]:hover { filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.9)); }
+
+/* Active states (tooltip showing) */
+.recharts-active-bar rect[fill="#22c55e"] { filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.7)); }
+.recharts-active-bar rect[fill="#ef4444"] { filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.7)); }
+.recharts-active-bar rect[fill="#f59e0b"] { filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.7)); }
+.recharts-active-bar rect[fill="#3b82f6"] { filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.7)); }
+.recharts-active-bar rect[fill="#E4002B"] { filter: drop-shadow(0 0 10px rgba(228, 0, 43, 0.7)); }
+
+.dark .recharts-active-bar rect[fill="#22c55e"] { filter: drop-shadow(0 0 14px rgba(34, 197, 94, 0.9)); }
+.dark .recharts-active-bar rect[fill="#ef4444"] { filter: drop-shadow(0 0 14px rgba(239, 68, 68, 0.9)); }
+.dark .recharts-active-bar rect[fill="#f59e0b"] { filter: drop-shadow(0 0 14px rgba(234, 179, 8, 0.9)); }
+.dark .recharts-active-bar rect[fill="#3b82f6"] { filter: drop-shadow(0 0 14px rgba(59, 130, 246, 0.9)); }
+.dark .recharts-active-bar rect[fill="#E4002B"] { filter: drop-shadow(0 0 14px rgba(228, 0, 43, 0.9)); }
+
+/* Make all chart elements hoverable */
+.recharts-bar-rectangle,
+.recharts-rectangle,
+.recharts-pie-sector,
+.recharts-sector,
+.recharts-cell,
+.recharts-dot,
+.recharts-line-curve,
+.recharts-area-curve,
+.recharts-bar rect,
+.recharts-bar-rectangle rect {
+  transition: filter 0.2s ease;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+/* ===========================================
+   COLORED TEXT GLOW EFFECTS
+   Any colored text glows with its color on hover
+   =========================================== */
+
+/* Specific color text classes - ensure they get proper glows */
+.text-green-400:hover, .text-green-500:hover, .text-green-600:hover, .text-green-700:hover {
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+.dark .text-green-400:hover, .dark .text-green-500:hover, .dark .text-green-600:hover, .dark .text-green-700:hover {
+  text-shadow: 0 0 12px rgba(34, 197, 94, 0.7);
+}
+
+.text-yellow-400:hover, .text-yellow-500:hover, .text-yellow-600:hover, .text-yellow-700:hover,
+.text-amber-400:hover, .text-amber-500:hover, .text-amber-600:hover, .text-amber-700:hover {
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+}
+.dark .text-yellow-400:hover, .dark .text-yellow-500:hover, .dark .text-yellow-600:hover, .dark .text-yellow-700:hover,
+.dark .text-amber-400:hover, .dark .text-amber-500:hover, .dark .text-amber-600:hover, .dark .text-amber-700:hover {
+  text-shadow: 0 0 12px rgba(234, 179, 8, 0.7);
+}
+
+.text-red-400:hover, .text-red-500:hover, .text-red-600:hover, .text-red-700:hover {
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+.dark .text-red-400:hover, .dark .text-red-500:hover, .dark .text-red-600:hover, .dark .text-red-700:hover {
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
+}
+
+.text-blue-400:hover, .text-blue-500:hover, .text-blue-600:hover, .text-blue-700:hover {
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+.dark .text-blue-400:hover, .dark .text-blue-500:hover, .dark .text-blue-600:hover, .dark .text-blue-700:hover {
+  text-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
+}
+
+.text-orange-400:hover, .text-orange-500:hover, .text-orange-600:hover, .text-orange-700:hover {
+  text-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
+}
+.dark .text-orange-400:hover, .dark .text-orange-500:hover, .dark .text-orange-600:hover, .dark .text-orange-700:hover {
+  text-shadow: 0 0 12px rgba(249, 115, 22, 0.7);
+}
+
+.text-purple-400:hover, .text-purple-500:hover, .text-purple-600:hover, .text-purple-700:hover,
+.text-indigo-400:hover, .text-indigo-500:hover, .text-indigo-600:hover, .text-indigo-700:hover {
+  text-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}
+.dark .text-purple-400:hover, .dark .text-purple-500:hover, .dark .text-purple-600:hover, .dark .text-purple-700:hover,
+.dark .text-indigo-400:hover, .dark .text-indigo-500:hover, .dark .text-indigo-600:hover, .dark .text-indigo-700:hover {
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.7);
+}
+
+.text-primary:hover {
+  text-shadow: 0 0 8px rgba(228, 0, 43, 0.5);
+}
+.dark .text-primary:hover {
+  text-shadow: 0 0 12px rgba(228, 0, 43, 0.7);
+}
+
+/* Transition for smooth text glow */
+[class*="text-green"], [class*="text-yellow"], [class*="text-amber"],
+[class*="text-red"], [class*="text-blue"], [class*="text-orange"],
+[class*="text-purple"], [class*="text-indigo"], .text-primary {
+  transition: text-shadow 0.2s ease;
+}
+
 /* Print styles for PDF export */
 @media print {
   .no-print {

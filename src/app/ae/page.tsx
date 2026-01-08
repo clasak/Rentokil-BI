@@ -17,6 +17,7 @@ import {
   Building2,
   ArrowUpRight,
   ArrowDownRight,
+  Upload,
 } from 'lucide-react'
 import {
   initializeAEData,
@@ -134,14 +135,20 @@ export default function AccountExecutiveDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/ae/proposal/new">
-              <Plus className="h-4 w-4 mr-2" />
-              New Proposal
+          <Button asChild className="bg-primary">
+            <Link href="/ae/import">
+              <Upload className="h-4 w-4 mr-2" />
+              Import Quote
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/ae/sale/new">
+            <Link href="/ae/tracker/proposals">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Proposal
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/ae/tracker/sales">
               <CheckCircle className="h-4 w-4 mr-2" />
               Log Sale
             </Link>
@@ -264,15 +271,25 @@ export default function AccountExecutiveDashboard() {
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyTrendData}>
+                    <defs>
+                      <filter id="glow-ae" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="3" result="blur"/>
+                        <feMerge>
+                          <feMergeNode in="blur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                     <Tooltip
                       formatter={(value: number) => formatCurrency(value)}
                       labelStyle={{ color: '#374151' }}
+                      cursor={false}
                     />
-                    <Bar dataKey="proposals" name="Proposals" fill="#93c5fd" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="sales" name="Sales" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="proposals" name="Proposals" fill="#93c5fd" radius={[4, 4, 0, 0]} activeBar={{ filter: 'url(#glow-ae)' }} />
+                    <Bar dataKey="sales" name="Sales" fill="#22c55e" radius={[4, 4, 0, 0]} activeBar={{ filter: 'url(#glow-ae)' }} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -289,6 +306,15 @@ export default function AccountExecutiveDashboard() {
                 <div className="h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
+                      <defs>
+                        <filter id="glow-ae-pie1" x="-50%" y="-50%" width="200%" height="200%">
+                          <feGaussianBlur stdDeviation="3" result="blur"/>
+                          <feMerge>
+                            <feMergeNode in="blur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                          </feMerge>
+                        </filter>
+                      </defs>
                       <Pie
                         data={leadSourceData}
                         dataKey="count"
@@ -299,6 +325,7 @@ export default function AccountExecutiveDashboard() {
                         outerRadius={70}
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                         labelLine={false}
+                        activeShape={{ filter: 'url(#glow-ae-pie1)' }}
                       >
                         {leadSourceData.map((_, index) => (
                           <Cell key={index} fill={COLORS[index % COLORS.length]} />
@@ -319,6 +346,15 @@ export default function AccountExecutiveDashboard() {
                 <div className="h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
+                      <defs>
+                        <filter id="glow-ae-pie2" x="-50%" y="-50%" width="200%" height="200%">
+                          <feGaussianBlur stdDeviation="3" result="blur"/>
+                          <feMerge>
+                            <feMergeNode in="blur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                          </feMerge>
+                        </filter>
+                      </defs>
                       <Pie
                         data={serviceBreakdown}
                         dataKey="value"
@@ -329,6 +365,7 @@ export default function AccountExecutiveDashboard() {
                         outerRadius={70}
                         label={({ name }) => name}
                         labelLine={false}
+                        activeShape={{ filter: 'url(#glow-ae-pie2)' }}
                       >
                         {serviceBreakdown.map((_, index) => (
                           <Cell key={index} fill={COLORS[index % COLORS.length]} />

@@ -108,7 +108,7 @@ export default function KPIDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div id="kpi-header" className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/">
@@ -129,7 +129,7 @@ export default function KPIDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setLineageOpen(true)} className="gap-2">
+          <Button id="lineage-button" variant="outline" onClick={() => setLineageOpen(true)} className="gap-2">
             <Database className="h-4 w-4" />
             View Lineage
           </Button>
@@ -138,7 +138,7 @@ export default function KPIDetailPage() {
 
       {/* KPI Summary Card */}
       {kpiValue && (
-        <Card>
+        <Card id="kpi-value-display">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
@@ -191,6 +191,15 @@ export default function KPIDetailPage() {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
+                    <defs>
+                      <filter id="glow-kpi" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="3" result="blur"/>
+                        <feMerge>
+                          <feMergeNode in="blur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="period" />
                     <YAxis tickFormatter={(value) =>
@@ -198,13 +207,14 @@ export default function KPIDetailPage() {
                       definition.format === 'percent' ? `${(value * 100).toFixed(0)}%` :
                       value.toString()
                     } />
-                    <Tooltip formatter={(value: number) => [formatValue(value), definition.name]} />
+                    <Tooltip formatter={(value: number) => [formatValue(value), definition.name]} cursor={false} />
                     <Area
                       type="monotone"
                       dataKey="value"
                       stroke="#00A651"
                       fill="#00A65120"
                       strokeWidth={2}
+                      activeDot={{ r: 6, filter: 'url(#glow-kpi)' }}
                     />
                     {definition.target && (
                       <Line
@@ -213,6 +223,7 @@ export default function KPIDetailPage() {
                         stroke="#ef4444"
                         strokeDasharray="5 5"
                         dot={false}
+                        activeDot={{ r: 6, filter: 'url(#glow-kpi)' }}
                       />
                     )}
                   </AreaChart>

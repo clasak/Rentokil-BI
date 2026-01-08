@@ -17,6 +17,7 @@ interface ActionListProps {
   maxItems?: number
   showViewAll?: boolean
   type?: ActionItem['type']
+  viewAllHref?: string
 }
 
 export function ActionList({
@@ -24,7 +25,8 @@ export function ActionList({
   title = 'Priority Actions',
   maxItems = 10,
   showViewAll = true,
-  type
+  type,
+  viewAllHref
 }: ActionListProps) {
   const filteredActions = type ? actions.filter(a => a.type === type) : actions
   const displayActions = filteredActions.slice(0, maxItems)
@@ -55,6 +57,18 @@ export function ActionList({
       case 'invoice': return `/finance/invoice/${action.entityId}`
       case 'branch': return `/ops`
       default: return '#'
+    }
+  }
+
+  const getViewAllLink = () => {
+    if (viewAllHref) return viewAllHref
+    // Default view all links based on action type
+    switch (type) {
+      case 'stalled_opp': return '/sales'
+      case 'at_risk_account': return '/ops'
+      case 'collection_priority': return '/finance'
+      case 'capacity_pressure': return '/ops'
+      default: return '/'
     }
   }
 
@@ -142,7 +156,7 @@ export function ActionList({
         {showViewAll && filteredActions.length > maxItems && (
           <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <Button variant="ghost" className="w-full" asChild>
-              <Link href="/kpi/stalled_opps">
+              <Link href={getViewAllLink()}>
                 View all {filteredActions.length} actions
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Link>

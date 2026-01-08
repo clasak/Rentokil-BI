@@ -74,7 +74,7 @@ export default function ForecastPage() {
           <h1 className="text-2xl font-bold">Forecast</h1>
           <p className="text-sm text-gray-500">8-week revenue forecast with scenarios</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div id="scenario-selector" className="flex items-center gap-4">
           <Select value={settings.scenario} onValueChange={(v) => setScenario(v as Scenario)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Scenario" />
@@ -167,7 +167,7 @@ export default function ForecastPage() {
 
         {/* Forecast Tab */}
         <TabsContent value="forecast" className="space-y-6">
-          <Card>
+          <Card id="forecast-chart">
             <CardHeader>
               <CardTitle>8-Week Revenue Forecast</CardTitle>
               <CardDescription>
@@ -178,10 +178,19 @@ export default function ForecastPage() {
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={chartData}>
+                    <defs>
+                      <filter id="glow-forecast" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="3" result="blur"/>
+                        <feMerge>
+                          <feMergeNode in="blur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} cursor={false} />
                     <Legend />
 
                     {/* Confidence Band */}
@@ -210,6 +219,7 @@ export default function ForecastPage() {
                         strokeWidth={2}
                         name="Base Case"
                         dot={false}
+                        activeDot={{ r: 6, filter: 'url(#glow-forecast)' }}
                       />
                     )}
                     {settings.scenario === 'upside' && (
@@ -220,6 +230,7 @@ export default function ForecastPage() {
                         strokeWidth={2}
                         name="Upside"
                         dot={false}
+                        activeDot={{ r: 6, filter: 'url(#glow-forecast)' }}
                       />
                     )}
                     {settings.scenario === 'downside' && (
@@ -230,6 +241,7 @@ export default function ForecastPage() {
                         strokeWidth={2}
                         name="Downside"
                         dot={false}
+                        activeDot={{ r: 6, filter: 'url(#glow-forecast)' }}
                       />
                     )}
 
@@ -241,6 +253,7 @@ export default function ForecastPage() {
                       strokeWidth={2}
                       name="Actual"
                       dot={{ r: 4 }}
+                      activeDot={{ r: 6, filter: 'url(#glow-forecast)' }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -353,7 +366,7 @@ export default function ForecastPage() {
 
         {/* Backtest Tab */}
         <TabsContent value="backtest" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div id="backtest-results" className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center">

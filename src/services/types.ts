@@ -16,12 +16,16 @@ import {
   AccountExecutive, Proposal, Sale, AEDashboardStats
 } from '@/types/sales-tracker'
 import {
-  NewStartEntry, NewStartAEFields, NewStartOpsFields, NewStartStatus, NewStartSummary
+  NewStartEntry, NewStartAEFields, NewStartAEInput, NewStartOpsFields, NewStartStatus, NewStartSummary
 } from '@/types/new-start-log'
 import {
   Branch as DailyBranch, DailySalesEntry, DailySalesMetrics,
   BranchDashboardStats, RegionSummary, WeeklyRollup, RegionCode
 } from '@/types/daily-sales-cadence'
+import {
+  SalesforceQuoteDraft, StartPacket, StartPacketStatus,
+  OpsEmailNotification, OpsEmailResponse, ParseValidationResult, PDFStorageMetadata
+} from '@/types/salesforce-quote'
 
 // =============================================================================
 // Core Entity Services
@@ -313,6 +317,131 @@ export interface ComplaintService {
 }
 
 // =============================================================================
+// Salesforce Parser Services
+// =============================================================================
+
+export interface SalesforceParserService {
+  /**
+   * Parse raw text extracted from Salesforce quote PDF
+   */
+  parseQuote(text: string): Promise<SalesforceQuoteDraft>
+
+  /**
+   * Validate a parsed draft for completeness
+   */
+  validateDraft(draft: SalesforceQuoteDraft): Promise<ParseValidationResult>
+
+  /**
+   * Map draft fields to NewStartAEInput format (for form binding)
+   * Returns partial fields since parser can only extract what's in the PDF
+   */
+  mapToNewStartFields(draft: SalesforceQuoteDraft): Promise<Partial<NewStartAEInput>>
+}
+
+// =============================================================================
+// Start Packet Services
+// =============================================================================
+
+export interface CreateStartPacketInput {
+  draft: SalesforceQuoteDraft
+  pdfStorageKey?: string
+}
+
+export interface UpdateStartPacketInput {
+  status?: StartPacketStatus
+  emailSent?: boolean
+  emailSentAt?: string
+}
+
+export interface StartPacketService {
+  /**
+   * Create a new start packet from parsed data
+   */
+  create(input: CreateStartPacketInput): Promise<StartPacket>
+
+  /**
+   * Get start packet by ID
+   */
+  getById(id: string): Promise<StartPacket | null>
+
+  /**
+   * Get all start packets
+   */
+  getAll(): Promise<StartPacket[]>
+
+  /**
+   * Get start packets by status
+   */
+  getByStatus(status: StartPacketStatus): Promise<StartPacket[]>
+
+  /**
+   * Update a start packet
+   */
+  update(id: string, input: UpdateStartPacketInput): Promise<StartPacket | null>
+
+  /**
+   * Delete a start packet
+   */
+  delete(id: string): Promise<boolean>
+
+  /**
+   * Send operations email notification
+   */
+  sendOpsNotification(packet: StartPacket, recipients?: string[]): Promise<OpsEmailResponse>
+}
+
+// =============================================================================
+// PDF Storage Services
+// =============================================================================
+
+export interface PDFStorageService {
+  /**
+   * Store a PDF file
+   */
+  store(file: File, startPacketId?: string): Promise<PDFStorageMetadata>
+
+  /**
+   * Retrieve a stored PDF
+   */
+  retrieve(key: string): Promise<{ data: ArrayBuffer; mimeType: string } | null>
+
+  /**
+   * Get metadata for a stored PDF
+   */
+  getMetadata(key: string): Promise<PDFStorageMetadata | null>
+
+  /**
+   * List all stored PDFs
+   */
+  list(): Promise<PDFStorageMetadata[]>
+
+  /**
+   * Get PDFs associated with a start packet
+   */
+  getByStartPacket(startPacketId: string): Promise<PDFStorageMetadata[]>
+
+  /**
+   * Delete a stored PDF
+   */
+  delete(key: string): Promise<boolean>
+
+  /**
+   * Associate PDF with a start packet
+   */
+  associateWithStartPacket(key: string, startPacketId: string): Promise<PDFStorageMetadata | null>
+
+  /**
+   * Clean up old PDFs
+   */
+  cleanup(maxAgeDays?: number): Promise<number>
+
+  /**
+   * Check if storage is available
+   */
+  isAvailable(): boolean
+}
+
+// =============================================================================
 // Combined Service Provider Interface
 // =============================================================================
 
@@ -342,6 +471,11 @@ export interface ServiceProvider {
   salesTracker: SalesTrackerService
   newStarts: NewStartService
   dailySales: DailySalesService
+
+  // Salesforce integration
+  salesforceParser: SalesforceParserService
+  startPackets: StartPacketService
+  pdfStorage: PDFStorageService
 
   // Utility
   refreshData(seed?: number): Promise<void>

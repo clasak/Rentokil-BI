@@ -1,8 +1,16 @@
 // Core domain types for Rentokil BI
 
-export type Role = 'exec' | 'director' | 'manager' | 'ops_manager' | 'rep' | 'technician'
+export type Role =
+  | 'exec'
+  | 'market_director'
+  | 'region_director'
+  | 'manager'
+  | 'sales_manager'
+  | 'ops_manager'
+  | 'rep'
+  | 'technician'
 
-export type DemoMode = 'exec_bi_review' | 'sales_ops_execution' | 'branch_field_manager'
+export type DemoMode = 'bi_leadership'
 
 export type Scenario = 'base' | 'upside' | 'downside'
 
@@ -13,8 +21,11 @@ export interface User {
   role: Role
   title: string
   assignedMarkets: string[]
+  assignedRegions: string[]
   assignedBranches: string[]
   assignedTeams: string[]
+  assignedReps?: string[]
+  assignedTechnicians?: string[]
 }
 
 export interface Market {
@@ -23,10 +34,18 @@ export interface Market {
   region: string
 }
 
+export interface Region {
+  id: string
+  code: string
+  name: string
+  marketId: string
+}
+
 export interface Branch {
   id: string
   name: string
   marketId: string
+  regionId: string
   address: string
 }
 

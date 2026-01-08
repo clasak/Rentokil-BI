@@ -357,7 +357,7 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     previousValue: prevStalled,
     delta: stalledValue - prevStalled,
     deltaPercent: (stalledValue - prevStalled) / (prevStalled || 1),
-    status: stalledValue < prevStalled ? 'good' : stalledValue > prevStalled * 1.1 ? 'critical' : 'warning',
+    status: 'critical', // Stalled pipeline is always critical - needs immediate attention
     trend: generateTrend(stalledValue, 0.2),
     asOfDate: now,
   })
