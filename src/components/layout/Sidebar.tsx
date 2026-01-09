@@ -9,7 +9,8 @@ import {
   LayoutDashboard, TrendingUp, Settings, FileText,
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
-  ClipboardList, Truck, Upload
+  ClipboardList, Truck, Upload, Book, Shield, GitBranch,
+  ClipboardCheck
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -65,6 +66,10 @@ const techNav = [
 
 const governance = [
   { name: 'Governance', href: '/governance', icon: ShieldCheck },
+  { name: 'Data Dictionary', href: '/governance/data-dictionary', icon: Book },
+  { name: 'Data Standards', href: '/governance/data-standards', icon: ClipboardCheck },
+  { name: 'Data Quality', href: '/governance/data-quality', icon: Shield },
+  { name: 'Field Lineage', href: '/governance/field-lineage', icon: GitBranch },
   { name: 'WBR', href: '/wbr', icon: Calendar },
   { name: 'QBR', href: '/qbr', icon: CalendarDays },
 ]

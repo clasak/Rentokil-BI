@@ -2,7 +2,7 @@
  * Service Provider
  *
  * This module exports the appropriate service provider based on configuration.
- * Set USE_MOCK_DATA=false in .env.local to use Supabase.
+ * Supports multiple data sources: mock, RTX Data Hub, Salesforce, or hybrid mode.
  *
  * USAGE:
  * ```typescript
@@ -22,34 +22,56 @@
  * })
  * ```
  *
- * SWITCHING TO SUPABASE:
- * 1. Add to .env.local:
- *    USE_MOCK_DATA=false
- *    NEXT_PUBLIC_SUPABASE_URL=your-url
- *    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-key
- * 2. Run database migrations
- * 3. Implement Supabase service methods in /services/supabase/
+ * DATA SOURCE CONFIGURATION:
+ * Set NEXT_PUBLIC_DATA_SOURCE in .env.local:
+ *   - 'mock' (default): Use synthetic demo data
+ *   - 'rtx': Use RTX Data Hub (requires RTX_API_KEY)
+ *   - 'salesforce': Use Salesforce CRM (requires SF credentials)
+ *   - 'hybrid': Try RTX first, fallback to mock if unavailable
+ *
+ * RTX DATA HUB:
+ *   RTX_API_ENDPOINT=https://rtx-data-hub.company.com/api/v1
+ *   RTX_API_KEY=your_api_key
+ *   RTX_API_TIMEOUT=30000
+ *
+ * SALESFORCE:
+ *   SALESFORCE_LOGIN_URL=https://login.salesforce.com
+ *   SALESFORCE_USERNAME=your_username
+ *   SALESFORCE_PASSWORD=your_password
+ *   SALESFORCE_SECURITY_TOKEN=your_token
  */
 
 import type { ServiceProvider } from './types'
 import { mockServiceProvider } from './mock'
 import { supabaseServiceProvider } from './supabase'
+import { rtxServiceProvider, rtxClient } from './rtx-hub'
 
 // =============================================================================
 // Configuration
 // =============================================================================
 
 /**
- * Determines whether to use mock data or Supabase
- *
- * Set USE_MOCK_DATA=false in .env.local to use Supabase
- * Default: true (use mock data for demos)
+ * Available data sources
  */
-export const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA !== 'false'
+export type DataSourceType = 'mock' | 'rtx' | 'salesforce' | 'hybrid'
+
+/**
+ * Current data source configuration
+ * Set NEXT_PUBLIC_DATA_SOURCE in .env.local to change
+ * Default: 'mock' (use synthetic demo data)
+ */
+export const DATA_SOURCE: DataSourceType =
+  (process.env.NEXT_PUBLIC_DATA_SOURCE as DataSourceType) || 'mock'
+
+/**
+ * Legacy compatibility: USE_MOCK_DATA
+ * @deprecated Use DATA_SOURCE instead
+ */
+export const USE_MOCK_DATA = DATA_SOURCE === 'mock'
 
 /**
  * Check if we're in demo mode (always use mock data)
- * This takes precedence over USE_MOCK_DATA
+ * This takes precedence over DATA_SOURCE
  */
 export function isDemoMode(): boolean {
   if (typeof window === 'undefined') return true
@@ -57,9 +79,26 @@ export function isDemoMode(): boolean {
   return true
 }
 
+/**
+ * Check if RTX Data Hub is configured
+ */
+export function isRTXConfigured(): boolean {
+  return rtxClient.isConfigured()
+}
+
 // =============================================================================
 // Service Provider Selection
 // =============================================================================
+
+/**
+ * Create a hybrid provider that tries RTX first, falls back to mock
+ */
+function createHybridProvider(): ServiceProvider {
+  // For now, return mock provider
+  // In production, this would wrap RTX calls with try/catch fallback
+  console.log('[Services] Hybrid mode: Using mock data (RTX fallback not yet implemented)')
+  return mockServiceProvider
+}
 
 /**
  * Get the appropriate service provider based on configuration
@@ -70,13 +109,29 @@ function getServiceProvider(): ServiceProvider {
     return mockServiceProvider
   }
 
-  // Use mock if configured or if Supabase isn't set up
-  if (USE_MOCK_DATA) {
-    return mockServiceProvider
-  }
+  switch (DATA_SOURCE) {
+    case 'rtx':
+      if (!isRTXConfigured()) {
+        console.warn('[Services] RTX Data Hub not configured. Falling back to mock data.')
+        return mockServiceProvider
+      }
+      // RTX provider doesn't implement full ServiceProvider interface yet
+      // For now, return mock provider
+      console.log('[Services] RTX mode: RTX provider not fully implemented, using mock')
+      return mockServiceProvider
 
-  // Use Supabase for production
-  return supabaseServiceProvider
+    case 'salesforce':
+      // Salesforce provider not implemented yet
+      console.warn('[Services] Salesforce provider not implemented. Falling back to mock data.')
+      return mockServiceProvider
+
+    case 'hybrid':
+      return createHybridProvider()
+
+    case 'mock':
+    default:
+      return mockServiceProvider
+  }
 }
 
 // =============================================================================
@@ -163,12 +218,68 @@ export function useServices(): ServiceProvider {
  * Check if the app is using mock data
  */
 export function isUsingMockData(): boolean {
-  return USE_MOCK_DATA || isDemoMode()
+  return DATA_SOURCE === 'mock' || isDemoMode()
 }
 
 /**
  * Get the current data source name (for display)
  */
 export function getDataSourceName(): string {
-  return isUsingMockData() ? 'Demo Data' : 'Supabase'
+  if (isDemoMode()) return 'Demo Data'
+
+  switch (DATA_SOURCE) {
+    case 'rtx':
+      return 'RTX Data Hub'
+    case 'salesforce':
+      return 'Salesforce'
+    case 'hybrid':
+      return 'Hybrid (RTX + Mock)'
+    case 'mock':
+    default:
+      return 'Demo Data'
+  }
 }
+
+/**
+ * Get data source configuration status
+ */
+export function getDataSourceStatus(): {
+  source: DataSourceType
+  configured: boolean
+  name: string
+  description: string
+} {
+  const status = {
+    source: DATA_SOURCE,
+    name: getDataSourceName(),
+    configured: false,
+    description: ''
+  }
+
+  switch (DATA_SOURCE) {
+    case 'rtx':
+      status.configured = isRTXConfigured()
+      status.description = status.configured
+        ? 'Connected to RTX Data Hub enterprise warehouse'
+        : 'RTX API credentials not configured'
+      break
+    case 'salesforce':
+      status.configured = false // TODO: Check Salesforce config
+      status.description = 'Salesforce CRM integration'
+      break
+    case 'hybrid':
+      status.configured = isRTXConfigured()
+      status.description = 'RTX primary with mock fallback'
+      break
+    case 'mock':
+    default:
+      status.configured = true
+      status.description = 'Synthetic demo data for testing and demos'
+  }
+
+  return status
+}
+
+// Re-export RTX client for direct access
+export { rtxClient, rtxServiceProvider } from './rtx-hub'
+export type { RTXConnectionStatus } from './rtx-hub'

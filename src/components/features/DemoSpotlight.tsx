@@ -96,8 +96,8 @@ export const DEMO_CONFIG: Record<string, { name: string; steps: DemoStep[] }> = 
             calculation: 'SUM(Invoice Amount) WHERE Status = "Posted" AND Date >= MTD Start',
             refreshSchedule: 'Every 4 hours from SAP',
             dataFlow: ['SAP Billing', 'Data Warehouse', 'KPI Engine', 'Dashboard'],
-            position: 'right',
-            arrowDirection: 'left',
+            position: 'bottom',
+            arrowDirection: 'up',
             autoClick: true,
             clickDelay: 3000
           },
@@ -112,8 +112,8 @@ export const DEMO_CONFIG: Record<string, { name: string; steps: DemoStep[] }> = 
             calculation: '(Actual Revenue - Target Revenue) / Target Revenue × 100',
             refreshSchedule: 'Targets set monthly, actuals refresh every 4 hours',
             dataFlow: ['SAP + Targets', 'Variance Calc', 'Dashboard'],
-            position: 'right',
-            arrowDirection: 'left'
+            position: 'bottom',
+            arrowDirection: 'up'
           },
           {
             elementId: 'kpi-health-card',
@@ -137,8 +137,8 @@ export const DEMO_CONFIG: Record<string, { name: string; steps: DemoStep[] }> = 
             ],
             calculation: 'Each KPI has its own calculation - click any card for details',
             dataFlow: ['Source Systems', 'ETL Pipeline', 'Data Warehouse', 'KPI Calculations', 'Dashboard'],
-            position: 'top',
-            arrowDirection: 'down'
+            position: 'right',
+            arrowDirection: 'left'
           }
         ]
       },
@@ -266,8 +266,8 @@ export const DEMO_CONFIG: Record<string, { name: string; steps: DemoStep[] }> = 
             calculation: 'Stalled = No activity for 14+ days\nAging = Days in stage > Stage average × 1.5',
             refreshSchedule: 'Re-evaluated on each Salesforce sync',
             dataFlow: ['SF Activities', 'Stall Detection', 'Aging Analysis', 'Alert List'],
-            position: 'left',
-            arrowDirection: 'right'
+            position: 'top',
+            arrowDirection: 'down'
           }
         ]
       },
@@ -325,8 +325,8 @@ export const DEMO_CONFIG: Record<string, { name: string; steps: DemoStep[] }> = 
             calculation: 'Utilization = (Completed Stops / Available Capacity) × 100\n\n>100% = Overtime, >85% = Healthy, <70% = Underutilized',
             refreshSchedule: 'Capacity from Workday daily, actuals from PestPac every 15 min',
             dataFlow: ['Workday Capacity', 'PestPac Completions', 'Utilization Calc', 'Branch Rollup'],
-            position: 'bottom',
-            arrowDirection: 'up'
+            position: 'right',
+            arrowDirection: 'left'
           },
           {
             elementId: 'callback-rate',
@@ -339,8 +339,8 @@ export const DEMO_CONFIG: Record<string, { name: string; steps: DemoStep[] }> = 
             calculation: 'COUNT(Complaints) GROUP BY Type (Service Quality, Billing, Scheduling, Technician, Other)',
             refreshSchedule: 'Call center real-time, PestPac every 15 min',
             dataFlow: ['Five9 Calls', 'PestPac Notes', 'Categorization', 'Type Rollup'],
-            position: 'left',
-            arrowDirection: 'right'
+            position: 'top',
+            arrowDirection: 'down'
           }
         ]
       },
@@ -557,12 +557,24 @@ function SpotlightOverlay({
     updatePosition()
     window.addEventListener('resize', updatePosition)
     window.addEventListener('scroll', updatePosition)
-    const retryTimeout = setTimeout(updatePosition, 500)
+
+    // Multiple retries to handle page navigation and React rendering delays
+    const retryTimeouts = [
+      setTimeout(updatePosition, 100),
+      setTimeout(updatePosition, 300),
+      setTimeout(updatePosition, 500),
+      setTimeout(updatePosition, 1000),
+      setTimeout(updatePosition, 1500),
+    ]
+
+    // Continuous polling to keep position updated during animations/transitions
+    const pollInterval = setInterval(updatePosition, 250)
 
     return () => {
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition)
-      clearTimeout(retryTimeout)
+      retryTimeouts.forEach(t => clearTimeout(t))
+      clearInterval(pollInterval)
     }
   }, [target.elementId, isActive])
 
@@ -1234,33 +1246,29 @@ export function DemoSpotlight() {
 
   if (!mounted || !presenterMode) return null
 
-  // Minimized view
-  if (isMinimized) {
-    return (
-      <div className="fixed bottom-6 left-6 z-[10000] animate-in slide-in-from-left-4 duration-300">
-        <button
-          onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rentokil-red to-rentokil-darkred text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
-        >
-          <Zap className="h-5 w-5" />
-          <span className="font-semibold">Step {presenterStep + 1}/{steps.length}</span>
-          <span className="text-white/70">•</span>
-          <span className="text-sm text-white/80">{currentTarget?.label || currentStepConfig?.title}</span>
-          <Maximize2 className="h-4 w-4 ml-2" />
-        </button>
-      </div>
-    )
-  }
-
   return (
     <>
-      {/* Spotlight overlay - ALWAYS visible (even when popped out) */}
+      {/* Spotlight overlay - ALWAYS visible regardless of minimized/popped out state */}
       {currentTarget && (
         <SpotlightOverlay target={currentTarget} isActive={true} subStepIndex={currentSubStep} totalSubSteps={totalSubSteps} />
       )}
 
-      {/* When popped out, show minimal indicator instead of full panel */}
-      {isPoppedOut ? (
+      {/* Minimized view - just a small bar, spotlight still shows above */}
+      {isMinimized ? (
+        <div className="fixed bottom-6 left-6 z-[10000] animate-in slide-in-from-left-4 duration-300">
+          <button
+            onClick={() => setIsMinimized(false)}
+            className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rentokil-red to-rentokil-darkred text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+          >
+            <Zap className="h-5 w-5" />
+            <span className="font-semibold">Step {presenterStep + 1}/{steps.length}</span>
+            <span className="text-white/70">•</span>
+            <span className="text-sm text-white/80">{currentTarget?.label || currentStepConfig?.title}</span>
+            <Maximize2 className="h-4 w-4 ml-2" />
+          </button>
+        </div>
+      ) : isPoppedOut ? (
+        /* When popped out, show minimal indicator instead of full panel */
         <div className="fixed bottom-6 left-6 z-[10000] animate-in slide-in-from-left-4 duration-300">
           <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl shadow-lg">
             <Monitor className="h-5 w-5" />

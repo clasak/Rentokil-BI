@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Development Commands
 
 ```bash
+npm install        # Install dependencies
 npm run dev        # Start dev server with auto cache fix (http://localhost:3000)
 npm run dev:clean  # Clear .next cache and start dev server
 npm run build      # Production build
@@ -26,10 +27,22 @@ npm run reset      # Clean and restart dev server
        ↓
 /src/lib/data.ts (synthetic data: accounts, opportunities, invoices, service events)
        ↓
+/src/services/ (abstraction layer - swap mock ↔ Supabase via USE_MOCK_DATA env)
+       ↓
 /src/store/index.ts (Zustand state: role, scenario, filters, presenter mode)
        ↓
 React components consume via useAppStore()
 ```
+
+### Service Abstraction Layer (`/src/services/`)
+
+Backend-ready architecture with swappable providers:
+- `services/index.ts` - Provider selection based on `NEXT_PUBLIC_USE_MOCK_DATA` env
+- `services/mock/` - Current implementation using synthetic data from `/lib/data.ts`
+- `services/supabase/` - Stub for Supabase backend (set `USE_MOCK_DATA=false`)
+- `services/types.ts` - Shared interfaces for all service methods
+
+Usage: `import { services } from '@/services'` then `await services.accounts.getAll()`
 
 ### Role Hierarchy (8 roles)
 
@@ -100,6 +113,14 @@ ThemeProvider in `/src/components/providers/ThemeProvider.tsx` supports:
 - Light, dark, and system-preference modes
 - Persisted via Zustand store
 - Toggle in Header component
+
+### Presenter Mode (`/src/components/features/DemoSpotlight.tsx`)
+
+Guided demo walkthrough with spotlight overlays:
+- Steps defined in `DEMO_CONFIG` object with routes, speaker notes, and spotlight targets
+- Each spotlight can auto-click elements, show data sources, and display lineage
+- Keyboard controls: `←→` navigate, `Space` auto-play, `N` toggle notes, `P` pop-out, `Esc` exit
+- Pop-out window option for presenter notes on second screen
 
 ### Data Generation
 

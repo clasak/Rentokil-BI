@@ -14,8 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Settings, Shield, Users, Target, Database, RefreshCw, AlertTriangle, Presentation } from 'lucide-react'
+import { Settings, Shield, Users, Target, Database, RefreshCw, AlertTriangle, Presentation, ExternalLink } from 'lucide-react'
 import { Role, DemoMode, Scenario } from '@/types'
+import Link from 'next/link'
+import { getDataSourceName, getDataSourceStatus } from '@/services'
 
 export default function SettingsPage() {
   const {
@@ -33,6 +35,7 @@ export default function SettingsPage() {
   const markets = getMarkets()
   const users = getUsers()
   const scope = getCurrentUserScope()
+  const dataSourceStatus = getDataSourceStatus()
 
   const handleRefreshData = () => {
     refreshData()
@@ -232,11 +235,46 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Data Quality */}
+      {/* Data Sources */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
+            Data Sources
+          </CardTitle>
+          <CardDescription>
+            Configure connections to enterprise data sources
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium dark:text-gray-100">Active Source: {dataSourceStatus.name}</div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {dataSourceStatus.description}
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant={dataSourceStatus.configured ? 'default' : 'outline'} className={dataSourceStatus.configured ? 'bg-green-100 text-green-700' : ''}>
+                  {dataSourceStatus.configured ? 'Connected' : 'Not Configured'}
+                </Badge>
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{dataSourceStatus.source}</code>
+              </div>
+            </div>
+            <Link href="/settings/data-sources">
+              <Button variant="outline" className="gap-2">
+                Configure
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Quality */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
             Data Quality Simulation
           </CardTitle>
           <CardDescription>
