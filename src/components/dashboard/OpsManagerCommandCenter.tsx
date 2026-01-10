@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useAppStore } from '@/store'
+import { getUsers } from '@/lib/data'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -40,6 +42,7 @@ interface TechnicianStatus {
 }
 
 export function OpsManagerCommandCenter() {
+  const { currentUser } = useAppStore()
   const [isLoading, setIsLoading] = useState(true)
   const [currentDate, setCurrentDate] = useState('')
   const [currentTime, setCurrentTime] = useState('')
@@ -51,20 +54,45 @@ export function OpsManagerCommandCenter() {
   }, [])
 
   useEffect(() => {
-    // Simulated technician data
-    const mockTechData: TechnicianStatus[] = [
-      { id: '1', name: 'Mike Johnson', route: 'Route 12A', status: 'at_stop', stopsCompleted: 3, stopsTotal: 6, callbacks: 0, utilization: 92, rating: 4.8 },
-      { id: '2', name: 'James Williams', route: 'Route 15B', status: 'on_route', stopsCompleted: 4, stopsTotal: 5, callbacks: 1, utilization: 88, rating: 4.5 },
-      { id: '3', name: 'Robert Davis', route: 'Route 8C', status: 'delayed', stopsCompleted: 2, stopsTotal: 7, callbacks: 0, utilization: 75, rating: 4.6 },
-      { id: '4', name: 'Chris Martinez', route: 'Route 22A', status: 'on_route', stopsCompleted: 5, stopsTotal: 6, callbacks: 0, utilization: 95, rating: 4.9 },
-      { id: '5', name: 'Daniel Brown', route: 'Route 3D', status: 'completed', stopsCompleted: 5, stopsTotal: 5, callbacks: 2, utilization: 85, rating: 4.2 },
-    ]
+    // Get assigned technicians from current user, or use mock data as fallback
+    const users = getUsers()
+    const assignedTechIds = currentUser?.assignedTechnicians || []
+
+    // Filter technicians based on ops manager's assigned technicians
+    const assignedTechs = users.filter(u =>
+      u.role === 'technician' &&
+      (assignedTechIds.length === 0 || assignedTechIds.includes(u.id))
+    )
+
+    // Generate realistic status data for assigned technicians
+    const statuses: Array<'on_route' | 'at_stop' | 'completed' | 'delayed'> = ['on_route', 'at_stop', 'completed', 'delayed']
+    const routes = ['Route 12A', 'Route 15B', 'Route 8C', 'Route 22A', 'Route 3D', 'Route 7F', 'Route 18E']
+
+    const technicianData: TechnicianStatus[] = assignedTechs.slice(0, 5).map((tech, index) => {
+      const stopsTotal = 5 + Math.floor(Math.random() * 3) // 5-7 stops
+      const stopsCompleted = Math.min(Math.floor(Math.random() * (stopsTotal + 1)), stopsTotal)
+      return {
+        id: tech.id,
+        name: tech.name,
+        route: routes[index % routes.length],
+        status: statuses[index % 4],
+        stopsCompleted,
+        stopsTotal,
+        callbacks: Math.floor(Math.random() * 3),
+        utilization: 75 + Math.floor(Math.random() * 20),
+        rating: 4.0 + Math.random() * 0.9,
+      }
+    })
 
     setTimeout(() => {
-      setTechData(mockTechData)
+      setTechData(technicianData.length > 0 ? technicianData : [
+        // Fallback if no technicians found
+        { id: '1', name: 'Mike Johnson', route: 'Route 12A', status: 'at_stop', stopsCompleted: 3, stopsTotal: 6, callbacks: 0, utilization: 92, rating: 4.8 },
+        { id: '2', name: 'James Williams', route: 'Route 15B', status: 'on_route', stopsCompleted: 4, stopsTotal: 5, callbacks: 1, utilization: 88, rating: 4.5 },
+      ])
       setIsLoading(false)
     }, 300)
-  }, [])
+  }, [currentUser])
 
   // Team aggregations
   const teamStats = {
