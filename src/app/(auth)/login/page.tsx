@@ -34,16 +34,32 @@ export default function LoginPage() {
     }
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // First, try to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          setError('Invalid email or password')
+      if (signInError) {
+        // If user doesn't exist, create account automatically
+        if (signInError.message.includes('Invalid login credentials')) {
+          const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              // Auto-confirm for alpha testing (no email verification needed)
+              emailRedirectTo: `${window.location.origin}/onboarding`,
+            },
+          })
+
+          if (signUpError) {
+            setError(signUpError.message)
+          } else {
+            // Account created and signed in
+            router.push('/onboarding')
+          }
         } else {
-          setError(error.message)
+          setError(signInError.message)
         }
       } else {
         router.push('/onboarding')
@@ -135,10 +151,10 @@ export default function LoginPage() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Welcome back
+                Welcome to Rentokil BI
               </h1>
               <p className="text-gray-500 dark:text-gray-400 mt-2">
-                Sign in to access your dashboard
+                Sign in or create your account
               </p>
             </div>
 
@@ -204,9 +220,9 @@ export default function LoginPage() {
 
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-                Alpha testing program - authorized users only.
+                New users will be automatically registered.
                 <br />
-                Contact your admin for access credentials.
+                Use at least 6 characters for your password.
               </p>
             </div>
           </div>
