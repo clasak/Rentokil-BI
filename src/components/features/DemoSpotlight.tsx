@@ -578,7 +578,7 @@ function SpotlightOverlay({
     }
   }, [target.elementId, isActive])
 
-  if (!mounted || !isActive || !position) return null
+  if (!mounted || !isActive || !position || typeof document === 'undefined') return null
 
   const calloutStyle: React.CSSProperties = {
     position: 'absolute',
@@ -765,6 +765,17 @@ function SpotlightOverlay({
 export function DemoSpotlight() {
   const router = useRouter()
   const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
+  const [currentSubStep, setCurrentSubStep] = useState(0)
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false)
+  const [isMinimized, setIsMinimized] = useState(false)
+  const [showNotes, setShowNotes] = useState(true)
+  const [isPoppedOut, setIsPoppedOut] = useState(false)
+  const [popoutWindow, setPopoutWindow] = useState<Window | null>(null)
+  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const subStepTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Only access store after mount to prevent hydration mismatch
   const {
     presenterMode,
     presenterStep,
@@ -773,16 +784,6 @@ export function DemoSpotlight() {
     prevPresenterStep,
     setPresenterMode
   } = useAppStore()
-
-  const [currentSubStep, setCurrentSubStep] = useState(0)
-  const [isAutoPlaying, setIsAutoPlaying] = useState(false)
-  const [isMinimized, setIsMinimized] = useState(false)
-  const [showNotes, setShowNotes] = useState(true)
-  const [mounted, setMounted] = useState(false)
-  const [isPoppedOut, setIsPoppedOut] = useState(false)
-  const [popoutWindow, setPopoutWindow] = useState<Window | null>(null)
-  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const subStepTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -1244,7 +1245,11 @@ export function DemoSpotlight() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [presenterMode, currentSubStep, totalSubSteps, presenterStep, steps.length, nextPresenterStep, prevPresenterStep, setPresenterMode, isPoppedOut, popoutWindow, openPopoutWindow])
 
-  if (!mounted || !presenterMode) return null
+  // Don't render anything until mounted to prevent hydration mismatch
+  // Also check that presenterMode is active (from persisted zustand store)
+  const isPresenterActive = mounted ? presenterMode : false
+
+  if (!mounted || !isPresenterActive) return null
 
   return (
     <>
