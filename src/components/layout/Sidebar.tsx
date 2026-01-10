@@ -10,8 +10,16 @@ import {
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
   ClipboardList, Truck, Upload, Book, Shield, GitBranch,
-  ClipboardCheck, Workflow
+  ClipboardCheck, Workflow, Lock
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+
+// Admin emails that can see the admin link
+const ADMIN_EMAILS = [
+  'cody.lytle@rentokil.com',
+  'cody.lytle@gmail.com',
+  'clasak@gmail.com',
+]
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -130,10 +138,25 @@ export function Sidebar() {
   const pathname = usePathname()
   const { sidebarCollapsed, setSidebarCollapsed, settings: appSettings } = useAppStore()
   const [isClient, setIsClient] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const supabase = createClient()
 
   useEffect(() => {
     setIsClient(true)
-  }, [])
+
+    // Check if user is admin
+    const checkAdmin = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.email) {
+          setIsAdmin(ADMIN_EMAILS.includes(user.email.toLowerCase()))
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+    checkAdmin()
+  }, [supabase])
 
   // Use default values during SSR to avoid hydration mismatch
   const currentRole = isClient ? appSettings.role : 'exec'
@@ -229,6 +252,9 @@ export function Sidebar() {
           {settings.map((item) => (
             <NavItem key={item.name} item={item} />
           ))}
+          {isAdmin && (
+            <NavItem item={{ name: 'Admin', href: '/admin', icon: Lock }} />
+          )}
         </nav>
       </ScrollArea>
 
