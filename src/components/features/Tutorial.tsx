@@ -494,7 +494,7 @@ function TutorialSpotlight({
     }
   }, [step.elementId, isActive])
 
-  if (!mounted || !isActive) return null
+  if (!mounted || !isActive || typeof document === 'undefined') return null
 
   const isLastStep = stepNumber === totalSteps
   const isFirstStep = stepNumber === 1
@@ -688,7 +688,7 @@ function HelpDialog({
   const [askQuestion, setAskQuestion] = useState('')
   const [expandedCategory, setExpandedCategory] = useState<string | null>('Getting Started')
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
   const filteredFAQ = HELP_FAQ.map(category => ({
     ...category,
@@ -802,44 +802,51 @@ function HelpDialog({
 export function Tutorial() {
   const router = useRouter()
   const pathname = usePathname()
-  const { settings, tutorialActive, tutorialStep, setTutorialActive, setTutorialStep } = useAppStore()
-
-  const [showHelp, setShowHelp] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+
+  // Only access store after mount to prevent hydration mismatch
+  const { settings, tutorialActive, tutorialStep, setTutorialActive, setTutorialStep } = useAppStore()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const currentRole = settings.role
+  // Get tutorial config - use default values during SSR
+  const currentRole = mounted ? settings.role : 'exec'
+  const isTutorialActive = mounted ? tutorialActive : false
+  const currentStep = mounted ? tutorialStep : 0
+
   const tutorial = ROLE_TUTORIALS[currentRole]
-  const currentStepConfig = tutorial?.steps[tutorialStep]
+  const currentStepConfig = tutorial?.steps[currentStep]
   const totalSteps = tutorial?.steps.length || 0
 
   // Navigate to route when step changes
   useEffect(() => {
-    if (tutorialActive && currentStepConfig?.route && pathname !== currentStepConfig.route) {
+    if (isTutorialActive && currentStepConfig?.route && pathname !== currentStepConfig.route) {
       router.push(currentStepConfig.route)
     }
-  }, [tutorialActive, currentStepConfig, pathname, router])
+  }, [isTutorialActive, currentStepConfig, pathname, router])
 
   const handleNext = useCallback(() => {
-    if (tutorialStep < totalSteps - 1) {
-      setTutorialStep(tutorialStep + 1)
+    if (currentStep < totalSteps - 1) {
+      setTutorialStep(currentStep + 1)
     } else {
       // Tutorial complete
       setTutorialActive(false)
       setTutorialStep(0)
       // Mark tutorial as completed in localStorage
-      localStorage.setItem(`tutorial_completed_${currentRole}`, 'true')
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`tutorial_completed_${currentRole}`, 'true')
+      }
     }
-  }, [tutorialStep, totalSteps, setTutorialStep, setTutorialActive, currentRole])
+  }, [currentStep, totalSteps, setTutorialStep, setTutorialActive, currentRole])
 
   const handlePrev = useCallback(() => {
-    if (tutorialStep > 0) {
-      setTutorialStep(tutorialStep - 1)
+    if (currentStep > 0) {
+      setTutorialStep(currentStep - 1)
     }
-  }, [tutorialStep, setTutorialStep])
+  }, [currentStep, setTutorialStep])
 
   const handleClose = useCallback(() => {
     setTutorialActive(false)
@@ -848,7 +855,7 @@ export function Tutorial() {
 
   // Keyboard navigation
   useEffect(() => {
-    if (!tutorialActive) return
+    if (!isTutorialActive) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -877,16 +884,17 @@ export function Tutorial() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [tutorialActive, handleNext, handlePrev, handleClose])
+  }, [isTutorialActive, handleNext, handlePrev, handleClose])
 
-  if (!mounted || !tutorialActive || !currentStepConfig) return null
+  // Don't render anything until mounted to prevent hydration mismatch
+  if (!mounted || !isTutorialActive || !currentStepConfig) return null
 
   return (
     <>
       <TutorialSpotlight
         step={currentStepConfig}
         isActive={true}
-        stepNumber={tutorialStep + 1}
+        stepNumber={currentStep + 1}
         totalSteps={totalSteps}
         onNext={handleNext}
         onPrev={handlePrev}
@@ -901,6 +909,11 @@ export function Tutorial() {
 // Help button component for use anywhere in the app
 export function HelpButton() {
   const [showHelp, setShowHelp] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <>
@@ -913,15 +926,22 @@ export function HelpButton() {
         <HelpCircle className="h-4 w-4" />
         Help
       </Button>
-      <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      {mounted && <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />}
     </>
   )
 }
 
 // Tutorial launcher button
 export function TutorialLauncher() {
+  const [mounted, setMounted] = useState(false)
   const { settings, setTutorialActive, setTutorialStep } = useAppStore()
-  const tutorial = ROLE_TUTORIALS[settings.role]
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const role = mounted ? settings.role : 'exec'
+  const tutorial = ROLE_TUTORIALS[role]
 
   const startTutorial = () => {
     setTutorialStep(0)
