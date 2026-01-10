@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { DataQualityBanner } from '@/components/features/DataQualityBanner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Tutorial } from '@/components/features/Tutorial'
 
 interface MainLayoutProps {
   children: ReactNode
@@ -23,6 +24,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           </main>
         </div>
       </div>
+      {/* Tutorial overlay */}
+      <Tutorial />
     </TooltipProvider>
   )
 }

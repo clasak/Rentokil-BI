@@ -50,6 +50,12 @@ interface AppState {
   nextPresenterStep: () => void
   prevPresenterStep: () => void
 
+  // Tutorial Mode (for users)
+  tutorialActive: boolean
+  setTutorialActive: (active: boolean) => void
+  tutorialStep: number
+  setTutorialStep: (step: number) => void
+
   // Theme
   theme: Theme
   setTheme: (theme: Theme) => void
@@ -311,6 +317,12 @@ export const useAppStore = create<AppState>()(
           set({ presenterStep: state.presenterStep - 1 })
         }
       },
+
+      // Tutorial Mode (for users)
+      tutorialActive: false,
+      setTutorialActive: (active: boolean) => set({ tutorialActive: active }),
+      tutorialStep: 0,
+      setTutorialStep: (step: number) => set({ tutorialStep: step }),
 
       // Theme
       theme: 'light' as Theme,

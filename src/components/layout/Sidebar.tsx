@@ -17,8 +17,7 @@ import { createClient } from '@/lib/supabase/client'
 // Admin emails that can see the admin link
 const ADMIN_EMAILS = [
   'cody.lytle@rentokil.com',
-  'cody.lytle@gmail.com',
-  'clasak@gmail.com',
+  'cody.lytle@prestox.com',
 ]
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'

@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import {
   Building2, TrendingUp, Truck, Users, UserCheck, Wrench,
-  Briefcase, Crown, Loader2, CheckCircle
+  Briefcase, Crown, Loader2, CheckCircle, BookOpen
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Role } from '@/types'
@@ -83,12 +84,13 @@ const ROLE_OPTIONS: RoleOption[] = [
 export default function OnboardingPage() {
   const [name, setName] = useState('')
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
+  const [startTutorial, setStartTutorial] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
-  const { setRole } = useAppStore()
+  const { setRole, setTutorialActive, setTutorialStep } = useAppStore()
 
   useEffect(() => {
     // Get the current user's email
@@ -159,6 +161,12 @@ export default function OnboardingPage() {
 
       // Set onboarding complete cookie (1 year expiry)
       document.cookie = 'onboarding_complete=true; path=/; max-age=31536000'
+
+      // Start tutorial if user opted in
+      if (startTutorial) {
+        setTutorialStep(0)
+        setTutorialActive(true)
+      }
 
       // Redirect to main dashboard
       router.push('/')
@@ -249,6 +257,24 @@ export default function OnboardingPage() {
               </div>
             </div>
 
+            {/* Tutorial Option */}
+            <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-3">
+                <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <div>
+                  <div className="font-medium text-sm text-blue-900 dark:text-blue-100">Start with a guided tour</div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Learn how to use your dashboard step by step
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={startTutorial}
+                onCheckedChange={setStartTutorial}
+                disabled={loading}
+              />
+            </div>
+
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md text-sm">
                 {error}
@@ -265,6 +291,11 @@ export default function OnboardingPage() {
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Setting up...
                 </>
+              ) : startTutorial ? (
+                <>
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Start Tutorial
+                </>
               ) : (
                 'Continue to Dashboard'
               )}
@@ -273,7 +304,7 @@ export default function OnboardingPage() {
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
               Your role determines which dashboard view you&apos;ll see.
               <br />
-              Contact admin if you need to change your role.
+              You can restart the tutorial anytime from Settings.
             </p>
           </form>
         </CardContent>

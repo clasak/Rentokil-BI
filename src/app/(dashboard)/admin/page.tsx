@@ -28,9 +28,7 @@ import { createClient } from '@/lib/supabase/client'
 // Admin emails that can access this page
 const ADMIN_EMAILS = [
   'cody.lytle@rentokil.com',
-  'cody.lytle@gmail.com',
-  'clasak@gmail.com',
-  // Add more admin emails as needed
+  'cody.lytle@prestox.com',
 ]
 
 export default function AdminPage() {
