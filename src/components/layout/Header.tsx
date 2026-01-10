@@ -36,6 +36,11 @@ import { Role } from '@/types'
 import { ConnectionStatus } from '@/components/features/ConnectionStatus'
 import { BusinessUnitSelector } from '@/components/features/BusinessUnitSelector'
 import { RoleTutorial } from '@/components/features/RoleTutorial'
+import { isSupabaseConfigured } from '@/lib/supabase/client'
+
+// Check if we're in alpha/production mode (Supabase configured)
+// In alpha mode, hide role switcher and presenter tools - users see only their assigned role
+const IS_ALPHA_MODE = isSupabaseConfigured()
 
 // All roles now use the same Command Center route
 // The page dynamically shows role-appropriate content
@@ -318,68 +323,74 @@ export function Header() {
         {/* Business Unit Selector (J5) */}
         <BusinessUnitSelector variant="dropdown" />
 
-        {/* Role Tutorial */}
+        {/* Role Tutorial - always show */}
         <RoleTutorial />
 
-        {/* Role Selector */}
-        <Select
-          value={isClient ? settings.role : 'exec'}
-          onValueChange={(value) => {
-            const newRole = value as Role
-            setRole(newRole)
-            // Navigate to the appropriate default route for this role
-            router.push(ROLE_DEFAULT_ROUTES[newRole])
-          }}
-        >
-          <SelectTrigger className="w-[160px]" title="Switch user role to view different dashboards">
-            <SelectValue placeholder="Role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="exec">Executive</SelectItem>
-            <SelectItem value="market_director">Market Director</SelectItem>
-            <SelectItem value="region_director">Region Director</SelectItem>
-            <SelectItem value="manager">Branch Manager</SelectItem>
-            <SelectItem value="sales_manager">Sales Manager</SelectItem>
-            <SelectItem value="ops_manager">Ops Manager</SelectItem>
-            <SelectItem value="rep">Account Exec</SelectItem>
-            <SelectItem value="technician">Technician</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Role Selector - ONLY in demo mode, hidden in alpha */}
+        {!IS_ALPHA_MODE && (
+          <Select
+            value={isClient ? settings.role : 'exec'}
+            onValueChange={(value) => {
+              const newRole = value as Role
+              setRole(newRole)
+              // Navigate to the appropriate default route for this role
+              router.push(ROLE_DEFAULT_ROUTES[newRole])
+            }}
+          >
+            <SelectTrigger className="w-[160px]" title="Switch user role to view different dashboards">
+              <SelectValue placeholder="Role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="exec">Executive</SelectItem>
+              <SelectItem value="market_director">Market Director</SelectItem>
+              <SelectItem value="region_director">Region Director</SelectItem>
+              <SelectItem value="manager">Branch Manager</SelectItem>
+              <SelectItem value="sales_manager">Sales Manager</SelectItem>
+              <SelectItem value="ops_manager">Ops Manager</SelectItem>
+              <SelectItem value="rep">Account Exec</SelectItem>
+              <SelectItem value="technician">Technician</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
-        {/* Presenter Mode */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPresenterMode(true)}
-              className="gap-2"
-            >
-              <Presentation className="h-4 w-4" />
-              Present
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Start presentation mode with guided tour</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* Presenter Mode - ONLY in demo mode, hidden in alpha */}
+        {!IS_ALPHA_MODE && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPresenterMode(true)}
+                className="gap-2"
+              >
+                <Presentation className="h-4 w-4" />
+                Present
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Start presentation mode with guided tour</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
 
-        {/* Speaker Notes (opens in new window) */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => window.open('/presenter', '_blank', 'width=500,height=700')}
-              className="gap-1"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Open speaker notes in new window</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* Speaker Notes - ONLY in demo mode, hidden in alpha */}
+        {!IS_ALPHA_MODE && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.open('/presenter', '_blank', 'width=500,height=700')}
+                className="gap-1"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Open speaker notes in new window</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
 
         {/* Theme Toggle */}
         <Tooltip>
