@@ -36,11 +36,17 @@ import { Role } from '@/types'
 import { ConnectionStatus } from '@/components/features/ConnectionStatus'
 import { BusinessUnitSelector } from '@/components/features/BusinessUnitSelector'
 import { RoleTutorial } from '@/components/features/RoleTutorial'
-import { isSupabaseConfigured } from '@/lib/supabase/client'
 
 // Check if we're in alpha/production mode (Supabase configured)
 // In alpha mode, hide role switcher and presenter tools - users see only their assigned role
-const IS_ALPHA_MODE = isSupabaseConfigured()
+// Must check at runtime since env vars are injected by Vercel
+function isAlphaMode(): boolean {
+  if (typeof window === 'undefined') return false
+  return !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+}
 
 // All roles now use the same Command Center route
 // The page dynamically shows role-appropriate content
@@ -327,7 +333,7 @@ export function Header() {
         <RoleTutorial />
 
         {/* Role Selector - ONLY in demo mode, hidden in alpha */}
-        {!IS_ALPHA_MODE && (
+        {!isAlphaMode() && (
           <Select
             value={isClient ? settings.role : 'exec'}
             onValueChange={(value) => {
@@ -354,7 +360,7 @@ export function Header() {
         )}
 
         {/* Presenter Mode - ONLY in demo mode, hidden in alpha */}
-        {!IS_ALPHA_MODE && (
+        {!isAlphaMode() && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -374,7 +380,7 @@ export function Header() {
         )}
 
         {/* Speaker Notes - ONLY in demo mode, hidden in alpha */}
-        {!IS_ALPHA_MODE && (
+        {!isAlphaMode() && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
