@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -12,22 +12,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { MessageSquarePlus, ThumbsUp, ThumbsDown, Bug, Lightbulb, Send, CheckCircle } from 'lucide-react'
+import { MessageSquarePlus, ThumbsUp, ThumbsDown, Bug, Lightbulb, Send, CheckCircle, User } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { useAppStore } from '@/store'
 
 type FeedbackType = 'like' | 'dislike' | 'bug' | 'idea'
-type Department = 'operations' | 'sales' | 'finance' | 'executive' | 'other'
+
+interface UserProfile {
+  name: string
+  email: string
+  department: string
+  role: string
+}
 
 interface FeedbackEntry {
   type: FeedbackType
-  department: Department
+  department: string
+  role: string
+  userName: string
+  userEmail: string
   page: string
   message: string
   timestamp: string
@@ -37,29 +41,91 @@ interface FeedbackEntry {
 export function AlphaFeedback() {
   const [isOpen, setIsOpen] = useState(false)
   const [feedbackType, setFeedbackType] = useState<FeedbackType | null>(null)
-  const [department, setDepartment] = useState<Department | null>(null)
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const pathname = usePathname()
+  const { settings } = useAppStore()
 
-  const handleSubmit = () => {
-    if (!feedbackType || !department || !message.trim()) return
+  const supabase = createClient()
+
+  // Load user profile on mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          // Try to get profile from Supabase
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('name, email, department, role')
+            .eq('id', user.id)
+            .single()
+
+          if (profile) {
+            setUserProfile(profile as UserProfile)
+          } else {
+            // Fallback to local storage profile
+            const stored = localStorage.getItem('user_profile')
+            if (stored) {
+              setUserProfile(JSON.parse(stored))
+            }
+          }
+        } else {
+          // Not authenticated, check local storage
+          const stored = localStorage.getItem('user_profile')
+          if (stored) {
+            setUserProfile(JSON.parse(stored))
+          }
+        }
+      } catch (error) {
+        // Fallback to local storage
+        const stored = localStorage.getItem('user_profile')
+        if (stored) {
+          setUserProfile(JSON.parse(stored))
+        }
+      }
+    }
+    loadProfile()
+  }, [supabase])
+
+  const handleSubmit = async () => {
+    if (!feedbackType || !message.trim()) return
 
     const feedback: FeedbackEntry = {
       type: feedbackType,
-      department,
+      department: userProfile?.department || 'Unknown',
+      role: userProfile?.role || settings.role,
+      userName: userProfile?.name || 'Anonymous',
+      userEmail: userProfile?.email || 'unknown',
       page: pathname,
       message: message.trim(),
       timestamp: new Date().toISOString(),
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
     }
 
-    // Store in localStorage for now (you can later sync to Supabase)
+    // Try to save to Supabase first
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase.from('alpha_feedback').insert({
+          user_id: user.id,
+          feedback_type: feedbackType,
+          department: feedback.department,
+          page: pathname,
+          message: feedback.message,
+          user_agent: feedback.userAgent
+        })
+      }
+    } catch (error) {
+      console.log('[Alpha Feedback] Could not save to Supabase, saving locally')
+    }
+
+    // Always save locally as backup
     const existingFeedback = JSON.parse(localStorage.getItem('alpha_feedback') || '[]')
     existingFeedback.push(feedback)
     localStorage.setItem('alpha_feedback', JSON.stringify(existingFeedback))
 
-    // Also log to console for easy access during development
     console.log('[Alpha Feedback]', feedback)
 
     setSubmitted(true)
@@ -67,7 +133,6 @@ export function AlphaFeedback() {
       setIsOpen(false)
       setSubmitted(false)
       setFeedbackType(null)
-      setDepartment(null)
       setMessage('')
     }, 2000)
   }
@@ -117,6 +182,21 @@ export function AlphaFeedback() {
           </div>
         ) : (
           <div className="space-y-4 py-4">
+            {/* User Info - Auto-filled from profile */}
+            {userProfile && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                  <User className="h-5 w-5 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-sm">{userProfile.name}</div>
+                  <div className="text-xs text-gray-500">
+                    {userProfile.department} • {userProfile.role?.replace('_', ' ')}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Feedback Type Selection */}
             <div>
               <label className="text-sm font-medium mb-2 block">What kind of feedback?</label>
@@ -136,23 +216,6 @@ export function AlphaFeedback() {
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Department Selection */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Your department</label>
-              <Select value={department || ''} onValueChange={(v) => setDepartment(v as Department)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="operations">Operations</SelectItem>
-                  <SelectItem value="sales">Sales</SelectItem>
-                  <SelectItem value="finance">Finance</SelectItem>
-                  <SelectItem value="executive">Executive</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Current Page Display */}
@@ -180,7 +243,7 @@ export function AlphaFeedback() {
             {/* Submit */}
             <Button
               onClick={handleSubmit}
-              disabled={!feedbackType || !department || !message.trim()}
+              disabled={!feedbackType || !message.trim()}
               className="w-full gap-2"
             >
               <Send className="h-4 w-4" />
@@ -188,7 +251,7 @@ export function AlphaFeedback() {
             </Button>
 
             <p className="text-xs text-gray-400 text-center">
-              Feedback is stored locally and reviewed by the development team.
+              Feedback is saved and reviewed by the development team.
             </p>
           </div>
         )}
@@ -249,11 +312,11 @@ export function FeedbackViewer() {
                   {f.type}
                 </Badge>
                 <Badge variant="outline">{f.department}</Badge>
-                <span className="text-xs text-gray-400">{f.page}</span>
+                <span className="text-xs text-gray-400">{f.userName}</span>
               </div>
               <p className="text-gray-700 dark:text-gray-300">{f.message}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {new Date(f.timestamp).toLocaleString()}
+                {f.page} • {new Date(f.timestamp).toLocaleString()}
               </p>
             </div>
           ))}
