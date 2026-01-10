@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store'
 import {
   ExecutiveCommandCenter,
@@ -10,8 +11,15 @@ import {
 } from '@/components/dashboard'
 
 export default function CommandCenterPage() {
+  const [mounted, setMounted] = useState(false)
   const { settings } = useAppStore()
-  const { role } = settings
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Use default role during SSR to prevent hydration mismatch
+  const role = mounted ? settings.role : 'exec'
 
   // Leadership roles see the executive dashboard
   // exec, market_director, region_director, manager
