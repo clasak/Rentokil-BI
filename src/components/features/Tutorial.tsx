@@ -734,7 +734,7 @@ function HelpDialog({
           <div className="flex-1 overflow-y-auto px-6 py-4">
             {filteredFAQ.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                No results found for "{searchQuery}"
+                No results found for &quot;{searchQuery}&quot;
               </div>
             ) : (
               <div className="space-y-4">
@@ -774,7 +774,7 @@ function HelpDialog({
           <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shrink-0">
             <div className="flex items-center gap-2 mb-2">
               <MessageCircle className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Can't find what you need?</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Can&apos;t find what you need?</span>
             </div>
             <div className="flex gap-2">
               <Input

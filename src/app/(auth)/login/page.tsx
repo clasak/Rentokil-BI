@@ -119,7 +119,7 @@ export default function LoginPage() {
             <strong className="text-gray-700 dark:text-gray-200">{email}</strong>
           </p>
           <p className="text-sm text-gray-400 dark:text-gray-500">
-            Click the link in the email to reset your password. If you don't see it, check your spam folder.
+            Click the link in the email to reset your password. If you don&apos;t see it, check your spam folder.
           </p>
           <Button
             variant="outline"
@@ -144,7 +144,7 @@ export default function LoginPage() {
               Reset your password
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-2">
-              Enter your email and we'll send you a reset link
+              Enter your email and we&apos;ll send you a reset link
             </p>
           </div>
 
