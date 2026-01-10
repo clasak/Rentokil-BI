@@ -11,6 +11,12 @@ import {
   type ReconciliationResult,
   type DataSourceHealth
 } from '@/lib/data-quality-engine'
+import {
+  runValidation,
+  getValidationSummary,
+  getFormattedValidationIssues,
+  type ValidationResult
+} from '@/lib/data-validation'
 import { DATA_SOURCES_METADATA, type DataSource } from '@/lib/data-dictionary'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -51,7 +57,7 @@ import {
   RefreshCw, Clock, Activity, TrendingUp, TrendingDown,
   ArrowRight, ChevronRight, Eye, User, Zap, Server,
   GitCompare, FileWarning, CheckCircle2, XCircle, Info,
-  ArrowUpRight, ArrowDownRight
+  ArrowUpRight, ArrowDownRight, Cpu, FlaskConical
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 
@@ -271,6 +277,11 @@ export default function DataQualityPage() {
   const qualityScore = useMemo(() => getDataQualityScore(), [])
   const issueSummary = useMemo(() => getIssueSummary(), [])
 
+  // Real-time validation from validation layer (J4)
+  const validationResult = useMemo(() => runValidation(), [])
+  const validationSummary = useMemo(() => getValidationSummary(), [])
+  const validationIssues = useMemo(() => getFormattedValidationIssues(), [])
+
   // Filter issues
   const filteredIssues = useMemo(() => {
     return issues.filter(issue => {
@@ -379,8 +390,17 @@ export default function DataQualityPage() {
       </Card>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="issues" className="space-y-4">
+      <Tabs defaultValue="validation" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="validation" className="gap-2">
+            <Cpu className="h-4 w-4" />
+            Live Validation
+            {validationSummary.critical > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                {validationSummary.critical}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="issues" className="gap-2">
             <FileWarning className="h-4 w-4" />
             Issues ({issueSummary.total})
@@ -394,6 +414,174 @@ export default function DataQualityPage() {
             Source Health
           </TabsTrigger>
         </TabsList>
+
+        {/* Live Validation Tab (J4) */}
+        <TabsContent value="validation" className="space-y-4">
+          {/* Validation Status Banner */}
+          <Card className={`border-l-4 ${
+            validationSummary.status === 'healthy' ? 'border-l-green-500' :
+            validationSummary.status === 'warning' ? 'border-l-yellow-500' :
+            'border-l-red-500'
+          }`}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    validationSummary.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
+                    validationSummary.status === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                    'bg-red-100 dark:bg-red-900/30'
+                  }`}>
+                    {validationSummary.status === 'healthy' ? (
+                      <CheckCircle className="h-6 w-6 text-green-500" />
+                    ) : validationSummary.status === 'warning' ? (
+                      <AlertTriangle className="h-6 w-6 text-yellow-500" />
+                    ) : (
+                      <AlertCircle className="h-6 w-6 text-red-500" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      Real-Time KPI Validation
+                      <Badge variant="outline" className="gap-1">
+                        <FlaskConical className="h-3 w-3" />
+                        Simulation Mode
+                      </Badge>
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {validationSummary.status === 'healthy'
+                        ? 'All KPI calculations passing validation checks'
+                        : `${validationSummary.critical + validationSummary.warning} issues detected in KPI calculations`}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold">{validationSummary.score}%</div>
+                  <div className="text-xs text-muted-foreground">
+                    Validation Score
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Validation Check Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {validationResult.checks.map(check => (
+              <Card key={check.name} className={check.passed ? '' : 'border-yellow-200 dark:border-yellow-800'}>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">{check.name}</span>
+                    {check.passed ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{check.recordsChecked} checked</span>
+                    <span>{check.issuesFound} issues</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {check.executionTime}ms
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Validation Issues List */}
+          {validationIssues.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  Detected Issues
+                </CardTitle>
+                <CardDescription>
+                  Issues found during real-time validation of KPI calculations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px]"></TableHead>
+                      <TableHead>Check</TableHead>
+                      <TableHead>KPI/Field</TableHead>
+                      <TableHead>Issue</TableHead>
+                      <TableHead>Value</TableHead>
+                      <TableHead>Remediation</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {validationIssues.map(issue => (
+                      <TableRow key={issue.id}>
+                        <TableCell>
+                          {issue.severity === 'critical' ? (
+                            <AlertCircle className="h-4 w-4 text-red-500" />
+                          ) : issue.severity === 'warning' ? (
+                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                          ) : (
+                            <Info className="h-4 w-4 text-blue-500" />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {issue.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-sm">{issue.title}</div>
+                          <code className="text-xs text-muted-foreground">{issue.field}</code>
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[200px]">
+                          {issue.description}
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                            {issue.value}
+                          </code>
+                        </TableCell>
+                        <TableCell className="text-sm text-green-600 dark:text-green-400 max-w-[200px]">
+                          {issue.remediation}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-green-200 dark:border-green-800">
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                  <h3 className="text-lg font-semibold">All Validations Passing</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    No issues detected in KPI calculations. All values are within expected ranges.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Info about validation */}
+          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <CardContent className="pt-4">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+                <div className="text-sm">
+                  <strong className="text-blue-800 dark:text-blue-200">About Live Validation</strong>
+                  <p className="text-blue-700 dark:text-blue-300 mt-1">
+                    This tab runs real-time validation checks against KPI calculations to detect NaN values,
+                    out-of-range results, and calculation inconsistencies. In production with RTX integration,
+                    these checks will also validate cross-source data consistency.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Issues Tab */}
         <TabsContent value="issues" className="space-y-4">

@@ -184,6 +184,31 @@ export interface KPIDefinition {
   target?: number
   warningThreshold?: number
   criticalThreshold?: number
+  // M8: Extended formula and lineage fields
+  formula?: string // Human-readable calculation formula
+  sqlFormula?: string // SQL-like representation for technical users
+  lineage?: KPILineage // Data lineage tracking
+  dependencies?: string[] // Other KPI slugs this depends on
+  usedBy?: string[] // KPIs that depend on this one
+  businessContext?: string // Why this KPI matters for pest control industry
+  benchmarks?: KPIBenchmark[] // Industry benchmarks for comparison
+}
+
+export interface KPILineage {
+  sourceSystem: string // e.g., "RTX Data Hub", "Salesforce"
+  sourceTable: string // e.g., "invoices", "opportunities"
+  sourceFields: string[] // Fields used in calculation
+  transformations: string[] // ETL transformations applied
+  lastUpdated?: Date
+  updateFrequency: string
+  dataLag: string // e.g., "T-1" for day-old data
+}
+
+export interface KPIBenchmark {
+  name: string // e.g., "Industry Average", "Top Quartile"
+  value: number
+  source: string // Where this benchmark came from
+  asOfDate?: string
 }
 
 export interface KPIValue {

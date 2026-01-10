@@ -48,19 +48,19 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold dark:text-gray-100">Settings</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Configure demo mode, role simulation, and data options</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Configure simulation mode, role simulation, and data options</p>
         </div>
       </div>
 
-      {/* Demo Mode */}
+      {/* Simulation Mode */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            Demo Mode
+            Simulation Mode
           </CardTitle>
           <CardDescription>
-            Choose a demo scenario to highlight different aspects of the BI platform
+            Choose a simulation scenario to highlight different aspects of the BI platform
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

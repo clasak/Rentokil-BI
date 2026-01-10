@@ -87,6 +87,20 @@ export function SalesManagerCommandCenter() {
 
   const teamGoalProgress = teamStats.totalGoal > 0 ? (teamStats.totalRevenue / teamStats.totalGoal) * 100 : 0
 
+  // Pace-based forecasting
+  const now = new Date()
+  const currentDay = now.getDate()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const daysElapsed = Math.max(currentDay, 1)
+  const daysRemaining = daysInMonth - currentDay
+
+  const dailyPace = teamStats.totalRevenue / daysElapsed
+  const projectedFinish = teamStats.totalRevenue + (dailyPace * daysRemaining)
+  const projectedVsGoal = teamStats.totalGoal > 0 ? ((projectedFinish / teamStats.totalGoal) * 100) : 0
+  const isOnPace = projectedFinish >= teamStats.totalGoal
+  const paceStatus = isOnPace ? 'ON TRACK' : 'AT RISK'
+  const paceGap = projectedFinish - teamStats.totalGoal
+
   // Chart data for rep comparison
   const repChartData = repData.map(r => ({
     name: r.name.split(' ')[0],
@@ -147,7 +161,7 @@ export function SalesManagerCommandCenter() {
       </div>
 
       {/* Team Goal Progress */}
-      <Card className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+      <Card className={`bg-gradient-to-r ${isOnPace ? 'from-green-600 to-green-700' : 'from-amber-600 to-amber-700'} text-white`}>
         <CardContent className="py-6">
           <div className="flex items-center justify-between">
             <div>
@@ -168,6 +182,41 @@ export function SalesManagerCommandCenter() {
           <div className="flex justify-between mt-2 text-sm text-white/80">
             <span>{formatCurrency(teamStats.totalGoal - teamStats.totalRevenue)} to goal</span>
             <span>{repData.filter(r => r.mtdRevenue >= r.goal).length} of {repData.length} reps on target</span>
+          </div>
+
+          {/* Pace-based Forecast */}
+          <div className="mt-4 pt-4 border-t border-white/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={`${isOnPace ? 'bg-green-500/30 border-green-300 text-white' : 'bg-amber-500/30 border-amber-300 text-white'}`}
+                >
+                  {paceStatus}
+                </Badge>
+                <span className="text-sm text-white/80">
+                  Day {currentDay} of {daysInMonth}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-1">
+                  {isOnPace ? (
+                    <ArrowUpRight className="h-4 w-4 text-green-300" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4 text-amber-300" />
+                  )}
+                  <span className="text-sm font-medium">
+                    Projected: {formatCurrency(projectedFinish)}
+                  </span>
+                </div>
+                <span className={`text-xs ${isOnPace ? 'text-green-200' : 'text-amber-200'}`}>
+                  {isOnPace ? '+' : ''}{formatCurrency(paceGap)} vs goal
+                </span>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-white/70">
+              Current pace: {formatCurrency(dailyPace)}/day • Need {formatCurrency((teamStats.totalGoal - teamStats.totalRevenue) / Math.max(daysRemaining, 1))}/day to hit goal
+            </div>
           </div>
         </CardContent>
       </Card>

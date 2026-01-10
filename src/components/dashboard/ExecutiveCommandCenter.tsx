@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useAppStore, DEMO_MODE_CONFIG } from '@/store'
+import { useAppStore, DEMO_MODE_CONFIG, ROLE_PERMISSIONS } from '@/store'
 import { KPICard } from '@/components/features/KPICard'
 import { VarianceNarrative } from '@/components/features/VarianceNarrative'
 import { ActionList } from '@/components/features/ActionList'
@@ -16,10 +16,10 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
-import { TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
 
 export function ExecutiveCommandCenter() {
-  const { settings } = useAppStore()
+  const { settings, currentUser, getCurrentUserScope } = useAppStore()
   const [kpiValues, setKpiValues] = useState<Map<string, KPIValue>>(new Map())
   const [varianceDrivers, setVarianceDrivers] = useState<VarianceDriver[]>([])
   const [actions, setActions] = useState<ActionItem[]>([])
@@ -29,14 +29,31 @@ export function ExecutiveCommandCenter() {
 
   useEffect(() => {
     setCurrentDate(new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
-    setCurrentTime(new Date().toLocaleTimeString())
+    // Remove seconds from time display (H3 fix)
+    setCurrentTime(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }))
   }, [])
 
   useEffect(() => {
     setIsLoading(true)
     const timer = setTimeout(() => {
-      setKpiValues(calculateKPIValues())
-      setVarianceDrivers(getVarianceDrivers('revenue_mtd'))
+      const values = calculateKPIValues()
+      setKpiValues(values)
+
+      // Get variance to target and compute the actual dollar variance for drivers
+      const revenueMTD = values.get('revenue_mtd')
+      const varianceToTarget = values.get('variance_to_target_mtd')
+
+      // Calculate dollar variance: variance_pct * target = variance_amount
+      // Since variance = (actual - target) / target, then actual - target = variance * target
+      // And actual = revenueMTD.value, so: target = actual / (1 + variance)
+      // Dollar variance = actual - target
+      let varianceAmount = 0
+      if (revenueMTD && varianceToTarget) {
+        const target = revenueMTD.value / (1 + varianceToTarget.value)
+        varianceAmount = revenueMTD.value - target
+      }
+
+      setVarianceDrivers(getVarianceDrivers('variance_to_target_mtd', varianceAmount))
       setActions(getActionItems())
       setIsLoading(false)
     }, 500)
@@ -49,6 +66,13 @@ export function ExecutiveCommandCenter() {
     : 'bi_leadership'
   const config = DEMO_MODE_CONFIG[demoMode]
   const highlightedKpis = config?.highlightedKpis || []
+
+  // Get role-specific persona info
+  const roleLabel = ROLE_PERMISSIONS[settings.role]?.label || 'Executive'
+  const userScope = getCurrentUserScope()
+  const personaDisplay = currentUser
+    ? `${currentUser.name}, ${roleLabel}${userScope.scope ? ` • ${userScope.scope}` : ''}`
+    : config.persona
 
   const revenueTrend = kpiValues.get('revenue_mtd')?.trend || []
   const revenueChartData = revenueTrend.map((value, index) => ({
@@ -90,7 +114,7 @@ export function ExecutiveCommandCenter() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Command Center</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {config.persona} • {currentDate || 'Loading...'}
+            {personaDisplay} • {currentDate || 'Loading...'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -122,7 +146,16 @@ export function ExecutiveCommandCenter() {
             <div className="text-3xl font-bold mt-1">
               {revenueMTD ? formatCurrency(revenueMTD.value) : '-'}
             </div>
-            <div className="text-sm mt-2 opacity-80">
+            <div className={`text-sm mt-2 flex items-center gap-1 ${
+              revenueMTD && revenueMTD.deltaPercent >= 0
+                ? 'text-green-200'
+                : 'text-yellow-200'
+            }`}>
+              {revenueMTD && revenueMTD.deltaPercent >= 0 ? (
+                <TrendingUp className="h-3 w-3" />
+              ) : (
+                <TrendingDown className="h-3 w-3" />
+              )}
               {revenueMTD && revenueMTD.deltaPercent > 0 ? '+' : ''}
               {revenueMTD ? (revenueMTD.deltaPercent * 100).toFixed(1) : 0}% vs prior
             </div>
@@ -235,9 +268,9 @@ export function ExecutiveCommandCenter() {
 
           {/* Variance Narrative */}
           <VarianceNarrative
-            kpiName="Revenue"
+            kpiName="Revenue vs Target"
             drivers={varianceDrivers}
-            totalVariance={revenueMTD?.deltaPercent || 0}
+            totalVariance={varianceToTarget?.value || 0}
             isPositiveGood={true}
           />
         </div>

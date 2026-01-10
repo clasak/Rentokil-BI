@@ -59,12 +59,18 @@ function generateMonthlyProposals(month: string, year: number, count: number): P
     let termitePrice = 0
     let contractPrice = 0
 
+    // Commercial vs residential pricing - commercial contracts are typically $5K-$50K
+    const isCommercial = service === 'Commercial' || rng() > 0.6 // 40% are commercial
+
     if (service === 'Termite') {
-      termitePrice = randomPrice(800, 3500)
+      // Termite treatments: residential $800-3500, commercial $3000-12000
+      termitePrice = isCommercial ? randomPrice(3000, 12000) : randomPrice(800, 3500)
     } else if (jobType === 'Contract' || jobType === 'Recurring') {
-      contractPrice = randomPrice(50, 200) // Monthly contract price
+      // Contract pricing (monthly): residential $75-250, commercial $300-1500
+      contractPrice = isCommercial ? randomPrice(300, 1500) : randomPrice(75, 250)
     } else {
-      jobWorkPrice = randomPrice(150, 800)
+      // One-time jobs: residential $150-800, commercial $500-3500
+      jobWorkPrice = isCommercial ? randomPrice(500, 3500) : randomPrice(150, 800)
     }
 
     proposals.push({

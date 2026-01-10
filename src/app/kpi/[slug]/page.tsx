@@ -89,8 +89,17 @@ export default function KPIDetailPage() {
     }
   }
 
-  const chartData = kpiValue?.trend.map((value, index) => ({
-    period: `P${index + 1}`,
+  // Generate meaningful period labels (weeks going back from current)
+  const getPeriodLabel = (index: number, total: number): string => {
+    const weeksAgo = total - index - 1
+    if (weeksAgo === 0) return 'Current'
+    if (weeksAgo === 1) return '1w ago'
+    return `${weeksAgo}w ago`
+  }
+
+  const chartData = kpiValue?.trend.map((value, index, arr) => ({
+    period: getPeriodLabel(index, arr.length),
+    week: `W${index + 1}`,
     value,
     target: definition.target,
   })) || []
@@ -185,7 +194,20 @@ export default function KPIDetailPage() {
         <TabsContent value="overview" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Trend Analysis</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Trend Analysis</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {chartData.length} periods
+                  </Badge>
+                  <span className="text-xs text-gray-500">
+                    {definition.refreshCadence} refresh
+                  </span>
+                </div>
+              </div>
+              <CardDescription>
+                Historical trend showing {chartData.length} periods of data
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-80">

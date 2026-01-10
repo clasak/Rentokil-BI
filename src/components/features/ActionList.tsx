@@ -1,15 +1,19 @@
 "use client"
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { ActionItem } from '@/types'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import {
   AlertTriangle, Clock, DollarSign, User,
-  ChevronRight, Zap, Target
+  ChevronRight, Zap, Target, Filter, ArrowUpDown
 } from 'lucide-react'
+
+type FilterOption = 'all' | 'critical' | 'high' | 'collections' | 'stalled'
 
 interface ActionListProps {
   actions: ActionItem[]
@@ -18,6 +22,7 @@ interface ActionListProps {
   showViewAll?: boolean
   type?: ActionItem['type']
   viewAllHref?: string
+  showFilters?: boolean
 }
 
 export function ActionList({
@@ -26,10 +31,47 @@ export function ActionList({
   maxItems = 10,
   showViewAll = true,
   type,
-  viewAllHref
+  viewAllHref,
+  showFilters = true
 }: ActionListProps) {
-  const filteredActions = type ? actions.filter(a => a.type === type) : actions
-  const displayActions = filteredActions.slice(0, maxItems)
+  const [activeFilter, setActiveFilter] = useState<FilterOption>('all')
+
+  // Apply type filter first (from props)
+  const typeFilteredActions = type ? actions.filter(a => a.type === type) : actions
+
+  // Apply UI filter chips
+  const filteredActions = typeFilteredActions.filter(action => {
+    switch (activeFilter) {
+      case 'critical':
+        return action.severity === 'critical'
+      case 'high':
+        return action.severity === 'high'
+      case 'collections':
+        return action.type === 'collection_priority'
+      case 'stalled':
+        return action.type === 'stalled_opp'
+      default:
+        return true
+    }
+  })
+
+  // Sort by: severity (critical first), then by financial impact (highest first)
+  const sortedActions = [...filteredActions].sort((a, b) => {
+    const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
+    const severityDiff = severityOrder[a.severity] - severityOrder[b.severity]
+    if (severityDiff !== 0) return severityDiff
+    return b.financialImpact - a.financialImpact
+  })
+
+  const displayActions = sortedActions.slice(0, maxItems)
+
+  const filterOptions: { key: FilterOption; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: typeFilteredActions.length },
+    { key: 'critical', label: 'Critical', count: typeFilteredActions.filter(a => a.severity === 'critical').length },
+    { key: 'high', label: 'High', count: typeFilteredActions.filter(a => a.severity === 'high').length },
+    { key: 'collections', label: 'Collections', count: typeFilteredActions.filter(a => a.type === 'collection_priority').length },
+    { key: 'stalled', label: 'Stalled', count: typeFilteredActions.filter(a => a.type === 'stalled_opp').length },
+  ]
 
   const getSeverityColor = (severity: ActionItem['severity']) => {
     switch (severity) {
@@ -103,6 +145,40 @@ export function ActionList({
             {filteredActions.length} items
           </Badge>
         </div>
+
+        {/* Filter Chips */}
+        {showFilters && !type && (
+          <div className="mt-3 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {filterOptions.map(option => (
+                <button
+                  key={option.key}
+                  onClick={() => setActiveFilter(option.key)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                    activeFilter === option.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  )}
+                >
+                  {option.label}
+                  <span className={cn(
+                    "ml-0.5 px-1.5 py-0.5 rounded-full text-[10px]",
+                    activeFilter === option.key
+                      ? "bg-primary-foreground/20"
+                      : "bg-gray-200 dark:bg-gray-700"
+                  )}>
+                    {option.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-gray-400">
+              <ArrowUpDown className="h-3 w-3" />
+              Sorted by severity, then by $ impact
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y">
@@ -153,11 +229,11 @@ export function ActionList({
           ))}
         </div>
 
-        {showViewAll && filteredActions.length > maxItems && (
+        {showViewAll && sortedActions.length > maxItems && (
           <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <Button variant="ghost" className="w-full" asChild>
               <Link href={getViewAllLink()}>
-                View all {filteredActions.length} actions
+                View all {sortedActions.length} actions
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Link>
             </Button>

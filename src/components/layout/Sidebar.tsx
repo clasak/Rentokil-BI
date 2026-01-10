@@ -232,7 +232,7 @@ export function Sidebar() {
         </nav>
       </ScrollArea>
 
-      {/* Role & Demo Mode Indicator */}
+      {/* Role & Simulation Mode Indicator */}
       {!sidebarCollapsed && (
         <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Logged in as</div>
@@ -240,7 +240,7 @@ export function Sidebar() {
             {getRoleLabel(currentRole)}
           </div>
           <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            {currentDemoMode === 'bi_leadership' && 'BI Leadership Demo'}
+            {currentDemoMode === 'bi_leadership' && 'BI Leadership Simulation'}
           </div>
         </div>
       )}

@@ -26,11 +26,11 @@ export function VarianceNarrative({
   const negativeDrivers = drivers.filter(d => d.direction === 'negative')
 
   const generateNarrative = (): string => {
-    const direction = isUp ? 'up' : 'down'
+    const direction = isUp ? 'ahead' : 'behind'
     const topPositive = positiveDrivers.slice(0, 2).map(d => d.factor.toLowerCase()).join(' and ')
     const topNegative = negativeDrivers.slice(0, 2).map(d => d.factor.toLowerCase()).join(' and ')
 
-    let narrative = `${kpiName} is ${direction} ${Math.abs(totalVariance * 100).toFixed(1)}% vs. prior period`
+    let narrative = `${kpiName} is ${Math.abs(totalVariance * 100).toFixed(1)}% ${direction} target`
 
     if (positiveDrivers.length > 0 && negativeDrivers.length > 0) {
       narrative += `, driven by ${topPositive}, partially offset by ${topNegative}.`
@@ -52,7 +52,7 @@ export function VarianceNarrative({
             Variance Narrative
           </CardTitle>
           <Badge variant={isGood ? 'success' : 'danger'}>
-            {isUp ? '+' : ''}{(totalVariance * 100).toFixed(1)}% vs Prior
+            {isUp ? '+' : ''}{(totalVariance * 100).toFixed(1)}% vs Target
           </Badge>
         </div>
       </CardHeader>

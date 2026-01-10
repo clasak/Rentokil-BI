@@ -7,11 +7,14 @@ import {
   getInvoices, getOpportunities, getServiceEvents, getComplaints,
   getAccounts, getTechnicianCapacity, getActivities
 } from './data'
+import { safeDivide, safeDeltaPercent, clampValue, isValidNumber } from './utils'
 
 // Helper to generate trend data
 function generateTrend(baseValue: number, volatility: number = 0.1, points: number = 12): number[] {
   const trend: number[] = []
-  let value = baseValue * (0.9 + Math.random() * 0.2)
+  // Ensure baseValue is valid
+  const safeBase = isValidNumber(baseValue) ? baseValue : 0
+  let value = safeBase * (0.9 + Math.random() * 0.2)
   for (let i = 0; i < points; i++) {
     value = value * (1 + (Math.random() - 0.5) * volatility)
     trend.push(Math.round(value * 100) / 100)
@@ -47,10 +50,10 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: revenueMTD,
     previousValue: prevMonthRevenue,
     delta: revenueMTD - prevMonthRevenue,
-    deltaPercent: (revenueMTD - prevMonthRevenue) / prevMonthRevenue,
+    deltaPercent: safeDeltaPercent(revenueMTD, prevMonthRevenue, 0),
     target: revenueMTD * 1.05,
     status: revenueMTD > prevMonthRevenue ? 'good' : 'warning',
-    trend: generateTrend(revenueMTD / 20, 0.15),
+    trend: generateTrend(safeDivide(revenueMTD, 20, 10000), 0.15),
     asOfDate: now,
   })
 
@@ -79,7 +82,7 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: totalPipeline,
     previousValue: prevPipeline,
     delta: totalPipeline - prevPipeline,
-    deltaPercent: (totalPipeline - prevPipeline) / prevPipeline,
+    deltaPercent: safeDeltaPercent(totalPipeline, prevPipeline, 0),
     status: totalPipeline > prevPipeline ? 'good' : 'warning',
     trend: generateTrend(totalPipeline, 0.12),
     asOfDate: now,
@@ -88,8 +91,8 @@ export function calculateKPIValues(): Map<string, KPIValue> {
   // 3. Win Rate
   const closedOpps = opportunities.filter(o => ['closed_won', 'closed_lost'].includes(o.stage))
   const wonOpps = closedOpps.filter(o => o.stage === 'closed_won')
-  const winRate = closedOpps.length > 0 ? wonOpps.length / closedOpps.length : 0
-  const prevWinRate = winRate * (0.9 + Math.random() * 0.2)
+  const winRate = safeDivide(wonOpps.length, closedOpps.length, 0)
+  const prevWinRate = winRate * (0.9 + Math.random() * 0.2) || 0.25 // Fallback for zero
   const winRateDef = getKPIBySlug('win_rate')!
 
   kpiValues.set('win_rate', {
@@ -97,20 +100,19 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: winRate,
     previousValue: prevWinRate,
     delta: winRate - prevWinRate,
-    deltaPercent: (winRate - prevWinRate) / prevWinRate,
+    deltaPercent: safeDeltaPercent(winRate, prevWinRate, 0),
     target: winRateDef.target,
     status: winRate >= (winRateDef.target || 0.35) ? 'good' :
             winRate >= (winRateDef.warningThreshold || 0.28) ? 'warning' : 'critical',
-    trend: generateTrend(winRate, 0.08),
+    trend: generateTrend(winRate || 0.3, 0.08),
     asOfDate: now,
   })
 
   // 4. Avg Cycle Time Days
   const wonOppsWithDates = wonOpps.filter(o => o.createdDate && o.closeDate)
-  const avgCycleTime = wonOppsWithDates.length > 0
-    ? wonOppsWithDates.reduce((sum, o) =>
-        sum + Math.floor((o.closeDate.getTime() - o.createdDate.getTime()) / (24 * 60 * 60 * 1000)), 0) / wonOppsWithDates.length
-    : 45
+  const totalCycleTime = wonOppsWithDates.reduce((sum, o) =>
+    sum + Math.floor((o.closeDate.getTime() - o.createdDate.getTime()) / (24 * 60 * 60 * 1000)), 0)
+  const avgCycleTime = safeDivide(totalCycleTime, wonOppsWithDates.length, 45)
   const prevCycleTime = avgCycleTime * (0.95 + Math.random() * 0.1)
   const cycleDef = getKPIBySlug('avg_cycle_time_days')!
 
@@ -119,7 +121,7 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: avgCycleTime,
     previousValue: prevCycleTime,
     delta: avgCycleTime - prevCycleTime,
-    deltaPercent: (avgCycleTime - prevCycleTime) / prevCycleTime,
+    deltaPercent: safeDeltaPercent(avgCycleTime, prevCycleTime, 0),
     target: cycleDef.target,
     status: avgCycleTime <= (cycleDef.target || 45) ? 'good' :
             avgCycleTime <= (cycleDef.warningThreshold || 60) ? 'warning' : 'critical',
@@ -138,9 +140,9 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: forecast8w,
     previousValue: prevForecast,
     delta: forecast8w - prevForecast,
-    deltaPercent: (forecast8w - prevForecast) / prevForecast,
+    deltaPercent: safeDeltaPercent(forecast8w, prevForecast, 0),
     status: forecast8w > prevForecast ? 'good' : 'warning',
-    trend: generateTrend(forecast8w / 8, 0.1),
+    trend: generateTrend(safeDivide(forecast8w, 8, 50000), 0.1),
     asOfDate: now,
   })
 
@@ -148,8 +150,8 @@ export function calculateKPIValues(): Map<string, KPIValue> {
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   const dayOfMonth = now.getDate()
   const monthlyTarget = revenueMTD * 1.05
-  const proratedTarget = monthlyTarget * (dayOfMonth / daysInMonth)
-  const variance = (revenueMTD - proratedTarget) / proratedTarget
+  const proratedTarget = monthlyTarget * safeDivide(dayOfMonth, daysInMonth, 1)
+  const variance = safeDivide(revenueMTD - proratedTarget, proratedTarget, 0)
   const prevVariance = variance * (0.8 + Math.random() * 0.4)
   const varianceDef = getKPIBySlug('variance_to_target_mtd')!
 
@@ -158,25 +160,40 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: variance,
     previousValue: prevVariance,
     delta: variance - prevVariance,
-    deltaPercent: variance - prevVariance,
+    deltaPercent: variance - prevVariance, // For variance, delta is already a percent
     target: 0,
     status: variance >= 0 ? 'good' :
             variance >= (varianceDef.warningThreshold || -0.05) ? 'warning' : 'critical',
-    trend: generateTrend(variance, 0.5),
+    trend: generateTrend(variance || 0, 0.5),
     asOfDate: now,
   })
 
   // 7. Service Risk Index
+  // Formula: 100 - (callback_rate * 25 + missed_rate * 30 + complaint_rate * 25 + response_time_penalty * 20)
+  // All rates are already decimals (0-1), so we multiply by 100 to convert to percentage points for the deduction
   const completedServices = serviceEvents.filter(s => s.status === 'completed')
   const callbacks = serviceEvents.filter(s => s.status === 'callback')
   const missedServices = serviceEvents.filter(s => s.status === 'missed')
 
-  const callbackRate = completedServices.length > 0 ? callbacks.length / completedServices.length : 0
-  const missedRate = serviceEvents.length > 0 ? missedServices.length / serviceEvents.length : 0
-  const complaintRate = serviceEvents.length > 0 ? complaints.length / serviceEvents.length * 1000 : 0
+  // Calculate rates as decimals (0-1 scale)
+  const callbackRate = safeDivide(callbacks.length, completedServices.length, 0)
+  const missedRate = safeDivide(missedServices.length, serviceEvents.length, 0)
+  // Complaint rate per 1000 services, then normalize to 0-1 scale (max 20 per 1000 = 2%)
+  const complaintRatePer1000 = safeDivide(complaints.length, serviceEvents.length, 0) * 1000
+  const normalizedComplaintRate = Math.min(complaintRatePer1000, 20) / 20 // 0-1 scale
 
-  const serviceRiskIndex = Math.max(0, 100 - (callbackRate * 25 * 100 + missedRate * 30 * 100 + Math.min(complaintRate, 20) * 1.25))
-  const prevServiceRisk = serviceRiskIndex * (0.95 + Math.random() * 0.1)
+  // Service Risk Index: Higher is better (0-100 scale)
+  // Deduct points based on each factor:
+  // - Callback rate: 25 points max (if callbackRate = 100%)
+  // - Missed rate: 30 points max (if missedRate = 100%)
+  // - Complaint rate: 25 points max (normalized)
+  // - Base score starts at 100 with a built-in buffer of 20 points for typical operations
+  const callbackDeduction = callbackRate * 25  // 0-25 points
+  const missedDeduction = missedRate * 30      // 0-30 points
+  const complaintDeduction = normalizedComplaintRate * 25  // 0-25 points
+
+  const serviceRiskIndex = clampValue(100 - (callbackDeduction + missedDeduction + complaintDeduction), 0, 100)
+  const prevServiceRisk = clampValue(serviceRiskIndex * (0.95 + Math.random() * 0.1), 0, 100)
   const serviceRiskDef = getKPIBySlug('service_risk_index')!
 
   kpiValues.set('service_risk_index', {
@@ -184,17 +201,17 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: serviceRiskIndex,
     previousValue: prevServiceRisk,
     delta: serviceRiskIndex - prevServiceRisk,
-    deltaPercent: (serviceRiskIndex - prevServiceRisk) / prevServiceRisk,
+    deltaPercent: safeDeltaPercent(serviceRiskIndex, prevServiceRisk, 0),
     target: serviceRiskDef.target,
     status: serviceRiskIndex >= (serviceRiskDef.target || 85) ? 'good' :
             serviceRiskIndex >= (serviceRiskDef.warningThreshold || 75) ? 'warning' : 'critical',
-    trend: generateTrend(serviceRiskIndex, 0.05),
+    trend: generateTrend(serviceRiskIndex || 80, 0.05),
     asOfDate: now,
   })
 
   // 8. Callback Rate
   const callbackRateValue = callbackRate
-  const prevCallbackRate = callbackRateValue * (0.9 + Math.random() * 0.2)
+  const prevCallbackRate = callbackRateValue * (0.9 + Math.random() * 0.2) || 0.03 // Fallback
   const callbackDef = getKPIBySlug('callback_rate')!
 
   kpiValues.set('callback_rate', {
@@ -202,28 +219,28 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: callbackRateValue,
     previousValue: prevCallbackRate,
     delta: callbackRateValue - prevCallbackRate,
-    deltaPercent: (callbackRateValue - prevCallbackRate) / (prevCallbackRate || 0.01),
+    deltaPercent: safeDeltaPercent(callbackRateValue, prevCallbackRate, 0),
     target: callbackDef.target,
     status: callbackRateValue <= (callbackDef.target || 0.05) ? 'good' :
             callbackRateValue <= (callbackDef.warningThreshold || 0.08) ? 'warning' : 'critical',
-    trend: generateTrend(callbackRateValue, 0.15),
+    trend: generateTrend(callbackRateValue || 0.05, 0.15),
     asOfDate: now,
   })
 
   // 9. Missed Service Rate
   const missedRateDef = getKPIBySlug('missed_service_rate')!
-  const prevMissedRate = missedRate * (0.9 + Math.random() * 0.2)
+  const prevMissedRate = missedRate * (0.9 + Math.random() * 0.2) || 0.02 // Fallback
 
   kpiValues.set('missed_service_rate', {
     slug: 'missed_service_rate',
     value: missedRate,
     previousValue: prevMissedRate,
     delta: missedRate - prevMissedRate,
-    deltaPercent: (missedRate - prevMissedRate) / (prevMissedRate || 0.01),
+    deltaPercent: safeDeltaPercent(missedRate, prevMissedRate, 0),
     target: missedRateDef.target,
     status: missedRate <= (missedRateDef.target || 0.02) ? 'good' :
             missedRate <= (missedRateDef.warningThreshold || 0.04) ? 'warning' : 'critical',
-    trend: generateTrend(missedRate, 0.2),
+    trend: generateTrend(missedRate || 0.02, 0.2),
     asOfDate: now,
   })
 
@@ -237,7 +254,7 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: avgResponseTime,
     previousValue: prevResponseTime,
     delta: avgResponseTime - prevResponseTime,
-    deltaPercent: (avgResponseTime - prevResponseTime) / prevResponseTime,
+    deltaPercent: safeDeltaPercent(avgResponseTime, prevResponseTime, 0),
     target: responseDef.target,
     status: avgResponseTime <= (responseDef.target || 24) ? 'good' :
             avgResponseTime <= (responseDef.warningThreshold || 36) ? 'warning' : 'critical',
@@ -248,22 +265,22 @@ export function calculateKPIValues(): Map<string, KPIValue> {
   // 11. AR Aging
   const openInvoices = invoices.filter(i => ['open', 'overdue', 'disputed'].includes(i.status))
   const arTotal = openInvoices.reduce((sum, i) => sum + i.amount, 0)
-  const prevAR = arTotal * (0.95 + Math.random() * 0.1)
+  const prevAR = arTotal * (0.95 + Math.random() * 0.1) || 100000 // Fallback
 
   kpiValues.set('ar_aging', {
     slug: 'ar_aging',
     value: arTotal,
     previousValue: prevAR,
     delta: arTotal - prevAR,
-    deltaPercent: (arTotal - prevAR) / prevAR,
+    deltaPercent: safeDeltaPercent(arTotal, prevAR, 0),
     status: arTotal < prevAR ? 'good' : 'warning',
-    trend: generateTrend(arTotal, 0.1),
+    trend: generateTrend(arTotal || 100000, 0.1),
     asOfDate: now,
   })
 
   // 12. DSO
   const last30Revenue = revenueMTD * 1.1
-  const dso = last30Revenue > 0 ? (arTotal / last30Revenue) * 30 : 40
+  const dso = safeDivide(arTotal, last30Revenue, 0) * 30 || 40
   const prevDSO = dso * (0.95 + Math.random() * 0.1)
   const dsoDef = getKPIBySlug('dso')!
 
@@ -272,7 +289,7 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: dso,
     previousValue: prevDSO,
     delta: dso - prevDSO,
-    deltaPercent: (dso - prevDSO) / prevDSO,
+    deltaPercent: safeDeltaPercent(dso, prevDSO, 0),
     target: dsoDef.target,
     status: dso <= (dsoDef.target || 35) ? 'good' :
             dso <= (dsoDef.warningThreshold || 45) ? 'warning' : 'critical',
@@ -282,28 +299,29 @@ export function calculateKPIValues(): Map<string, KPIValue> {
 
   // 13. Capacity Utilization
   const recentCapacity = capacity.filter(c => c.date >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-  const avgUtilization = recentCapacity.length > 0
-    ? recentCapacity.reduce((sum, c) => sum + c.utilization, 0) / recentCapacity.length
-    : 0.78
+  const totalUtilization = recentCapacity.reduce((sum, c) => sum + c.utilization, 0)
+  const avgUtilization = safeDivide(totalUtilization, recentCapacity.length, 0.78)
   const prevUtilization = avgUtilization * (0.95 + Math.random() * 0.1)
   const capacityDef = getKPIBySlug('capacity_utilization')!
 
   kpiValues.set('capacity_utilization', {
     slug: 'capacity_utilization',
-    value: Math.min(avgUtilization, 1),
+    value: clampValue(avgUtilization, 0, 1),
     previousValue: prevUtilization,
     delta: avgUtilization - prevUtilization,
-    deltaPercent: (avgUtilization - prevUtilization) / prevUtilization,
+    deltaPercent: safeDeltaPercent(avgUtilization, prevUtilization, 0),
     target: capacityDef.target,
     status: avgUtilization >= (capacityDef.target || 0.85) ? 'good' :
             avgUtilization >= (capacityDef.warningThreshold || 0.70) ? 'warning' : 'critical',
-    trend: generateTrend(avgUtilization, 0.08),
+    trend: generateTrend(avgUtilization || 0.8, 0.08),
     asOfDate: now,
   })
 
   // 14. Scheduling Pressure Index
   const overUtilized = recentCapacity.filter(c => c.utilization > 1).length
-  const schedulingPressure = 20 + (overUtilized / recentCapacity.length) * 60
+  // Calculate pressure: base 20 + up to 60 based on overutilization ratio
+  const overUtilizationRatio = safeDivide(overUtilized, recentCapacity.length, 0)
+  const schedulingPressure = clampValue(20 + overUtilizationRatio * 60, 0, 100)
   const prevPressure = schedulingPressure * (0.9 + Math.random() * 0.2)
   const pressureDef = getKPIBySlug('scheduling_pressure_index')!
 
@@ -312,91 +330,102 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: schedulingPressure,
     previousValue: prevPressure,
     delta: schedulingPressure - prevPressure,
-    deltaPercent: (schedulingPressure - prevPressure) / prevPressure,
+    deltaPercent: safeDeltaPercent(schedulingPressure, prevPressure, 0),
     target: pressureDef.target,
     status: schedulingPressure <= (pressureDef.target || 30) ? 'good' :
             schedulingPressure <= (pressureDef.warningThreshold || 50) ? 'warning' : 'critical',
-    trend: generateTrend(schedulingPressure, 0.15),
+    trend: generateTrend(schedulingPressure || 30, 0.15),
     asOfDate: now,
   })
 
-  // 15. CRM Hygiene Score
+  // 15. CRM Hygiene Score (0-100 scale)
+  // Score formula: (complete_fields_pct * 40 + recent_activity_pct * 30 + valid_stage_pct * 30)
+  // Each component is weighted to sum to 100 max
   const oppsWithNextStep = openOpps.filter(o => o.nextStepDate !== null).length
   const recentActivityOpps = openOpps.filter(o => {
     const oppActivities = activities.filter(a => a.opportunityId === o.id)
     return oppActivities.some(a => a.timestamp > new Date(Date.now() - 14 * 24 * 60 * 60 * 1000))
   }).length
 
-  const completeFieldsPct = oppsWithNextStep / (openOpps.length || 1)
-  const recentActivityPct = recentActivityOpps / (openOpps.length || 1)
-  const crmHygieneScore = (completeFieldsPct * 40 + recentActivityPct * 30 + 0.8 * 30)
-  const prevHygiene = crmHygieneScore * (0.95 + Math.random() * 0.1)
+  // Calculate percentages as decimals (0-1)
+  const completeFieldsPct = safeDivide(oppsWithNextStep, openOpps.length, 0.7)
+  const recentActivityPct = safeDivide(recentActivityOpps, openOpps.length, 0.7)
+  const validStagePct = 0.8 // Assume 80% have valid stages
+
+  // CRM Hygiene Score: 0-100 scale
+  // Each component contributes its weighted percentage to the total
+  const crmHygieneScore = clampValue(
+    (completeFieldsPct * 40) + (recentActivityPct * 30) + (validStagePct * 30),
+    0,
+    100
+  )
+  const prevHygiene = clampValue(crmHygieneScore * (0.95 + Math.random() * 0.1), 0, 100)
   const hygieneDef = getKPIBySlug('crm_hygiene_score')!
 
   kpiValues.set('crm_hygiene_score', {
     slug: 'crm_hygiene_score',
-    value: crmHygieneScore * 100,
-    previousValue: prevHygiene * 100,
-    delta: (crmHygieneScore - prevHygiene) * 100,
-    deltaPercent: (crmHygieneScore - prevHygiene) / prevHygiene,
+    value: crmHygieneScore, // Already 0-100
+    previousValue: prevHygiene,
+    delta: crmHygieneScore - prevHygiene,
+    deltaPercent: safeDeltaPercent(crmHygieneScore, prevHygiene, 0),
     target: hygieneDef.target,
-    status: crmHygieneScore * 100 >= (hygieneDef.target || 90) ? 'good' :
-            crmHygieneScore * 100 >= (hygieneDef.warningThreshold || 75) ? 'warning' : 'critical',
-    trend: generateTrend(crmHygieneScore * 100, 0.05),
+    status: crmHygieneScore >= (hygieneDef.target || 90) ? 'good' :
+            crmHygieneScore >= (hygieneDef.warningThreshold || 75) ? 'warning' : 'critical',
+    trend: generateTrend(crmHygieneScore || 75, 0.05),
     asOfDate: now,
   })
 
   // 16. Stalled Opportunities
   const stalledOpps = openOpps.filter(o => o.isStalled)
   const stalledValue = stalledOpps.reduce((sum, o) => sum + o.amount, 0)
-  const prevStalled = stalledValue * (0.9 + Math.random() * 0.2)
+  const prevStalled = stalledValue * (0.9 + Math.random() * 0.2) || 50000 // Fallback
 
   kpiValues.set('stalled_opps', {
     slug: 'stalled_opps',
     value: stalledValue,
     previousValue: prevStalled,
     delta: stalledValue - prevStalled,
-    deltaPercent: (stalledValue - prevStalled) / (prevStalled || 1),
+    deltaPercent: safeDeltaPercent(stalledValue, prevStalled, 0),
     status: 'critical', // Stalled pipeline is always critical - needs immediate attention
-    trend: generateTrend(stalledValue, 0.2),
+    trend: generateTrend(stalledValue || 50000, 0.2),
     asOfDate: now,
   })
 
   // 17. Retention Risk
   const highRiskAccounts = accounts.filter(a => a.retentionRisk === 'high')
   const retentionRiskValue = highRiskAccounts.reduce((sum, a) => sum + a.contractValue, 0)
-  const prevRetentionRisk = retentionRiskValue * (0.95 + Math.random() * 0.1)
+  const prevRetentionRisk = retentionRiskValue * (0.95 + Math.random() * 0.1) || 100000 // Fallback
 
   kpiValues.set('retention_risk', {
     slug: 'retention_risk',
     value: retentionRiskValue,
     previousValue: prevRetentionRisk,
     delta: retentionRiskValue - prevRetentionRisk,
-    deltaPercent: (retentionRiskValue - prevRetentionRisk) / prevRetentionRisk,
+    deltaPercent: safeDeltaPercent(retentionRiskValue, prevRetentionRisk, 0),
     status: retentionRiskValue < prevRetentionRisk ? 'good' : 'critical',
-    trend: generateTrend(retentionRiskValue, 0.12),
+    trend: generateTrend(retentionRiskValue || 100000, 0.12),
     asOfDate: now,
   })
 
-  // 18. Complaint Rate
-  const complaintRateValue = complaintRate
-  const prevComplaintRate = complaintRateValue * (0.9 + Math.random() * 0.2)
+  // 18. Complaint Rate (per 1000 services)
+  const complaintRateForDisplay = complaintRatePer1000
+  const prevComplaintRateDisplay = complaintRateForDisplay * (0.9 + Math.random() * 0.2) || 5 // Fallback
   const complaintDef = getKPIBySlug('complaint_rate')!
 
   kpiValues.set('complaint_rate', {
     slug: 'complaint_rate',
-    value: complaintRateValue,
-    previousValue: prevComplaintRate,
-    delta: complaintRateValue - prevComplaintRate,
-    deltaPercent: (complaintRateValue - prevComplaintRate) / (prevComplaintRate || 1),
+    value: complaintRateForDisplay,
+    previousValue: prevComplaintRateDisplay,
+    delta: complaintRateForDisplay - prevComplaintRateDisplay,
+    deltaPercent: safeDeltaPercent(complaintRateForDisplay, prevComplaintRateDisplay, 0),
     target: complaintDef.target,
-    status: complaintRateValue <= (complaintDef.target || 5) ? 'good' :
-            complaintRateValue <= (complaintDef.warningThreshold || 8) ? 'warning' : 'critical',
-    trend: generateTrend(complaintRateValue, 0.15),
+    status: complaintRateForDisplay <= (complaintDef.target || 5) ? 'good' :
+            complaintRateForDisplay <= (complaintDef.warningThreshold || 8) ? 'warning' : 'critical',
+    trend: generateTrend(complaintRateForDisplay || 5, 0.15),
     asOfDate: now,
   })
 
-  // 19. NRR
+  // 19. NRR (Net Revenue Retention - decimal like 1.05 = 105%)
   const nrr = 1.02 + Math.random() * 0.06
   const prevNRR = nrr * (0.98 + Math.random() * 0.04)
   const nrrDef = getKPIBySlug('nrr')!
@@ -406,7 +435,7 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: nrr,
     previousValue: prevNRR,
     delta: nrr - prevNRR,
-    deltaPercent: (nrr - prevNRR) / prevNRR,
+    deltaPercent: safeDeltaPercent(nrr, prevNRR, 0),
     target: nrrDef.target,
     status: nrr >= (nrrDef.target || 1.05) ? 'good' :
             nrr >= (nrrDef.warningThreshold || 0.98) ? 'warning' : 'critical',
@@ -414,7 +443,7 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     asOfDate: now,
   })
 
-  // 20. Margin Proxy
+  // 20. Margin Proxy (decimal like 0.45 = 45%)
   const marginProxy = 0.38 + Math.random() * 0.1
   const prevMargin = marginProxy * (0.98 + Math.random() * 0.04)
   const marginDef = getKPIBySlug('margin_proxy')!
@@ -424,7 +453,7 @@ export function calculateKPIValues(): Map<string, KPIValue> {
     value: marginProxy,
     previousValue: prevMargin,
     delta: marginProxy - prevMargin,
-    deltaPercent: (marginProxy - prevMargin) / prevMargin,
+    deltaPercent: safeDeltaPercent(marginProxy, prevMargin, 0),
     target: marginDef.target,
     status: marginProxy >= (marginDef.target || 0.45) ? 'good' :
             marginProxy >= (marginDef.warningThreshold || 0.38) ? 'warning' : 'critical',
@@ -554,29 +583,77 @@ export function getActionItems(): ActionItem[] {
     })
   })
 
-  // 4. Collections priorities
+  // 4. Collections priorities - group by account to avoid duplicates
   const overdueInvoices = invoices.filter(i =>
     i.status === 'overdue' &&
     (i.agingBucket === '61-90' || i.agingBucket === '90+')
   )
-  overdueInvoices.sort((a, b) => b.amount - a.amount).slice(0, 15).forEach(inv => {
-    actions.push({
-      id: `ACT-COLL-${inv.id}`,
-      type: 'collection_priority',
-      entityId: inv.id,
-      entityType: 'invoice',
-      title: `${inv.accountName} - ${inv.agingBucket} days overdue`,
-      owner: 'AR Collections',
-      ownerId: '',
-      severity: inv.agingBucket === '90+' ? 'critical' : 'high',
-      financialImpact: inv.amount,
-      nextBestAction: inv.agingBucket === '90+'
-        ? 'Escalate to collections agency or legal review'
-        : 'Direct outreach to AP contact with payment plan option',
-      dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-      details: { invoiceDate: inv.invoiceDate, dueDate: inv.dueDate, amount: inv.amount },
-    })
+
+  // Group invoices by account to avoid duplicate entries like "Elite Corp" appearing twice
+  const invoicesByAccount = new Map<string, {
+    accountName: string
+    totalAmount: number
+    invoiceCount: number
+    worstBucket: string
+    oldestDue: Date
+    invoices: typeof overdueInvoices
+  }>()
+
+  overdueInvoices.forEach(inv => {
+    const existing = invoicesByAccount.get(inv.accountId)
+    if (existing) {
+      existing.totalAmount += inv.amount
+      existing.invoiceCount += 1
+      // Track the worst aging bucket (90+ is worse than 61-90)
+      if (inv.agingBucket === '90+' && existing.worstBucket !== '90+') {
+        existing.worstBucket = '90+'
+      }
+      if (inv.dueDate < existing.oldestDue) {
+        existing.oldestDue = inv.dueDate
+      }
+      existing.invoices.push(inv)
+    } else {
+      invoicesByAccount.set(inv.accountId, {
+        accountName: inv.accountName,
+        totalAmount: inv.amount,
+        invoiceCount: 1,
+        worstBucket: inv.agingBucket,
+        oldestDue: inv.dueDate,
+        invoices: [inv]
+      })
+    }
   })
+
+  // Sort by total amount and create consolidated actions
+  Array.from(invoicesByAccount.entries())
+    .sort(([, a], [, b]) => b.totalAmount - a.totalAmount)
+    .slice(0, 15)
+    .forEach(([accountId, data]) => {
+      const invoiceLabel = data.invoiceCount > 1
+        ? `${data.invoiceCount} invoices totaling`
+        : ''
+      actions.push({
+        id: `ACT-COLL-${accountId}`,
+        type: 'collection_priority',
+        entityId: accountId,
+        entityType: 'account', // Changed from 'invoice' to 'account' for consolidated view
+        title: `${data.accountName} - ${data.worstBucket} days overdue`,
+        owner: 'AR Collections',
+        ownerId: '',
+        severity: data.worstBucket === '90+' ? 'critical' : 'high',
+        financialImpact: data.totalAmount,
+        nextBestAction: data.worstBucket === '90+'
+          ? 'Escalate to collections agency or legal review'
+          : 'Direct outreach to AP contact with payment plan option',
+        dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
+        details: {
+          invoiceCount: data.invoiceCount,
+          totalAmount: data.totalAmount,
+          oldestDueDate: data.oldestDue,
+          agingBucket: data.worstBucket
+        },
+      })
+    })
 
   return actions.sort((a, b) => {
     const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
@@ -584,43 +661,89 @@ export function getActionItems(): ActionItem[] {
   })
 }
 
-// Get variance drivers
-export function getVarianceDrivers(kpiSlug: string): VarianceDriver[] {
+// Get variance drivers that reconcile to actual variance amount
+export function getVarianceDrivers(kpiSlug: string, actualVarianceAmount?: number): VarianceDriver[] {
   const drivers: VarianceDriver[] = []
 
   if (kpiSlug === 'revenue_mtd' || kpiSlug === 'variance_to_target_mtd') {
-    drivers.push(
-      {
-        factor: 'Commercial segment growth',
-        impact: 125000,
-        direction: 'positive',
-        explanation: 'New enterprise contracts in Northeast and West Coast markets driving 8% YoY growth',
-      },
-      {
-        factor: 'Residential churn',
-        impact: -45000,
-        direction: 'negative',
-        explanation: 'Higher than expected cancellations in Southwest market due to competitor pricing',
-      },
-      {
-        factor: 'Seasonal uplift',
-        impact: 35000,
-        direction: 'positive',
-        explanation: 'Q3 seasonal pest activity driving increased service frequency',
-      },
-      {
-        factor: 'Collection timing',
-        impact: -28000,
-        direction: 'negative',
-        explanation: 'Several large invoices shifted to next period due to customer payment cycles',
-      },
-      {
-        factor: 'Price increase realization',
-        impact: 18000,
-        direction: 'positive',
-        explanation: 'Annual price adjustments taking effect across renewal base',
-      }
-    )
+    // If we have an actual variance amount, make drivers sum to it
+    // Otherwise use default demo values
+    const totalVariance = actualVarianceAmount ?? 0
+
+    // Define driver proportions (should sum to 1.0 for the net effect)
+    // Positive drivers: Commercial (45%), Seasonal (20%), Price (10%) = 75%
+    // Negative drivers: Churn (-15%), Collection (-10%) = -25%
+    // Net effect = 50% of variance positive, 50% explained
+
+    if (Math.abs(totalVariance) < 1000) {
+      // Near zero variance - show minimal drivers
+      drivers.push(
+        {
+          factor: 'Commercial segment growth',
+          impact: 15000,
+          direction: 'positive',
+          explanation: 'Enterprise contract wins offsetting other factors',
+        },
+        {
+          factor: 'Seasonal normalization',
+          impact: 15000,
+          direction: 'negative',
+          explanation: 'Slightly below seasonal expectations',
+        }
+      )
+    } else if (totalVariance > 0) {
+      // Positive variance - show net positive drivers
+      const posAmount = Math.abs(totalVariance)
+      drivers.push(
+        {
+          factor: 'Commercial segment growth',
+          impact: posAmount * 0.45,
+          direction: 'positive',
+          explanation: 'New enterprise contracts in Northeast and West Coast markets driving growth',
+        },
+        {
+          factor: 'Seasonal uplift',
+          impact: posAmount * 0.30,
+          direction: 'positive',
+          explanation: 'Q3 seasonal pest activity driving increased service frequency',
+        },
+        {
+          factor: 'Price increase realization',
+          impact: posAmount * 0.25,
+          direction: 'positive',
+          explanation: 'Annual price adjustments taking effect across renewal base',
+        }
+      )
+    } else {
+      // Negative variance - show net negative drivers
+      const negAmount = Math.abs(totalVariance)
+      drivers.push(
+        {
+          factor: 'Commercial segment wins',
+          impact: negAmount * 0.30,
+          direction: 'positive',
+          explanation: 'New enterprise contracts partially offsetting shortfall',
+        },
+        {
+          factor: 'Residential churn',
+          impact: negAmount * 0.50,
+          direction: 'negative',
+          explanation: 'Higher than expected cancellations in Southwest market due to competitor pricing',
+        },
+        {
+          factor: 'Collection timing',
+          impact: negAmount * 0.45,
+          direction: 'negative',
+          explanation: 'Several large invoices shifted to next period due to customer payment cycles',
+        },
+        {
+          factor: 'Seasonal softness',
+          impact: negAmount * 0.35,
+          direction: 'negative',
+          explanation: 'Below-normal pest activity in key markets',
+        }
+      )
+    }
   }
 
   return drivers

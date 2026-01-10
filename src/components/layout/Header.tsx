@@ -33,6 +33,8 @@ import {
   AlertTriangle, CheckCircle, Clock, LogOut
 } from 'lucide-react'
 import { Role } from '@/types'
+import { ConnectionStatus } from '@/components/features/ConnectionStatus'
+import { BusinessUnitSelector } from '@/components/features/BusinessUnitSelector'
 
 // All roles now use the same Command Center route
 // The page dynamically shows role-appropriate content
@@ -47,11 +49,25 @@ const ROLE_DEFAULT_ROUTES: Record<Role, string> = {
   technician: '/',
 }
 
+// Search result type for better type safety
+interface SearchResult {
+  type: 'Account' | 'Opportunity' | 'Invoice'
+  id: string
+  name: string
+  subtitle?: string
+  href: string
+}
+
+// Max recent searches to store
+const MAX_RECENT_SEARCHES = 5
+const RECENT_SEARCHES_KEY = 'rentokil-bi-recent-searches'
+
 export function Header() {
   const router = useRouter()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [recentSearches, setRecentSearches] = useState<SearchResult[]>([])
   const [isClient, setIsClient] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -66,9 +82,33 @@ export function Header() {
     setTheme,
   } = useAppStore()
 
+  // Load recent searches from localStorage
   useEffect(() => {
     setIsClient(true)
+    try {
+      const stored = localStorage.getItem(RECENT_SEARCHES_KEY)
+      if (stored) {
+        setRecentSearches(JSON.parse(stored))
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
   }, [])
+
+  // Keyboard shortcut: Cmd+K (Mac) / Ctrl+K (Windows)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+      if (e.key === 'Escape' && searchOpen) {
+        setSearchOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [searchOpen])
 
   const scope = getCurrentUserScope()
 
@@ -84,34 +124,73 @@ export function Header() {
     const invoices = getInvoices()
     const lowerQuery = query.toLowerCase()
 
-    const results: any[] = []
+    const results: SearchResult[] = []
 
     // Search accounts
     accounts
       .filter(a => a.name.toLowerCase().includes(lowerQuery) || a.id.toLowerCase().includes(lowerQuery))
       .slice(0, 5)
-      .forEach(a => results.push({ type: 'Account', id: a.id, name: a.name, href: `/account/${a.id}` }))
+      .forEach(a => results.push({
+        type: 'Account',
+        id: a.id,
+        name: a.name,
+        subtitle: a.vertical,
+        href: `/account/${a.id}`
+      }))
 
     // Search opportunities
     opportunities
       .filter(o => o.name.toLowerCase().includes(lowerQuery) || o.id.toLowerCase().includes(lowerQuery))
       .slice(0, 5)
-      .forEach(o => results.push({ type: 'Opportunity', id: o.id, name: o.name, href: `/sales/opportunity/${o.id}` }))
+      .forEach(o => results.push({
+        type: 'Opportunity',
+        id: o.id,
+        name: o.name,
+        subtitle: `${o.stage} • $${o.amount.toLocaleString()}`,
+        href: `/sales/opportunity/${o.id}`
+      }))
 
     // Search invoices
     invoices
       .filter(i => i.id.toLowerCase().includes(lowerQuery) || i.accountName.toLowerCase().includes(lowerQuery))
       .slice(0, 5)
-      .forEach(i => results.push({ type: 'Invoice', id: i.id, name: `${i.accountName} - ${i.id}`, href: `/finance/invoice/${i.id}` }))
+      .forEach(i => results.push({
+        type: 'Invoice',
+        id: i.id,
+        name: `${i.accountName} - ${i.id}`,
+        subtitle: `$${i.amount.toLocaleString()} • ${i.status}`,
+        href: `/finance/invoice/${i.id}`
+      }))
 
     setSearchResults(results)
   }
 
-  const handleResultClick = (href: string) => {
-    router.push(href)
+  // Save result to recent searches
+  const saveRecentSearch = (result: SearchResult) => {
+    try {
+      const updated = [result, ...recentSearches.filter(r => r.id !== result.id)].slice(0, MAX_RECENT_SEARCHES)
+      setRecentSearches(updated)
+      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated))
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+  }
+
+  const handleResultClick = (result: SearchResult) => {
+    saveRecentSearch(result)
+    router.push(result.href)
     setSearchOpen(false)
     setSearchQuery('')
     setSearchResults([])
+  }
+
+  const clearRecentSearches = () => {
+    setRecentSearches([])
+    try {
+      localStorage.removeItem(RECENT_SEARCHES_KEY)
+    } catch (e) {
+      // Ignore localStorage errors
+    }
   }
 
   return (
@@ -132,34 +211,83 @@ export function Header() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
-              <DialogTitle>Global Search</DialogTitle>
+              <DialogTitle className="flex items-center justify-between">
+                <span>Global Search</span>
+                <span className="text-xs font-normal text-gray-400">⌘K to open</span>
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <Input
-                placeholder="Type to search..."
+                placeholder="Search accounts, opportunities, invoices..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 autoFocus
               />
+
+              {/* Recent searches (shown when no query) */}
+              {searchQuery.length < 2 && recentSearches.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Recent</span>
+                    <button
+                      onClick={clearRecentSearches}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {recentSearches.map((result) => (
+                      <button
+                        key={`recent-${result.type}-${result.id}`}
+                        onClick={() => handleResultClick(result)}
+                        className="w-full text-left p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-3"
+                      >
+                        <Clock className="h-4 w-4 text-gray-400" />
+                        <Badge variant="outline" className="text-xs">{result.type}</Badge>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{result.name}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Search results */}
               {searchResults.length > 0 && (
                 <div className="space-y-2 max-h-80 overflow-auto">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Results</span>
                   {searchResults.map((result) => (
                     <button
                       key={`${result.type}-${result.id}`}
-                      onClick={() => handleResultClick(result.href)}
+                      onClick={() => handleResultClick(result)}
                       className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-3"
                     >
                       <Badge variant="outline">{result.type}</Badge>
-                      <div>
-                        <div className="font-medium">{result.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{result.id}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{result.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{result.subtitle || result.id}</div>
                       </div>
                     </button>
                   ))}
                 </div>
               )}
+
               {searchQuery.length >= 2 && searchResults.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">No results found</p>
+                <div className="text-center py-8">
+                  <Search className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500">No results found for &quot;{searchQuery}&quot;</p>
+                  <p className="text-xs text-gray-400 mt-1">Try searching for account names, opportunity titles, or invoice numbers</p>
+                </div>
+              )}
+
+              {searchQuery.length < 2 && recentSearches.length === 0 && (
+                <div className="text-center py-8">
+                  <Search className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500">Start typing to search</p>
+                  <p className="text-xs text-gray-400 mt-1">Search across accounts, opportunities, and invoices</p>
+                </div>
               )}
             </div>
           </DialogContent>
@@ -183,10 +311,11 @@ export function Header() {
 
       {/* Right side controls */}
       <div className="flex items-center gap-3">
-        {/* Demo Mode Display */}
-        <div className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm font-medium">
-          BI Leadership Demo
-        </div>
+        {/* Data Source / Simulation Mode Status */}
+        <ConnectionStatus />
+
+        {/* Business Unit Selector (J5) */}
+        <BusinessUnitSelector variant="dropdown" />
 
         {/* Role Selector */}
         <Tooltip>

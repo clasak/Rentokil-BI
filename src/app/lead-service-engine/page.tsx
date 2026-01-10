@@ -10,7 +10,7 @@ import {
   StageMetrics,
   HandoffMetrics
 } from '@/lib/lead-engine-data'
-import { PipelineVisual, FunnelChart, StackedFunnelChart, HandoffCard } from '@/components/lead-engine'
+import { PipelineVisual, FunnelChart, StackedFunnelChart, HandoffCard, LeadSourceMatrix } from '@/components/lead-engine'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -21,8 +21,9 @@ import {
 } from '@/components/ui/table'
 import {
   Users, Clock, AlertTriangle, TrendingUp, Workflow, ArrowRight,
-  Info, Mail, CheckCircle, XCircle
+  Info, Mail, CheckCircle, XCircle, DollarSign
 } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
 
 export default function LeadServiceEnginePage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -90,20 +91,35 @@ export default function LeadServiceEnginePage() {
       <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
         <Info className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-800 dark:text-blue-200">
-          <strong>Strategic Initiative Framework</strong> — Demo data shown, ready for real Salesforce integration.
+          <strong>Strategic Initiative Framework</strong> — Simulation data shown, ready for real Salesforce integration.
           This dashboard visualizes the lead-to-service pipeline with emphasis on manual handoff bottlenecks.
         </AlertDescription>
       </Alert>
 
-      {/* KPI Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Summary Cards - Now with Value Metrics (J2) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Total Pipeline Value - Leadership Request */}
+        <Card className="bg-gradient-to-br from-green-600 to-green-700 text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <DollarSign className="h-8 w-8 opacity-80" />
+              <div>
+                <div className="text-sm opacity-80">Pipeline Value</div>
+                <div className="text-2xl font-bold">{formatCurrency(summary?.totalPipelineValue || 0)}</div>
+                <div className="text-xs opacity-70">{summary?.totalLeads || 0} leads</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <Users className="h-8 w-8 opacity-80" />
               <div>
-                <div className="text-sm opacity-80">Total Active Leads</div>
-                <div className="text-3xl font-bold">{summary?.totalLeads || 0}</div>
+                <div className="text-sm opacity-80">Avg Deal Size</div>
+                <div className="text-2xl font-bold">{formatCurrency(summary?.avgDealSize || 0)}</div>
+                <div className="text-xs opacity-70">per lead</div>
               </div>
             </div>
           </CardContent>
@@ -115,7 +131,7 @@ export default function LeadServiceEnginePage() {
               <Clock className="h-8 w-8 text-blue-500" />
               <div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">Avg Lead-to-Service</div>
-                <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
                   {summary?.avgLeadToServiceDays || 0}
                   <span className="text-lg font-normal text-gray-500 ml-1">days</span>
                 </div>
@@ -130,7 +146,7 @@ export default function LeadServiceEnginePage() {
               <Mail className="h-8 w-8 text-orange-500" />
               <div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">Bottleneck Stage</div>
-                <div className="text-xl font-bold text-gray-900 dark:text-white">
+                <div className="text-lg font-bold text-gray-900 dark:text-white">
                   {summary?.bottleneckStage || '-'}
                 </div>
                 <div className="text-sm text-orange-600 dark:text-orange-400">
@@ -146,13 +162,13 @@ export default function LeadServiceEnginePage() {
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-8 w-8 text-yellow-500" />
               <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">At-Risk Leads</div>
-                <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {totalAtRisk}
+                <div className="text-sm text-gray-500 dark:text-gray-400">At-Risk Value</div>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                  {formatCurrency(summary?.atRiskValue || 0)}
                 </div>
                 <Link href="/lead-service-engine/at-risk">
                   <Button variant="link" className="p-0 h-auto text-sm">
-                    View all <ArrowRight className="h-3 w-3 ml-1" />
+                    {totalAtRisk} leads <ArrowRight className="h-3 w-3 ml-1" />
                   </Button>
                 </Link>
               </div>
@@ -200,6 +216,9 @@ export default function LeadServiceEnginePage() {
         ))}
       </div>
 
+      {/* Lead Sources (J3 - Multi-Source View) */}
+      <LeadSourceMatrix showDuplicateWarning={true} />
+
       {/* Stage Health Table */}
       <Card>
         <CardHeader>
@@ -221,8 +240,9 @@ export default function LeadServiceEnginePage() {
               <TableRow>
                 <TableHead>Stage</TableHead>
                 <TableHead className="text-center">Leads</TableHead>
+                <TableHead className="text-right">Value</TableHead>
+                <TableHead className="text-right">Avg Deal</TableHead>
                 <TableHead className="text-center">Avg Time</TableHead>
-                <TableHead className="text-center">SLA Target</TableHead>
                 <TableHead className="text-center">Compliance</TableHead>
                 <TableHead className="text-center">Health</TableHead>
                 <TableHead></TableHead>
@@ -242,13 +262,16 @@ export default function LeadServiceEnginePage() {
                     <TableCell className="text-center">
                       <span className="font-semibold">{stage.leadCount}</span>
                     </TableCell>
+                    <TableCell className="text-right font-medium text-green-600 dark:text-green-400">
+                      {formatCurrency(stage.totalValue)}
+                    </TableCell>
+                    <TableCell className="text-right text-gray-600 dark:text-gray-400">
+                      {formatCurrency(stage.avgValue)}
+                    </TableCell>
                     <TableCell className="text-center">
                       {stage.avgHoursInStage < 24
                         ? `${Math.round(stage.avgHoursInStage)}h`
                         : `${stage.avgDaysInStage}d`}
-                    </TableCell>
-                    <TableCell className="text-center text-gray-500">
-                      {stage.avgHoursInStage < 48 ? '24h' : stage.stage === 'sales_process' ? '14d' : '7d'}
                     </TableCell>
                     <TableCell className="text-center">
                       <span className={

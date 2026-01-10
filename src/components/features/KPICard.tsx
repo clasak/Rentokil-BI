@@ -7,6 +7,7 @@ import { getKPIBySlug } from '@/lib/kpis'
 import { cn, formatCurrency, formatPercent, formatNumber, getDeltaColor, getDeltaIcon } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TrendingUp, TrendingDown, Minus, Info, AlertTriangle } from 'lucide-react'
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts'
@@ -128,18 +129,22 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
 
             {showSparkline && !compact && (
               <div className="w-20 h-12">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={sparklineData}>
-                    <YAxis domain={['dataMin', 'dataMax']} hide />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke={isNegativeChange ? '#ef4444' : isPositiveChange ? '#22c55e' : '#E4002B'}
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                {sparklineData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={sparklineData}>
+                      <YAxis domain={['dataMin', 'dataMax']} hide />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke={isNegativeChange ? '#ef4444' : isPositiveChange ? '#22c55e' : '#E4002B'}
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Skeleton className="w-full h-full" />
+                )}
               </div>
             )}
           </div>

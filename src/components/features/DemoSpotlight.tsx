@@ -1033,7 +1033,7 @@ export function DemoSpotlight() {
     doc.body.innerHTML =
       '<div class="header">' +
         '<h1>📋 Presenter Notes</h1>' +
-        '<div class="subtitle">' + (config?.name || 'Demo Mode') + '</div>' +
+        '<div class="subtitle">' + (config?.name || 'Simulation Mode') + '</div>' +
       '</div>' +
       '<div class="step-info">' +
         '<div class="step-number">Step ' + (presenterStep + 1) + ' of ' + steps.length + '</div>' +

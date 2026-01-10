@@ -110,6 +110,10 @@ export interface StageMetrics {
   criticalCount: number
   slaCompliance: number
   healthStatus: HealthStatus
+  // Value metrics (J2 - Leadership request)
+  totalValue: number
+  avgValue: number
+  atRiskValue: number
 }
 
 export interface AutomationOpportunity {
@@ -871,6 +875,12 @@ export function getStageMetrics(): StageMetrics[] {
       healthStatus = 'at_risk'
     }
 
+    // Value metrics (J2 - Leadership request: "We need to see dollar values, not just counts")
+    const totalValue = stageLeads.reduce((sum, l) => sum + l.estimatedValue, 0)
+    const avgValue = stageLeads.length > 0 ? totalValue / stageLeads.length : 0
+    const atRiskLeads = stageLeads.filter(l => l.healthStatus !== 'healthy')
+    const atRiskValue = atRiskLeads.reduce((sum, l) => sum + l.estimatedValue, 0)
+
     return {
       stage,
       stageName: config.name,
@@ -881,7 +891,10 @@ export function getStageMetrics(): StageMetrics[] {
       atRiskCount,
       criticalCount,
       slaCompliance: Math.round(slaCompliance),
-      healthStatus
+      healthStatus,
+      totalValue,
+      avgValue: Math.round(avgValue),
+      atRiskValue
     }
   })
 }
@@ -969,6 +982,12 @@ export function getPipelineSummary() {
     avgLeadToServiceDays = Math.round((totalDays / completedLeads.length) * 10) / 10
   }
 
+  // Value metrics (J2 - Leadership request: "We need to see dollar values, not just counts")
+  const totalPipelineValue = leads.reduce((sum, l) => sum + l.estimatedValue, 0)
+  const atRiskLeadsData = leads.filter(l => l.healthStatus !== 'healthy')
+  const atRiskValue = atRiskLeadsData.reduce((sum, l) => sum + l.estimatedValue, 0)
+  const avgDealSize = leads.length > 0 ? totalPipelineValue / leads.length : 0
+
   return {
     totalLeads: leads.length,
     healthyLeads: leads.filter(l => l.healthStatus === 'healthy').length,
@@ -977,7 +996,11 @@ export function getPipelineSummary() {
     avgLeadToServiceDays,
     bottleneckStage: bottleneck?.stageName || 'None',
     bottleneckSlaCompliance: bottleneck?.slaCompliance || 100,
-    conversionRate: Math.round((completedLeads.length / leads.length) * 100)
+    conversionRate: Math.round((completedLeads.length / leads.length) * 100),
+    // Value metrics
+    totalPipelineValue,
+    atRiskValue,
+    avgDealSize: Math.round(avgDealSize)
   }
 }
 

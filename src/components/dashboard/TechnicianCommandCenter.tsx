@@ -57,10 +57,14 @@ export function TechnicianCommandCenter() {
   }, [])
 
   const completedCount = schedule.filter(s => s.status === 'completed').length
+  const inProgressCount = schedule.filter(s => s.status === 'in_progress').length
+  const scheduledCount = schedule.filter(s => s.status === 'scheduled').length
+  const remainingCount = inProgressCount + scheduledCount // Everything not completed
   const totalCount = schedule.length
   const callbackCount = schedule.filter(s => s.isCallback).length
   const totalServiceTime = schedule.reduce((acc, s) => acc + s.estimatedDuration, 0)
   const completedServiceTime = schedule.filter(s => s.status === 'completed').reduce((acc, s) => acc + s.estimatedDuration, 0)
+  const remainingServiceTime = schedule.filter(s => s.status !== 'completed').reduce((acc, s) => acc + s.estimatedDuration, 0)
 
   // Find current and next stops
   const currentStop = schedule.find(s => s.status === 'in_progress')
@@ -145,7 +149,7 @@ export function TechnicianCommandCenter() {
           />
           <div className="flex justify-between mt-2 text-sm text-white/80">
             <span>{completedServiceTime} min completed</span>
-            <span>{totalServiceTime - completedServiceTime} min remaining</span>
+            <span>{remainingServiceTime} min remaining ({remainingCount} stops)</span>
           </div>
         </CardContent>
       </Card>
@@ -164,7 +168,9 @@ export function TechnicianCommandCenter() {
               </div>
             </div>
             <div className="flex items-center mt-2 text-sm">
-              <span className="text-gray-500 dark:text-gray-400">{totalCount - completedCount} remaining</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {remainingCount} remaining{inProgressCount > 0 ? ` (${inProgressCount} in progress)` : ''}
+              </span>
             </div>
           </CardContent>
         </Card>

@@ -81,6 +81,13 @@ export function OpsManagerCommandCenter() {
     ? (teamStats.totalStopsCompleted / teamStats.totalStopsPlanned) * 100
     : 0
 
+  // Callback rate calculation and thresholds
+  const CALLBACK_RATE_THRESHOLD = 8 // 8% is the maximum acceptable callback rate
+  const callbackRate = teamStats.totalStopsCompleted > 0
+    ? (teamStats.totalCallbacks / teamStats.totalStopsCompleted) * 100
+    : 0
+  const isCallbackRateHigh = callbackRate > CALLBACK_RATE_THRESHOLD
+
   // Chart data
   const techChartData = techData.map(t => ({
     name: t.name.split(' ')[0],
@@ -202,16 +209,35 @@ export function OpsManagerCommandCenter() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Callbacks Today</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{teamStats.totalCallbacks}</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{teamStats.totalCallbacks}</p>
+                  <span className={`text-sm font-medium ${isCallbackRateHigh ? 'text-red-600 dark:text-red-400' : callbackRate > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}`}>
+                    ({callbackRate.toFixed(1)}% rate)
+                  </span>
+                </div>
               </div>
-              <div className={`h-12 w-12 ${teamStats.totalCallbacks > 2 ? 'bg-red-100 dark:bg-red-900/30' : teamStats.totalCallbacks > 0 ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-green-100 dark:bg-green-900/30'} rounded-lg flex items-center justify-center`}>
-                <Phone className={`h-6 w-6 ${teamStats.totalCallbacks > 2 ? 'text-red-600 dark:text-red-400' : teamStats.totalCallbacks > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}`} />
+              <div className={`h-12 w-12 ${isCallbackRateHigh ? 'bg-red-100 dark:bg-red-900/30' : callbackRate > 0 ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-green-100 dark:bg-green-900/30'} rounded-lg flex items-center justify-center`}>
+                <Phone className={`h-6 w-6 ${isCallbackRateHigh ? 'text-red-600 dark:text-red-400' : callbackRate > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}`} />
               </div>
             </div>
-            <div className="flex items-center mt-2 text-sm">
-              <span className={teamStats.totalCallbacks > 2 ? 'text-red-600 dark:text-red-400' : teamStats.totalCallbacks > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}>
-                {teamStats.totalCallbacks === 0 ? 'No callbacks' : teamStats.totalCallbacks > 2 ? 'High callback volume' : 'Under control'}
-              </span>
+            <div className="flex items-center gap-1 mt-2 text-sm">
+              {isCallbackRateHigh ? (
+                <>
+                  <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400" />
+                  <span className="text-red-600 dark:text-red-400">
+                    Above {CALLBACK_RATE_THRESHOLD}% threshold
+                  </span>
+                </>
+              ) : callbackRate > 0 ? (
+                <span className="text-yellow-600 dark:text-yellow-400">
+                  Within {CALLBACK_RATE_THRESHOLD}% threshold
+                </span>
+              ) : (
+                <>
+                  <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400" />
+                  <span className="text-green-600 dark:text-green-400">No callbacks</span>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

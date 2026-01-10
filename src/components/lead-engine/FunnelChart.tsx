@@ -1,8 +1,8 @@
 "use client"
 
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import { StageMetrics, STAGE_CONFIG } from '@/lib/lead-engine-data'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
 } from 'recharts'
@@ -11,9 +11,14 @@ interface FunnelChartProps {
   metrics: StageMetrics[]
   title?: string
   className?: string
+  showValue?: boolean // J2: Show dollar values
 }
 
-export function FunnelChart({ metrics, title = 'Pipeline Funnel', className }: FunnelChartProps) {
+export function FunnelChart({ metrics, title = 'Pipeline Funnel', className, showValue = true }: FunnelChartProps) {
+  // Calculate totals for header display
+  const totalLeads = metrics.reduce((sum, m) => sum + m.leadCount, 0)
+  const totalValue = metrics.reduce((sum, m) => sum + m.totalValue, 0)
+
   const data = metrics.map(m => ({
     name: STAGE_CONFIG[m.stage].shortName,
     fullName: STAGE_CONFIG[m.stage].name,
@@ -21,7 +26,11 @@ export function FunnelChart({ metrics, title = 'Pipeline Funnel', className }: F
     healthy: m.healthyCount,
     atRisk: m.atRiskCount,
     critical: m.criticalCount,
-    isHandoff: STAGE_CONFIG[m.stage].isHandoffStage
+    isHandoff: STAGE_CONFIG[m.stage].isHandoffStage,
+    // J2: Value metrics
+    totalValue: m.totalValue,
+    avgValue: m.avgValue,
+    atRiskValue: m.atRiskValue
   }))
 
   const getBarColor = (entry: typeof data[0]) => {
@@ -37,7 +46,17 @@ export function FunnelChart({ metrics, title = 'Pipeline Funnel', className }: F
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">{title}</CardTitle>
+          {showValue && (
+            <div className="text-right">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {formatCurrency(totalValue)}
+              </div>
+              <div className="text-xs text-gray-500">{totalLeads} leads</div>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="h-[250px]">
@@ -61,20 +80,36 @@ export function FunnelChart({ metrics, title = 'Pipeline Funnel', className }: F
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between gap-4">
                             <span className="text-gray-500">Total:</span>
-                            <span className="font-medium">{data.total}</span>
+                            <span className="font-medium">{data.total} leads</span>
+                          </div>
+                          {/* J2: Show dollar values */}
+                          <div className="flex justify-between gap-4 font-medium">
+                            <span className="text-gray-500">Value:</span>
+                            <span className="text-green-600">{formatCurrency(data.totalValue)}</span>
                           </div>
                           <div className="flex justify-between gap-4">
-                            <span className="text-green-600">Healthy:</span>
-                            <span>{data.healthy}</span>
+                            <span className="text-gray-500">Avg Deal:</span>
+                            <span>{formatCurrency(data.avgValue)}</span>
                           </div>
-                          <div className="flex justify-between gap-4">
-                            <span className="text-yellow-600">At Risk:</span>
-                            <span>{data.atRisk}</span>
+                          <div className="border-t my-2 pt-2">
+                            <div className="flex justify-between gap-4">
+                              <span className="text-green-600">Healthy:</span>
+                              <span>{data.healthy}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-yellow-600">At Risk:</span>
+                              <span>{data.atRisk}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-red-600">Critical:</span>
+                              <span>{data.critical}</span>
+                            </div>
                           </div>
-                          <div className="flex justify-between gap-4">
-                            <span className="text-red-600">Critical:</span>
-                            <span>{data.critical}</span>
-                          </div>
+                          {data.atRiskValue > 0 && (
+                            <div className="pt-1 text-xs text-red-600">
+                              {formatCurrency(data.atRiskValue)} at risk
+                            </div>
+                          )}
                         </div>
                         {data.isHandoff && (
                           <div className="mt-2 pt-2 border-t text-xs text-orange-600 dark:text-orange-400">

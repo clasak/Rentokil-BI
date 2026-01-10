@@ -178,6 +178,49 @@ export default function WigScorecardPage() {
     return 'danger'
   }
 
+  // Calculate branch-level status counts for each metric
+  const getBranchStatusCounts = () => {
+    const counts = {
+      success: 0,
+      warning: 0,
+      danger: 0,
+    }
+
+    wigData.forEach(data => {
+      // Check each key metric per branch
+      const branchStatuses = [
+        getStatus(data.salesDollarsPerRep, WIG_TARGETS.salesDollarsPerRep),
+        getStatus(data.tapDollarPerTech, WIG_TARGETS.tapDollarPerTech),
+        getStatus(data.missedStops, WIG_TARGETS.missedStops, true),
+        getStatus(data.twentyFourHourStart, WIG_TARGETS.twentyFourHourStart),
+        getStatus(data.npsScore, WIG_TARGETS.npsScore),
+        getStatus(data.pastDueCcmCfr, WIG_TARGETS.pastDueCcmCfr, true),
+        data.techsOver55Hours === 0 ? 'success' : 'danger',
+        getStatus(data.serviceRevPerHour, WIG_TARGETS.serviceRevPerHour),
+        getStatus(data.driverScore, WIG_TARGETS.driverScore),
+      ] as const
+
+      // A branch is critical if ANY metric is critical
+      if (branchStatuses.includes('danger')) {
+        counts.danger++
+      } else if (branchStatuses.includes('warning')) {
+        counts.warning++
+      } else {
+        counts.success++
+      }
+    })
+
+    return counts
+  }
+
+  const branchHealthCounts = getBranchStatusCounts()
+  const totalBranches = wigData.length
+  const healthStatus = branchHealthCounts.danger > totalBranches * 0.5
+    ? 'danger'
+    : branchHealthCounts.danger > totalBranches * 0.25
+      ? 'warning'
+      : 'success'
+
   const wigCards: WigMetric[] = [
     {
       name: 'Sales $/Rep',
@@ -289,6 +332,46 @@ export default function WigScorecardPage() {
           </Select>
         </div>
       </div>
+
+      {/* Branch Health Summary */}
+      <Card className={`border-2 ${statusColors[healthStatus]}`}>
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch Health Summary</h3>
+              <p className="text-2xl font-bold mt-1">
+                {branchHealthCounts.danger > 0 ? (
+                  <span className="text-red-600 dark:text-red-400">
+                    {branchHealthCounts.danger} of {totalBranches} branches need attention
+                  </span>
+                ) : branchHealthCounts.warning > 0 ? (
+                  <span className="text-yellow-600 dark:text-yellow-400">
+                    {branchHealthCounts.warning} branches approaching targets
+                  </span>
+                ) : (
+                  <span className="text-green-600 dark:text-green-400">
+                    All {totalBranches} branches meeting targets
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{branchHealthCounts.success}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">On Target</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{branchHealthCounts.warning}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Warning</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400">{branchHealthCounts.danger}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Critical</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* WIG Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
