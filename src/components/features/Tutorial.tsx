@@ -306,7 +306,7 @@ export const ROLE_TUTORIALS: Record<Role, { name: string; welcome: string; steps
       {
         elementId: 'import-quote',
         title: 'Import Quotes',
-        description: 'Quickly import quotes from PestPac or other systems. Keep your tracker up to date.',
+        description: 'Quickly import quotes from Salesforce or other systems. Keep your tracker up to date.',
         route: '/ae/import',
         position: 'center',
         highlight: true
