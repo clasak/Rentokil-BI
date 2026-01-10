@@ -72,7 +72,7 @@ export function ExecutiveCommandCenter() {
   const userScope = getCurrentUserScope()
   const personaDisplay = currentUser
     ? `${currentUser.name}, ${roleLabel}${userScope.scope ? ` • ${userScope.scope}` : ''}`
-    : config.persona
+    : `${roleLabel}${userScope.scope ? ` • ${userScope.scope}` : ''}`
 
   const revenueTrend = kpiValues.get('revenue_mtd')?.trend || []
   const revenueChartData = revenueTrend.map((value, index) => ({

@@ -35,6 +35,7 @@ import {
 import { Role } from '@/types'
 import { ConnectionStatus } from '@/components/features/ConnectionStatus'
 import { BusinessUnitSelector } from '@/components/features/BusinessUnitSelector'
+import { RoleTutorial } from '@/components/features/RoleTutorial'
 
 // All roles now use the same Command Center route
 // The page dynamically shows role-appropriate content
@@ -317,39 +318,33 @@ export function Header() {
         {/* Business Unit Selector (J5) */}
         <BusinessUnitSelector variant="dropdown" />
 
+        {/* Role Tutorial */}
+        <RoleTutorial />
+
         {/* Role Selector */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Select
-                value={isClient ? settings.role : 'exec'}
-                onValueChange={(value) => {
-                  const newRole = value as Role
-                  setRole(newRole)
-                  // Navigate to the appropriate default route for this role
-                  router.push(ROLE_DEFAULT_ROUTES[newRole])
-                }}
-              >
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="exec">Executive</SelectItem>
-                  <SelectItem value="market_director">Market Director</SelectItem>
-                  <SelectItem value="region_director">Region Director</SelectItem>
-                  <SelectItem value="manager">Branch Manager</SelectItem>
-                  <SelectItem value="sales_manager">Sales Manager</SelectItem>
-                  <SelectItem value="ops_manager">Ops Manager</SelectItem>
-                  <SelectItem value="rep">Account Exec</SelectItem>
-                  <SelectItem value="technician">Technician</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Switch user role to view different dashboards</p>
-          </TooltipContent>
-        </Tooltip>
+        <Select
+          value={isClient ? settings.role : 'exec'}
+          onValueChange={(value) => {
+            const newRole = value as Role
+            setRole(newRole)
+            // Navigate to the appropriate default route for this role
+            router.push(ROLE_DEFAULT_ROUTES[newRole])
+          }}
+        >
+          <SelectTrigger className="w-[160px]" title="Switch user role to view different dashboards">
+            <SelectValue placeholder="Role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="exec">Executive</SelectItem>
+            <SelectItem value="market_director">Market Director</SelectItem>
+            <SelectItem value="region_director">Region Director</SelectItem>
+            <SelectItem value="manager">Branch Manager</SelectItem>
+            <SelectItem value="sales_manager">Sales Manager</SelectItem>
+            <SelectItem value="ops_manager">Ops Manager</SelectItem>
+            <SelectItem value="rep">Account Exec</SelectItem>
+            <SelectItem value="technician">Technician</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Presenter Mode */}
         <Tooltip>

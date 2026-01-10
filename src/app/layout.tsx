@@ -3,6 +3,7 @@ import './globals.css'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { Toaster } from '@/components/ui/toaster'
+import { AlphaFeedback } from '@/components/features/AlphaFeedback'
 
 export const metadata: Metadata = {
   title: 'Rentokil BI - Business Operating System',
@@ -22,6 +23,7 @@ export default function RootLayout({
             {children}
           </MainLayout>
           <Toaster />
+          <AlphaFeedback />
         </ThemeProvider>
       </body>
     </html>
