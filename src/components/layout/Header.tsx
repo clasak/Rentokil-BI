@@ -30,11 +30,9 @@ import {
 import {
   Search, Bell, RefreshCw, User, Shield, Map,
   Settings, HelpCircle, Sun, Moon, Monitor,
-  AlertTriangle, CheckCircle, Clock, LogOut
+  AlertTriangle, CheckCircle, Clock, LogOut, Mail
 } from 'lucide-react'
-import { ConnectionStatus } from '@/components/features/ConnectionStatus'
-import { BusinessUnitSelector } from '@/components/features/BusinessUnitSelector'
-import { RoleTutorial } from '@/components/features/RoleTutorial'
+import { createClient } from '@/lib/supabase/client'
 
 // Search result type for better type safety
 interface SearchResult {
@@ -51,6 +49,7 @@ const RECENT_SEARCHES_KEY = 'rentokil-bi-recent-searches'
 
 export function Header() {
   const router = useRouter()
+  const supabase = createClient()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
@@ -58,6 +57,9 @@ export function Header() {
   const [isClient, setIsClient] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string | null>(null)
+  const [signingOut, setSigningOut] = useState(false)
 
   const {
     settings,
@@ -67,9 +69,11 @@ export function Header() {
     setTheme,
   } = useAppStore()
 
-  // Load recent searches from localStorage
+  // Load user info and recent searches
   useEffect(() => {
     setIsClient(true)
+
+    // Load recent searches
     try {
       const stored = localStorage.getItem(RECENT_SEARCHES_KEY)
       if (stored) {
@@ -78,7 +82,42 @@ export function Header() {
     } catch (e) {
       // Ignore localStorage errors
     }
-  }, [])
+
+    // Load user info
+    const loadUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.email) {
+          setUserEmail(user.email)
+          // Try to get name from profile
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('name')
+            .eq('id', user.id)
+            .single()
+          if (profile?.name) {
+            setUserName(profile.name)
+          } else {
+            // Fallback to local storage
+            const stored = localStorage.getItem('user_profile')
+            if (stored) {
+              const parsed = JSON.parse(stored)
+              setUserName(parsed.name)
+            }
+          }
+        }
+      } catch (e) {
+        // Check local storage fallback
+        const stored = localStorage.getItem('user_profile')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          setUserName(parsed.name)
+          setUserEmail(parsed.email)
+        }
+      }
+    }
+    loadUser()
+  }, [supabase])
 
   // Keyboard shortcut: Cmd+K (Mac) / Ctrl+K (Windows)
   useEffect(() => {
@@ -175,6 +214,23 @@ export function Header() {
       localStorage.removeItem(RECENT_SEARCHES_KEY)
     } catch (e) {
       // Ignore localStorage errors
+    }
+  }
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    try {
+      await supabase.auth.signOut()
+      // Clear onboarding cookie
+      document.cookie = 'onboarding_complete=; path=/; max-age=0'
+      // Clear local storage
+      localStorage.removeItem('user_profile')
+      router.push('/login')
+    } catch (error) {
+      console.error('Sign out error:', error)
+    } finally {
+      setSigningOut(false)
+      setUserMenuOpen(false)
     }
   }
 
@@ -279,12 +335,12 @@ export function Header() {
         </Dialog>
       </div>
 
-      {/* Center - RLS Badge */}
+      {/* Center - Role Badge */}
       <div className="flex items-center gap-4 mx-6">
         <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <Shield className="h-4 w-4 text-gray-600 dark:text-gray-400" />
           <span className="text-sm font-medium dark:text-gray-200">
-            Viewing as: <span className="text-primary">{isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'Executive') : 'Loading...'}</span>
+            <span className="text-primary">{isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'Executive') : 'Loading...'}</span>
           </span>
           <span className="text-gray-400">|</span>
           <Map className="h-4 w-4 text-gray-600 dark:text-gray-400" />
@@ -296,15 +352,6 @@ export function Header() {
 
       {/* Right side controls */}
       <div className="flex items-center gap-3">
-        {/* Data Source / Simulation Mode Status */}
-        <ConnectionStatus />
-
-        {/* Business Unit Selector (J5) */}
-        <BusinessUnitSelector variant="dropdown" />
-
-        {/* Role Tutorial - always show */}
-        <RoleTutorial />
-
         {/* Theme Toggle */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -359,7 +406,7 @@ export function Header() {
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Regenerate sample data with new seed</p>
+            <p>Refresh data</p>
           </TooltipContent>
         </Tooltip>
 
@@ -375,7 +422,7 @@ export function Header() {
               </DialogTrigger>
             </TooltipTrigger>
             <TooltipContent>
-              <p>View notifications and alerts</p>
+              <p>View notifications</p>
             </TooltipContent>
           </Tooltip>
           <DialogContent className="sm:max-w-md">
@@ -417,7 +464,7 @@ export function Header() {
           </DialogContent>
         </Dialog>
 
-        {/* User */}
+        {/* User Profile */}
         <Dialog open={userMenuOpen} onOpenChange={setUserMenuOpen}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -428,12 +475,12 @@ export function Header() {
               </DialogTrigger>
             </TooltipTrigger>
             <TooltipContent>
-              <p>User profile and settings</p>
+              <p>Your profile</p>
             </TooltipContent>
           </Tooltip>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
-              <DialogTitle>User Profile</DialogTitle>
+              <DialogTitle>Your Profile</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="flex items-center gap-4">
@@ -441,10 +488,20 @@ export function Header() {
                   <User className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                  <div className="font-semibold text-lg">{isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'User') : 'User'}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{isClient ? scope.scope : 'Loading...'}</div>
+                  <div className="font-semibold text-lg">{userName || 'User'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'User') : 'Loading...'}
+                  </div>
                 </div>
               </div>
+
+              {userEmail && (
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                  <Mail className="h-4 w-4" />
+                  {userEmail}
+                </div>
+              )}
+
               <div className="border-t dark:border-gray-700 pt-4 space-y-2">
                 <Button
                   variant="outline"
@@ -462,19 +519,20 @@ export function Header() {
                   className="w-full justify-start gap-2"
                   onClick={() => {
                     setUserMenuOpen(false)
-                    router.push('/settings')
+                    router.push('/governance')
                   }}
                 >
                   <HelpCircle className="h-4 w-4" />
-                  Help & Support
+                  Help & Documentation
                 </Button>
                 <Button
                   variant="ghost"
                   className="w-full justify-start gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                  onClick={() => setUserMenuOpen(false)}
+                  onClick={handleSignOut}
+                  disabled={signingOut}
                 >
                   <LogOut className="h-4 w-4" />
-                  Sign Out (Demo)
+                  {signingOut ? 'Signing out...' : 'Sign Out'}
                 </Button>
               </div>
             </div>

@@ -6,13 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Building2, TrendingUp, Truck, Users, UserCheck, Wrench,
   Briefcase, Crown, Loader2, CheckCircle
 } from 'lucide-react'
@@ -87,21 +80,9 @@ const ROLE_OPTIONS: RoleOption[] = [
   },
 ]
 
-const DEPARTMENTS = [
-  'Operations',
-  'Sales',
-  'Finance',
-  'Marketing',
-  'IT',
-  'HR',
-  'Executive',
-  'Other'
-]
-
 export default function OnboardingPage() {
   const [name, setName] = useState('')
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-  const [department, setDepartment] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -133,8 +114,8 @@ export default function OnboardingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedRole || !name.trim() || !department) {
-      setError('Please fill in all fields')
+    if (!selectedRole || !name.trim()) {
+      setError('Please enter your name and select a role')
       return
     }
 
@@ -158,7 +139,6 @@ export default function OnboardingPage() {
           email: user.email,
           name: name.trim(),
           role: selectedRole,
-          department,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -171,7 +151,6 @@ export default function OnboardingPage() {
           email: user.email,
           name: name.trim(),
           role: selectedRole,
-          department,
         }))
       }
 
@@ -196,12 +175,12 @@ export default function OnboardingPage() {
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-8" />
+            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-12" />
             <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
               ALPHA
             </Badge>
           </div>
-          <CardTitle className="text-2xl">Welcome! Let&apos;s set up your profile</CardTitle>
+          <CardTitle className="text-2xl">Welcome! Select your role</CardTitle>
           <CardDescription>
             {userEmail && (
               <span>Signed in as <strong>{userEmail}</strong></span>
@@ -226,27 +205,10 @@ export default function OnboardingPage() {
               />
             </div>
 
-            {/* Department */}
-            <div>
-              <label className="text-sm font-medium block mb-2">
-                Your Department
-              </label>
-              <Select value={department} onValueChange={setDepartment} disabled={loading}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DEPARTMENTS.map(dept => (
-                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Role Selection */}
             <div>
               <label className="text-sm font-medium block mb-3">
-                Your Role
+                Select Your Role
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {ROLE_OPTIONS.map((role) => {
@@ -296,7 +258,7 @@ export default function OnboardingPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loading || !selectedRole || !name.trim() || !department}
+              disabled={loading || !selectedRole || !name.trim()}
             >
               {loading ? (
                 <>
