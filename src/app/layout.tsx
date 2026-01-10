@@ -6,8 +6,8 @@ import { Toaster } from '@/components/ui/toaster'
 import { AlphaFeedback } from '@/components/features/AlphaFeedback'
 
 export const metadata: Metadata = {
-  title: 'Rentokil BI - Business Operating System',
-  description: 'Enterprise Business Intelligence Dashboard for Rentokil Leadership',
+  title: 'Rentokil BI - Alpha',
+  description: 'Enterprise Business Intelligence Dashboard for Rentokil Leadership - Alpha Testing',
 }
 
 export default function RootLayout({
