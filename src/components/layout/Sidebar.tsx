@@ -146,12 +146,21 @@ export function Sidebar() {
     // Check if user is admin
     const checkAdmin = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user }, error } = await supabase.auth.getUser()
+        if (error) {
+          console.log('Sidebar: Error getting user:', error)
+          return
+        }
         if (user?.email) {
-          setIsAdmin(ADMIN_EMAILS.includes(user.email.toLowerCase()))
+          const email = user.email.toLowerCase()
+          const isUserAdmin = ADMIN_EMAILS.includes(email)
+          console.log('Sidebar: Admin check -', { email, isUserAdmin, adminEmails: ADMIN_EMAILS })
+          setIsAdmin(isUserAdmin)
+        } else {
+          console.log('Sidebar: No user email found')
         }
       } catch (e) {
-        // Ignore errors
+        console.log('Sidebar: Exception checking admin:', e)
       }
     }
     checkAdmin()

@@ -67,23 +67,37 @@ export async function middleware(request: NextRequest) {
 
   // If authenticated and accessing dashboard (not onboarding), check if profile exists
   if (user && !isPublicPath && !isOnboardingPath) {
-    // Check localStorage flag or profile - for now, check if role is stored locally
-    // The onboarding page will set a flag after completing
+    // Check cookie flag first
     const hasCompletedOnboarding = request.cookies.get('onboarding_complete')?.value === 'true'
 
     if (!hasCompletedOnboarding) {
       // Check Supabase for profile
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
+      try {
+        const { data: profile, error } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
 
-      // If no profile with role, redirect to onboarding
-      if (!profile?.role) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/onboarding'
-        return NextResponse.redirect(url)
+        // If profile exists with role, set cookie and continue (don't redirect to onboarding)
+        if (profile?.role) {
+          // Profile exists - set cookie so we don't check DB every request
+          supabaseResponse.cookies.set('onboarding_complete', 'true', {
+            path: '/',
+            maxAge: 31536000, // 1 year
+          })
+          return supabaseResponse
+        }
+
+        // If no profile with role (and no error that profile table doesn't exist), redirect to onboarding
+        if (!profile?.role && !error?.message?.includes('does not exist')) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/onboarding'
+          return NextResponse.redirect(url)
+        }
+      } catch (e) {
+        // If table doesn't exist or other error, allow access (demo mode)
+        console.log('Profile check error, allowing access:', e)
       }
     }
   }
