@@ -48,6 +48,9 @@ export async function middleware(request: NextRequest) {
   const publicPaths = ['/login', '/auth/callback', '/api']
   const isPublicPath = publicPaths.some(path => request.nextUrl.pathname.startsWith(path))
 
+  // Onboarding is accessible only to authenticated users
+  const isOnboardingPath = request.nextUrl.pathname === '/onboarding'
+
   // If not authenticated and trying to access protected route
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()
@@ -58,8 +61,31 @@ export async function middleware(request: NextRequest) {
   // If authenticated and trying to access login page
   if (user && request.nextUrl.pathname === '/login') {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/onboarding'
     return NextResponse.redirect(url)
+  }
+
+  // If authenticated and accessing dashboard (not onboarding), check if profile exists
+  if (user && !isPublicPath && !isOnboardingPath) {
+    // Check localStorage flag or profile - for now, check if role is stored locally
+    // The onboarding page will set a flag after completing
+    const hasCompletedOnboarding = request.cookies.get('onboarding_complete')?.value === 'true'
+
+    if (!hasCompletedOnboarding) {
+      // Check Supabase for profile
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      // If no profile with role, redirect to onboarding
+      if (!profile?.role) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/onboarding'
+        return NextResponse.redirect(url)
+      }
+    }
   }
 
   return supabaseResponse

@@ -178,6 +178,9 @@ export default function OnboardingPage() {
       // Set role in app store
       setRole(selectedRole)
 
+      // Set onboarding complete cookie (1 year expiry)
+      document.cookie = 'onboarding_complete=true; path=/; max-age=31536000'
+
       // Redirect to main dashboard
       router.push('/')
     } catch (err) {
@@ -306,9 +309,9 @@ export default function OnboardingPage() {
             </Button>
 
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              Your role selection will be verified by the admin team.
+              Your role determines which dashboard view you&apos;ll see.
               <br />
-              You can change your role later from the header dropdown.
+              Contact admin if you need to change your role.
             </p>
           </form>
         </CardContent>

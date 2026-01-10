@@ -1,9 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { MainLayout } from '@/components/layout/MainLayout'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { Toaster } from '@/components/ui/toaster'
-import { AlphaFeedback } from '@/components/features/AlphaFeedback'
 
 export const metadata: Metadata = {
   title: 'Rentokil BI - Alpha',
@@ -19,11 +17,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ThemeProvider>
-          <MainLayout>
-            {children}
-          </MainLayout>
+          {children}
           <Toaster />
-          <AlphaFeedback />
         </ThemeProvider>
       </body>
     </html>
