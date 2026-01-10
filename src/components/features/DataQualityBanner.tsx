@@ -4,14 +4,20 @@ import { useAppStore } from '@/store'
 import { getDataQualityMetrics, getDataSources } from '@/lib/data'
 import { AlertTriangle, X, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 export function DataQualityBanner() {
+  const [mounted, setMounted] = useState(false)
   const { settings } = useAppStore()
   const [dismissed, setDismissed] = useState(false)
 
-  if (!settings.dataQualityIssuesEnabled || dismissed) {
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Don't render until mounted to prevent hydration mismatch
+  if (!mounted || !settings.dataQualityIssuesEnabled || dismissed) {
     return null
   }
 

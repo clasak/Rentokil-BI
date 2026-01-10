@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAppStore, PRESENTER_MODE_CONFIG } from '@/store'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 
 export function PresenterMode() {
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const {
@@ -29,26 +30,35 @@ export function PresenterMode() {
     settings
   } = useAppStore()
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Use default values during SSR to prevent hydration mismatch
+  const isPresenterMode = mounted ? presenterMode : false
+  const isMinimized = mounted ? presenterMinimized : false
+  const currentStepIndex = mounted ? presenterStep : 0
+
   // Fallback to bi_leadership if the stored demoMode doesn't exist in config
-  const demoMode = settings.demoMode in PRESENTER_MODE_CONFIG
+  const demoMode = (mounted && settings.demoMode in PRESENTER_MODE_CONFIG)
     ? settings.demoMode
     : 'bi_leadership'
   const config = PRESENTER_MODE_CONFIG[demoMode]
-  const currentStep = config?.steps?.[presenterStep]
+  const currentStep = config?.steps?.[currentStepIndex]
   const totalSteps = config?.steps?.length || 0
-  const isFirstStep = presenterStep === 0
-  const isLastStep = presenterStep === totalSteps - 1
+  const isFirstStep = currentStepIndex === 0
+  const isLastStep = currentStepIndex === totalSteps - 1
 
   // Navigate to the current step's route when step changes
   useEffect(() => {
-    if (presenterMode && currentStep && pathname !== currentStep.route) {
+    if (isPresenterMode && currentStep && pathname !== currentStep.route) {
       router.push(currentStep.route)
     }
-  }, [presenterMode, currentStep, pathname, router])
+  }, [isPresenterMode, currentStep, pathname, router])
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!presenterMode) return
+    if (!isPresenterMode) return
 
     // Don't capture if user is typing in an input
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -72,10 +82,10 @@ export function PresenterMode() {
       case 'm':
       case 'M':
         e.preventDefault()
-        setPresenterMinimized(!presenterMinimized)
+        setPresenterMinimized(!isMinimized)
         break
     }
-  }, [presenterMode, presenterMinimized, nextPresenterStep, prevPresenterStep, setPresenterMode, setPresenterMinimized])
+  }, [isPresenterMode, isMinimized, nextPresenterStep, prevPresenterStep, setPresenterMode, setPresenterMinimized])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
@@ -94,10 +104,10 @@ export function PresenterMode() {
     }
   }
 
-  if (!presenterMode) return null
+  if (!isPresenterMode) return null
 
   // Minimized view - small pill in bottom right
-  if (presenterMinimized) {
+  if (isMinimized) {
     return (
       <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 duration-300">
         <button
@@ -105,7 +115,7 @@ export function PresenterMode() {
           className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
         >
           <Presentation className="h-4 w-4" />
-          <span className="font-medium">Step {presenterStep + 1}/{totalSteps}</span>
+          <span className="font-medium">Step {currentStepIndex + 1}/{totalSteps}</span>
           <Maximize2 className="h-4 w-4 ml-1" />
         </button>
       </div>
@@ -124,7 +134,7 @@ export function PresenterMode() {
           </div>
           <div className="flex items-center gap-1">
             <Badge variant="secondary" className="text-xs">
-              Step {presenterStep + 1} of {totalSteps}
+              Step {currentStepIndex + 1} of {totalSteps}
             </Badge>
             <Button
               variant="ghost"

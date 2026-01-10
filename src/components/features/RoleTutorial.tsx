@@ -308,12 +308,18 @@ interface RoleTutorialProps {
 }
 
 export function RoleTutorial({ autoShow = false }: RoleTutorialProps) {
+  const [mounted, setMounted] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const router = useRouter()
   const { settings } = useAppStore()
 
-  const role = settings.role
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Use default role during SSR to prevent hydration mismatch
+  const role = mounted ? settings.role : 'exec'
   const steps = ROLE_TUTORIALS[role] || ROLE_TUTORIALS.exec
 
   useEffect(() => {
