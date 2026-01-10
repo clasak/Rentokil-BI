@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
+import { useAppStore } from '@/store'
 import { calculateKPIValues, getPipelineByStage } from '@/lib/kpi-calculations'
 import { getOpportunities } from '@/lib/data'
 import { getActiveBusinessUnits, formatRevenue } from '@/lib/business-units'
@@ -33,8 +34,10 @@ const STAGE_COLORS = {
 }
 
 export default function NationalSalesPage() {
-  const kpiValues = useMemo(() => calculateKPIValues(), [])
-  const pipelineByStage = useMemo(() => getPipelineByStage(), [])
+  const { settings } = useAppStore()
+  // Pass role and userId to filter KPI data to user's scope
+  const kpiValues = useMemo(() => calculateKPIValues(settings.role, settings.userId), [settings.role, settings.userId])
+  const pipelineByStage = useMemo(() => getPipelineByStage(settings.role, settings.userId), [settings.role, settings.userId])
   const opportunities = useMemo(() => getOpportunities(), [])
   const businessUnits = useMemo(() => getActiveBusinessUnits(), [])
 

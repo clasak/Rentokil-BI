@@ -22,10 +22,41 @@ import {
   Tooltip, TooltipContent, TooltipTrigger
 } from '@/components/ui/tooltip'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   Database, Target, Truck, Users, Globe,
   TrendingUp, TrendingDown, Minus, AlertTriangle,
-  Star, Copy, ArrowRight, Info
+  Star, Copy, ArrowRight, Info, HelpCircle
 } from 'lucide-react'
+
+// Lead Quality Scoring Methodology
+const SCORING_METHODOLOGY = {
+  qualityFactors: [
+    { factor: 'Historical Conversion Rate', weight: 35, description: 'Percentage of leads from this source that convert to won deals' },
+    { factor: 'Average Deal Size', weight: 25, description: 'Mean contract value of converted leads vs. company average' },
+    { factor: 'Time to Conversion', weight: 20, description: 'Average days from lead creation to closed-won' },
+    { factor: 'Duplicate Rate', weight: 10, description: 'Percentage of leads found in multiple sources (lower is better)' },
+    { factor: 'Data Completeness', weight: 10, description: 'Percentage of required fields populated at intake' },
+  ],
+  starRatings: [
+    { stars: 5, range: '90-100', label: 'Excellent', description: 'Top-tier source with highest conversion and deal sizes' },
+    { stars: 4, range: '75-89', label: 'Good', description: 'Above average performance across metrics' },
+    { stars: 3, range: '60-74', label: 'Average', description: 'Meets company benchmarks' },
+    { stars: 2, range: '40-59', label: 'Below Average', description: 'Needs improvement in key areas' },
+    { stars: 1, range: '0-39', label: 'Poor', description: 'Requires source review or discontinuation' },
+  ],
+  atRiskIndicators: [
+    { indicator: 'SLA breach', description: 'Lead exceeds stage time limit (e.g., >24h in BD→Sales handoff)' },
+    { indicator: 'Stale contact', description: 'No activity recorded in 7+ days' },
+    { indicator: 'Missing data', description: 'Critical fields empty (contact phone, email, or company)' },
+    { indicator: 'Duplicate match', description: 'High-confidence duplicate detected in another source' },
+  ]
+}
 
 interface LeadSourceMatrixProps {
   className?: string
@@ -125,14 +156,93 @@ export function LeadSourceMatrix({ className, showDuplicateWarning = true }: Lea
           <div>
             <CardTitle className="flex items-center gap-2">
               Lead Sources
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-gray-400" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>Unified view of leads across all intake sources. Quality scores reflect historical conversion rates and deal sizes.</p>
-                </TooltipContent>
-              </Tooltip>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600">
+                    <HelpCircle className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Lead Scoring Methodology</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6 text-sm">
+                    {/* Quality Score Calculation */}
+                    <div>
+                      <h4 className="font-semibold text-base mb-3">Quality Score Calculation</h4>
+                      <p className="text-gray-600 dark:text-gray-400 mb-3">
+                        Each lead source is scored from 0-100 based on weighted performance factors:
+                      </p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Factor</TableHead>
+                            <TableHead className="text-center">Weight</TableHead>
+                            <TableHead>Description</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {SCORING_METHODOLOGY.qualityFactors.map(f => (
+                            <TableRow key={f.factor}>
+                              <TableCell className="font-medium">{f.factor}</TableCell>
+                              <TableCell className="text-center">{f.weight}%</TableCell>
+                              <TableCell className="text-gray-600 dark:text-gray-400">{f.description}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Star Ratings */}
+                    <div>
+                      <h4 className="font-semibold text-base mb-3">Star Rating Scale</h4>
+                      <div className="space-y-2">
+                        {SCORING_METHODOLOGY.starRatings.map(r => (
+                          <div key={r.stars} className="flex items-center gap-3 p-2 rounded bg-gray-50 dark:bg-gray-800">
+                            <div className="flex gap-0.5 w-20">
+                              {[1, 2, 3, 4, 5].map(i => (
+                                <Star
+                                  key={i}
+                                  className={`h-3 w-3 ${i <= r.stars ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
+                                />
+                              ))}
+                            </div>
+                            <span className="font-medium w-16">{r.range}</span>
+                            <span className="text-gray-600 dark:text-gray-400">{r.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* At-Risk Indicators */}
+                    <div>
+                      <h4 className="font-semibold text-base mb-3">At-Risk Indicators</h4>
+                      <p className="text-gray-600 dark:text-gray-400 mb-3">
+                        Leads are flagged &quot;at risk&quot; when any of these conditions are met:
+                      </p>
+                      <div className="space-y-2">
+                        {SCORING_METHODOLOGY.atRiskIndicators.map(i => (
+                          <div key={i.indicator} className="flex items-start gap-2 p-2 rounded bg-orange-50 dark:bg-orange-900/20">
+                            <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="font-medium">{i.indicator}:</span>{' '}
+                              <span className="text-gray-600 dark:text-gray-400">{i.description}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Data Sources */}
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-gray-500">
+                        Metrics refresh every 15 minutes from Salesforce, Winning Formula, and PestPac integrations.
+                        Historical data covers rolling 90-day performance.
+                      </p>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardTitle>
             <CardDescription>
               Last 30 days across all intake channels

@@ -128,3 +128,135 @@ All synthetic data uses `seedrandom` for determinism:
 - Same seed = identical data
 - Refresh button changes seed
 - Volumes: ~1,500 accounts, ~2,500 opportunities, ~12,000 service events
+
+---
+
+## Alpha Testing Environment (Current State)
+
+### Authentication System
+
+**Supabase email/password authentication** is configured:
+- Login page: `/login` with password-based sign-in (not magic links)
+- Forgot password: Sends reset email via Supabase
+- Reset password: `/auth/reset-password` handles the reset flow
+- Onboarding: `/onboarding` collects user profile (name, department, role)
+
+**Middleware** (`/src/middleware.ts`):
+- Checks for authenticated user on protected routes
+- Sets `onboarding_complete` cookie when profile exists in Supabase
+- Falls back to demo mode if Supabase tables don't exist
+
+**Profile Storage**:
+- Primary: Supabase `user_profiles` table (if exists)
+- Fallback: localStorage `user_profile` key
+- Cookie: `onboarding_complete` to skip profile check after first login
+
+### Admin Access
+
+**Admin emails** (defined in `/src/components/layout/Sidebar.tsx`):
+```typescript
+const ADMIN_EMAILS = [
+  'cody.lytle@rentokil.com',
+  'cody.lytle@prestox.com',
+]
+```
+
+**Admin-only features**:
+- Admin link in sidebar (Lock icon)
+- Admin console at `/admin` with:
+  - Role simulation controls
+  - Demo mode settings
+  - Presenter mode launcher
+  - Data quality toggle
+
+### Role-Based Navigation
+
+| Role | Main Navigation | Governance Section |
+|------|----------------|-------------------|
+| `exec` | Command Center, Sales, Ops, Finance, People, Forecast, Lead Service Engine | Yes |
+| `market_director` | Same as exec | Yes |
+| `region_director` | Same as exec | Yes |
+| `sales_manager` | Same as exec | Yes |
+| `manager` | Command Center, Daily Cadence, WIG Scorecard, Sales, Ops, Forecast, Lead Service Engine | Yes |
+| `ops_manager` | Command Center, Ops, New Starts, Sales, Finance, Forecast, Lead Service Engine | Yes |
+| `rep` | My Dashboard, Import Quote, Sales Tracker, Proposals, Sales, New Starts | **No** |
+| `technician` | My Schedule, Service Tickets, Route | **No** |
+
+### Settings Page
+
+User-focused settings at `/settings` (same for all roles):
+- Profile display (read-only role/access)
+- Theme toggle (Light/Dark/System)
+- Forecast scenario preference (Base/Upside/Downside)
+- Notifications (disabled, "coming soon")
+- Sign out button
+
+**No demo controls** visible to regular users - those are admin-only.
+
+### Tutorial System
+
+**Role-specific tutorials** (`/src/components/features/Tutorial.tsx`):
+- Each role has customized tutorial steps
+- Guides users to relevant pages for their role
+- Stored completion in localStorage: `tutorial_completed_{role}`
+
+**RoleTutorial component** (`/src/components/features/RoleTutorial.tsx`):
+- Can auto-show for new users
+- Dialog-based step-by-step walkthrough
+
+### Hydration Fix Pattern
+
+Components using Zustand persisted state need hydration guards:
+
+```typescript
+export function MyComponent() {
+  const [mounted, setMounted] = useState(false)
+  const { settings } = useAppStore()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Use default during SSR
+  const value = mounted ? settings.someValue : defaultValue
+
+  if (!mounted) return null // or loading state
+  // ... rest of component
+}
+```
+
+**Fixed components**:
+- `DataQualityBanner.tsx`
+- `RoleTutorial.tsx`
+- `PresenterMode.tsx`
+- `DemoSpotlight.tsx`
+- `Tutorial.tsx`
+- `Sidebar.tsx` (uses `isClient` state)
+- `Header.tsx` (uses `isClient` state)
+
+### Known Issues & Solutions
+
+**React Hydration Errors (418, 423, 425)**:
+- Caused by Zustand persist middleware loading different state on client than SSR default
+- Solution: Add `mounted` state check before accessing persisted values
+
+**ESLint Build Errors**:
+- Unescaped quotes in JSX: Use `&apos;` for `'` and `&quot;` for `"`
+- Example: `don't` → `don&apos;t`
+
+**Vercel Build Caching**:
+- If old errors persist, push a trivial change to `vercel-build.txt` to force fresh build
+
+### Deployment
+
+- **Branch**: `alpha-test`
+- **Platform**: Vercel
+- **Build trigger file**: `vercel-build.txt` (change to force rebuild)
+
+### Recent Changes (This Session)
+
+1. **Fixed hydration errors** in DataQualityBanner, RoleTutorial, PresenterMode
+2. **Fixed ESLint errors** - escaped quotes in login page and Tutorial.tsx
+3. **Fixed tutorial text** - Changed "PestPac" to "Salesforce" for quote import description
+4. **Verified role-based sidebar** - Techs and AEs don't see Governance section
+5. **Verified settings page** - Clean user-focused page, no demo controls for regular users

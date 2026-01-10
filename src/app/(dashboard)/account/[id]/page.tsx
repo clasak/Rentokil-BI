@@ -28,6 +28,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer
 } from 'recharts'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 
 export default function AccountDetailPage() {
   const params = useParams()
@@ -107,6 +108,14 @@ export default function AccountDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb
+        items={[
+          { label: 'Operations', href: '/ops' },
+          { label: account.name }
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

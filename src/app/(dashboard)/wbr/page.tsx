@@ -39,9 +39,10 @@ export default function WBRPage() {
   const branches = getBranches()
 
   useEffect(() => {
-    setKpiValues(calculateKPIValues())
+    // Pass role and userId to filter KPI data to user's scope
+    setKpiValues(calculateKPIValues(settings.role, settings.userId))
     setVarianceDrivers(getVarianceDrivers('revenue_mtd'))
-    setActions(getActionItems())
+    setActions(getActionItems(settings.role, settings.userId))
   }, [settings])
 
   const weekStart = startOfWeek(new Date())

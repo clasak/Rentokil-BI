@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
+import { useAppStore } from '@/store'
 import { calculateKPIValues } from '@/lib/kpi-calculations'
 import { getServiceEvents, getTechnicianCapacity } from '@/lib/data'
 import { getActiveBusinessUnits } from '@/lib/business-units'
@@ -23,7 +24,9 @@ import {
 } from 'lucide-react'
 
 export default function NationalOpsPage() {
-  const kpiValues = useMemo(() => calculateKPIValues(), [])
+  const { settings } = useAppStore()
+  // Pass role and userId to filter KPI data to user's scope
+  const kpiValues = useMemo(() => calculateKPIValues(settings.role, settings.userId), [settings.role, settings.userId])
   const serviceEvents = useMemo(() => getServiceEvents(), [])
   const technicianCapacity = useMemo(() => getTechnicianCapacity(), [])
   const businessUnits = useMemo(() => getActiveBusinessUnits(), [])

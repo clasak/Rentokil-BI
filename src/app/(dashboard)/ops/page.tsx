@@ -55,8 +55,9 @@ export default function OpsPage() {
     const allServiceEvents = getServiceEvents()
     setServiceEvents(allServiceEvents)
     setComplaints(getComplaints())
-    setKpiValues(calculateKPIValues())
-    setActions(getActionItems().filter(a => a.type === 'at_risk_account' || a.type === 'capacity_pressure'))
+    // Pass role and userId to filter KPI data to user's scope
+    setKpiValues(calculateKPIValues(settings.role, settings.userId))
+    setActions(getActionItems(settings.role, settings.userId).filter(a => a.type === 'at_risk_account' || a.type === 'capacity_pressure'))
 
     // Build technician display data
     const users = getUsers()

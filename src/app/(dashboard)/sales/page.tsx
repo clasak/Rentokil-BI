@@ -35,9 +35,10 @@ export default function SalesPage() {
     let opps = getOpportunities()
     opps = filterByRole(opps, settings.role, settings.userId, settings.selectedMarkets) as Opportunity[]
     setOpportunities(opps)
-    setKpiValues(calculateKPIValues())
-    setPipelineByStage(getPipelineByStage())
-    setActions(getActionItems().filter(a => a.type === 'stalled_opp'))
+    // Pass role and userId to filter KPI data to user's scope
+    setKpiValues(calculateKPIValues(settings.role, settings.userId))
+    setPipelineByStage(getPipelineByStage(settings.role, settings.userId))
+    setActions(getActionItems(settings.role, settings.userId).filter(a => a.type === 'stalled_opp'))
   }, [settings])
 
   const salesKpis = ['pipeline_30_60_90', 'win_rate', 'avg_cycle_time_days', 'stalled_opps', 'crm_hygiene_score']

@@ -1,13 +1,79 @@
 import {
   KPIValue, ReconciliationItem, ActionItem, VarianceDriver,
-  ForecastPoint, ForecastAssumption, BacktestResult, Scenario
+  ForecastPoint, ForecastAssumption, BacktestResult, Scenario,
+  Role, Invoice, Opportunity, ServiceEvent, Complaint, Account, TechnicianCapacity, Activity
 } from '@/types'
 import { getKPIBySlug } from './kpis'
 import {
   getInvoices, getOpportunities, getServiceEvents, getComplaints,
-  getAccounts, getTechnicianCapacity, getActivities
+  getAccounts, getTechnicianCapacity, getActivities, getUserById, filterByRole
 } from './data'
 import { safeDivide, safeDeltaPercent, clampValue, isValidNumber } from './utils'
+
+// Filter data by role scope
+// For entities without direct branchId/marketId (invoices, service events, complaints),
+// we filter by their associated account's scope
+function filterDataByRole(
+  role: Role,
+  userId: string,
+  accounts: Account[],
+  opportunities: Opportunity[],
+  invoices: Invoice[],
+  serviceEvents: ServiceEvent[],
+  complaints: Complaint[],
+  capacity: TechnicianCapacity[],
+  activities: Activity[]
+): {
+  accounts: Account[],
+  opportunities: Opportunity[],
+  invoices: Invoice[],
+  serviceEvents: ServiceEvent[],
+  complaints: Complaint[],
+  capacity: TechnicianCapacity[],
+  activities: Activity[]
+} {
+  // Executives see everything
+  if (role === 'exec') {
+    return { accounts, opportunities, invoices, serviceEvents, complaints, capacity, activities }
+  }
+
+  const user = getUserById(userId)
+  if (!user) {
+    return { accounts, opportunities, invoices, serviceEvents, complaints, capacity, activities }
+  }
+
+  // Filter accounts first (they have direct branchId/marketId)
+  const filteredAccounts = filterByRole(accounts, role, userId, []) as Account[]
+  const accountIds = new Set(filteredAccounts.map(a => a.id))
+
+  // Filter opportunities (they have direct branchId/marketId and ownerId)
+  const filteredOpportunities = filterByRole(opportunities, role, userId, []) as Opportunity[]
+
+  // Filter invoices by their account's scope
+  const filteredInvoices = invoices.filter(inv => accountIds.has(inv.accountId))
+
+  // Filter service events by their account's scope
+  const filteredServiceEvents = serviceEvents.filter(se => accountIds.has(se.accountId))
+
+  // Filter complaints by their account's scope
+  const filteredComplaints = complaints.filter(c => accountIds.has(c.accountId))
+
+  // Filter technician capacity (has branchId)
+  const filteredCapacity = filterByRole(capacity, role, userId, []) as TechnicianCapacity[]
+
+  // Filter activities by account scope
+  const filteredActivities = activities.filter(a => accountIds.has(a.accountId))
+
+  return {
+    accounts: filteredAccounts,
+    opportunities: filteredOpportunities,
+    invoices: filteredInvoices,
+    serviceEvents: filteredServiceEvents,
+    complaints: filteredComplaints,
+    capacity: filteredCapacity,
+    activities: filteredActivities
+  }
+}
 
 // Helper to generate trend data
 function generateTrend(baseValue: number, volatility: number = 0.1, points: number = 12): number[] {
@@ -23,18 +89,41 @@ function generateTrend(baseValue: number, volatility: number = 0.1, points: numb
 }
 
 // Calculate all KPI values
-export function calculateKPIValues(): Map<string, KPIValue> {
+// Pass role and userId to filter data to the user's scope
+export function calculateKPIValues(role?: Role, userId?: string): Map<string, KPIValue> {
   const kpiValues = new Map<string, KPIValue>()
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const invoices = getInvoices()
-  const opportunities = getOpportunities()
-  const serviceEvents = getServiceEvents()
-  const complaints = getComplaints()
-  const accounts = getAccounts()
-  const capacity = getTechnicianCapacity()
-  const activities = getActivities()
+  // Get raw data
+  const rawInvoices = getInvoices()
+  const rawOpportunities = getOpportunities()
+  const rawServiceEvents = getServiceEvents()
+  const rawComplaints = getComplaints()
+  const rawAccounts = getAccounts()
+  const rawCapacity = getTechnicianCapacity()
+  const rawActivities = getActivities()
+
+  // Filter data by role if provided, otherwise show everything (backwards compatible)
+  const {
+    accounts,
+    opportunities,
+    invoices,
+    serviceEvents,
+    complaints,
+    capacity,
+    activities
+  } = (role && userId)
+    ? filterDataByRole(role, userId, rawAccounts, rawOpportunities, rawInvoices, rawServiceEvents, rawComplaints, rawCapacity, rawActivities)
+    : {
+        accounts: rawAccounts,
+        opportunities: rawOpportunities,
+        invoices: rawInvoices,
+        serviceEvents: rawServiceEvents,
+        complaints: rawComplaints,
+        capacity: rawCapacity,
+        activities: rawActivities
+      }
 
   // 1. Revenue MTD
   const paidInvoicesMTD = invoices.filter(i =>
@@ -465,8 +554,8 @@ export function calculateKPIValues(): Map<string, KPIValue> {
 }
 
 // Get reconciliation data for a KPI
-export function getReconciliation(kpiSlug: string): ReconciliationItem {
-  const kpiValues = calculateKPIValues()
+export function getReconciliation(kpiSlug: string, role?: Role, userId?: string): ReconciliationItem {
+  const kpiValues = calculateKPIValues(role, userId)
   const kpiValue = kpiValues.get(kpiSlug)
 
   if (!kpiValue) {
@@ -506,11 +595,30 @@ export function getReconciliation(kpiSlug: string): ReconciliationItem {
 }
 
 // Get action items
-export function getActionItems(): ActionItem[] {
-  const opportunities = getOpportunities()
-  const accounts = getAccounts()
-  const invoices = getInvoices()
-  const capacity = getTechnicianCapacity()
+export function getActionItems(role?: Role, userId?: string): ActionItem[] {
+  // Get raw data
+  const rawOpportunities = getOpportunities()
+  const rawAccounts = getAccounts()
+  const rawInvoices = getInvoices()
+  const rawCapacity = getTechnicianCapacity()
+  const rawServiceEvents = getServiceEvents()
+  const rawComplaints = getComplaints()
+  const rawActivities = getActivities()
+
+  // Filter data by role if provided
+  const {
+    accounts,
+    opportunities,
+    invoices,
+    capacity
+  } = (role && userId)
+    ? filterDataByRole(role, userId, rawAccounts, rawOpportunities, rawInvoices, rawServiceEvents, rawComplaints, rawCapacity, rawActivities)
+    : {
+        accounts: rawAccounts,
+        opportunities: rawOpportunities,
+        invoices: rawInvoices,
+        capacity: rawCapacity
+      }
 
   const actions: ActionItem[] = []
 
@@ -810,8 +918,14 @@ export function getForecastData(scenario: Scenario): {
 }
 
 // Calculate pipeline by stage
-export function getPipelineByStage(): { stage: string; count: number; value: number; weightedValue: number }[] {
-  const opportunities = getOpportunities()
+export function getPipelineByStage(role?: Role, userId?: string): { stage: string; count: number; value: number; weightedValue: number }[] {
+  const rawOpportunities = getOpportunities()
+
+  // Filter opportunities by role if provided
+  const opportunities = (role && userId)
+    ? filterByRole(rawOpportunities, role, userId, []) as Opportunity[]
+    : rawOpportunities
+
   const openOpps = opportunities.filter(o => !['closed_won', 'closed_lost'].includes(o.stage))
 
   const stages = ['prospect', 'qualified', 'proposal', 'negotiation']
@@ -827,8 +941,18 @@ export function getPipelineByStage(): { stage: string; count: number; value: num
 }
 
 // Get AR aging breakdown
-export function getARAgingBreakdown(): { bucket: string; amount: number; count: number }[] {
-  const invoices = getInvoices()
+export function getARAgingBreakdown(role?: Role, userId?: string): { bucket: string; amount: number; count: number }[] {
+  const rawInvoices = getInvoices()
+  const rawAccounts = getAccounts()
+
+  // Filter invoices by role if provided (via account scope)
+  let invoices = rawInvoices
+  if (role && userId) {
+    const filteredAccounts = filterByRole(rawAccounts, role, userId, []) as Account[]
+    const accountIds = new Set(filteredAccounts.map(a => a.id))
+    invoices = rawInvoices.filter(inv => accountIds.has(inv.accountId))
+  }
+
   const openInvoices = invoices.filter(i => ['open', 'overdue', 'disputed'].includes(i.status))
 
   const buckets = ['0-30', '31-60', '61-90', '90+'] as const

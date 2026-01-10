@@ -35,7 +35,8 @@ export default function QBRPage() {
   const markets = getMarkets()
 
   useEffect(() => {
-    setKpiValues(calculateKPIValues())
+    // Pass role and userId to filter KPI data to user's scope
+    setKpiValues(calculateKPIValues(settings.role, settings.userId))
     setForecastData(getForecastData(settings.scenario))
   }, [settings])
 

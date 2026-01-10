@@ -28,7 +28,8 @@ export default function PeoplePage() {
   useEffect(() => {
     setIsClient(true)
     setCapacity(getTechnicianCapacity())
-    setKpiValues(calculateKPIValues())
+    // Pass role and userId to filter KPI data to user's scope
+    setKpiValues(calculateKPIValues(settings.role, settings.userId))
   }, [settings])
 
   const peopleKpis = ['capacity_utilization', 'scheduling_pressure_index']

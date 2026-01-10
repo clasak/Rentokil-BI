@@ -36,7 +36,8 @@ export function ExecutiveCommandCenter() {
   useEffect(() => {
     setIsLoading(true)
     const timer = setTimeout(() => {
-      const values = calculateKPIValues()
+      // Pass role and userId to filter data to user's scope
+      const values = calculateKPIValues(settings.role, settings.userId)
       setKpiValues(values)
 
       // Get variance to target and compute the actual dollar variance for drivers
@@ -54,12 +55,13 @@ export function ExecutiveCommandCenter() {
       }
 
       setVarianceDrivers(getVarianceDrivers('variance_to_target_mtd', varianceAmount))
-      setActions(getActionItems())
+      // Pass role and userId to filter actions to user's scope
+      setActions(getActionItems(settings.role, settings.userId))
       setIsLoading(false)
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [settings.refreshSeed])
+  }, [settings.refreshSeed, settings.role, settings.userId])
 
   const demoMode = settings.demoMode in DEMO_MODE_CONFIG
     ? settings.demoMode

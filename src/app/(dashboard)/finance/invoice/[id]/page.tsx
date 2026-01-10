@@ -15,6 +15,7 @@ import {
   CheckCircle, DollarSign, FileText, Phone, Mail
 } from 'lucide-react'
 import { format, differenceInDays } from 'date-fns'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 
 export default function InvoiceDetailPage() {
   const params = useParams()
@@ -80,6 +81,14 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb
+        items={[
+          { label: 'Finance', href: '/finance' },
+          { label: invoice.id }
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

@@ -33,9 +33,10 @@ export default function FinancePage() {
   useEffect(() => {
     let invs = getInvoices()
     setInvoices(invs)
-    setKpiValues(calculateKPIValues())
-    setArAging(getARAgingBreakdown())
-    setActions(getActionItems().filter(a => a.type === 'collection_priority'))
+    // Pass role and userId to filter KPI data to user's scope
+    setKpiValues(calculateKPIValues(settings.role, settings.userId))
+    setArAging(getARAgingBreakdown(settings.role, settings.userId))
+    setActions(getActionItems(settings.role, settings.userId).filter(a => a.type === 'collection_priority'))
   }, [settings])
 
   const financeKpis = ['revenue_mtd', 'ar_aging', 'dso', 'nrr', 'margin_proxy']

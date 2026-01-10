@@ -15,6 +15,7 @@ import {
   AlertTriangle, CheckCircle, Phone, Mail, MapPin, Zap
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 
 export default function OpportunityDetailPage() {
   const params = useParams()
@@ -88,6 +89,14 @@ export default function OpportunityDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb
+        items={[
+          { label: 'Sales', href: '/sales' },
+          { label: opportunity.name }
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

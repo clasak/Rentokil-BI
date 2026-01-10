@@ -10,6 +10,7 @@ import { KPIValue, ReconciliationItem, VarianceDriver, ActionItem } from '@/type
 import { LineageModal } from '@/components/features/LineageModal'
 import { VarianceNarrative } from '@/components/features/VarianceNarrative'
 import { ActionList } from '@/components/features/ActionList'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -47,11 +48,12 @@ export default function KPIDetailPage() {
   useEffect(() => {
     setIsLoading(true)
     const timer = setTimeout(() => {
-      const values = calculateKPIValues()
+      // Pass role and userId to filter KPI data to user's scope
+      const values = calculateKPIValues(settings.role, settings.userId)
       setKpiValue(values.get(slug) || null)
-      setReconciliation(getReconciliation(slug))
+      setReconciliation(getReconciliation(slug, settings.role, settings.userId))
       setDrivers(getVarianceDrivers(slug))
-      setActions(getActionItems().filter(a => {
+      setActions(getActionItems(settings.role, settings.userId).filter(a => {
         if (slug === 'stalled_opps') return a.type === 'stalled_opp'
         if (slug === 'retention_risk') return a.type === 'at_risk_account'
         if (slug === 'ar_aging') return a.type === 'collection_priority'
@@ -62,7 +64,7 @@ export default function KPIDetailPage() {
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [slug, settings.refreshSeed])
+  }, [slug, settings.refreshSeed, settings.role, settings.userId])
 
   if (!definition) {
     return (
@@ -114,13 +116,35 @@ export default function KPIDetailPage() {
     )
   }
 
+  // Determine parent page based on KPI category
+  const getParentPage = () => {
+    const salesKpis = ['pipeline_30_60_90', 'win_rate', 'avg_cycle_time_days', 'stalled_opps', 'crm_hygiene_score']
+    const opsKpis = ['service_risk_index', 'callback_rate', 'missed_service_rate', 'avg_response_time_hours', 'retention_risk', 'capacity_utilization', 'scheduling_pressure_index']
+    const financeKpis = ['revenue_mtd', 'ar_aging', 'dso', 'nrr', 'margin_proxy', 'variance_to_target_mtd', 'forecast_revenue_8w']
+
+    if (salesKpis.includes(slug)) return { label: 'Sales', href: '/sales' }
+    if (opsKpis.includes(slug)) return { label: 'Operations', href: '/ops' }
+    if (financeKpis.includes(slug)) return { label: 'Finance', href: '/finance' }
+    return { label: 'Command Center', href: '/' }
+  }
+
+  const parentPage = getParentPage()
+
   return (
     <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb
+        items={[
+          { label: parentPage.label, href: parentPage.href },
+          { label: definition.name }
+        ]}
+      />
+
       {/* Header */}
       <div id="kpi-header" className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/">
+            <Link href={parentPage.href}>
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
