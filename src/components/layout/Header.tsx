@@ -29,37 +29,12 @@ import {
 } from '@/components/ui/tooltip'
 import {
   Search, Bell, RefreshCw, User, Shield, Map,
-  Presentation, ExternalLink, Settings, HelpCircle, Sun, Moon, Monitor,
+  Settings, HelpCircle, Sun, Moon, Monitor,
   AlertTriangle, CheckCircle, Clock, LogOut
 } from 'lucide-react'
-import { Role } from '@/types'
 import { ConnectionStatus } from '@/components/features/ConnectionStatus'
 import { BusinessUnitSelector } from '@/components/features/BusinessUnitSelector'
 import { RoleTutorial } from '@/components/features/RoleTutorial'
-
-// Check if we're in alpha/production mode (Supabase configured)
-// In alpha mode, hide role switcher and presenter tools - users see only their assigned role
-// Must check at runtime since env vars are injected by Vercel
-function isAlphaMode(): boolean {
-  if (typeof window === 'undefined') return false
-  return !!(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  )
-}
-
-// All roles now use the same Command Center route
-// The page dynamically shows role-appropriate content
-const ROLE_DEFAULT_ROUTES: Record<Role, string> = {
-  exec: '/',
-  market_director: '/',
-  region_director: '/',
-  manager: '/',
-  sales_manager: '/',
-  ops_manager: '/',
-  rep: '/',
-  technician: '/',
-}
 
 // Search result type for better type safety
 interface SearchResult {
@@ -86,10 +61,8 @@ export function Header() {
 
   const {
     settings,
-    setRole,
     refreshData,
     getCurrentUserScope,
-    setPresenterMode,
     theme,
     setTheme,
   } = useAppStore()
@@ -331,72 +304,6 @@ export function Header() {
 
         {/* Role Tutorial - always show */}
         <RoleTutorial />
-
-        {/* Role Selector - ONLY in demo mode, hidden in alpha */}
-        {!isAlphaMode() && (
-          <Select
-            value={isClient ? settings.role : 'exec'}
-            onValueChange={(value) => {
-              const newRole = value as Role
-              setRole(newRole)
-              // Navigate to the appropriate default route for this role
-              router.push(ROLE_DEFAULT_ROUTES[newRole])
-            }}
-          >
-            <SelectTrigger className="w-[160px]" title="Switch user role to view different dashboards">
-              <SelectValue placeholder="Role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="exec">Executive</SelectItem>
-              <SelectItem value="market_director">Market Director</SelectItem>
-              <SelectItem value="region_director">Region Director</SelectItem>
-              <SelectItem value="manager">Branch Manager</SelectItem>
-              <SelectItem value="sales_manager">Sales Manager</SelectItem>
-              <SelectItem value="ops_manager">Ops Manager</SelectItem>
-              <SelectItem value="rep">Account Exec</SelectItem>
-              <SelectItem value="technician">Technician</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-
-        {/* Presenter Mode - ONLY in demo mode, hidden in alpha */}
-        {!isAlphaMode() && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPresenterMode(true)}
-                className="gap-2"
-              >
-                <Presentation className="h-4 w-4" />
-                Present
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Start presentation mode with guided tour</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        {/* Speaker Notes - ONLY in demo mode, hidden in alpha */}
-        {!isAlphaMode() && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.open('/presenter', '_blank', 'width=500,height=700')}
-                className="gap-1"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Open speaker notes in new window</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
 
         {/* Theme Toggle */}
         <Tooltip>
