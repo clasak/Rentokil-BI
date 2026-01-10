@@ -3,15 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Mail, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Mail, Lock, AlertCircle, Loader2, BarChart3, Shield, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -21,25 +20,33 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    // Basic email validation
+    // Basic validation
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email address')
       setLoading(false)
       return
     }
 
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters')
+      setLoading(false)
+      return
+    }
+
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+        password,
       })
 
       if (error) {
-        setError(error.message)
+        if (error.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password')
+        } else {
+          setError(error.message)
+        }
       } else {
-        setSent(true)
+        router.push('/onboarding')
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
@@ -48,95 +55,167 @@ export default function LoginPage() {
     }
   }
 
-  if (sent) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-            </div>
-            <CardTitle>Check your email</CardTitle>
-            <CardDescription>
-              We sent a magic link to <strong>{email}</strong>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Click the link in the email to sign in. The link will expire in 1 hour.
-            </p>
-            <Button variant="outline" onClick={() => setSent(false)}>
-              Use a different email
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
+    <div className="min-h-screen flex">
+      {/* Left side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-red-600 via-red-700 to-red-800 p-12 flex-col justify-between relative overflow-hidden">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-20 left-20 w-64 h-64 border border-white/20 rounded-full" />
+          <div className="absolute bottom-40 right-10 w-96 h-96 border border-white/20 rounded-full" />
+          <div className="absolute top-1/2 left-1/3 w-48 h-48 border border-white/20 rounded-full" />
+        </div>
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-10 brightness-0 invert" />
+            <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+              ALPHA
+            </Badge>
+          </div>
+          <p className="text-red-100 text-lg mt-1">Business Intelligence Platform</p>
+        </div>
+
+        <div className="relative z-10 space-y-8">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-white/10 rounded-lg">
+              <BarChart3 className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-semibold text-lg">Real-Time Analytics</h3>
+              <p className="text-red-100 text-sm mt-1">
+                Monitor KPIs, revenue, and operational metrics across all branches
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-white/10 rounded-lg">
+              <Users className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-semibold text-lg">Role-Based Dashboards</h3>
+              <p className="text-red-100 text-sm mt-1">
+                Personalized views for Executives, Managers, Sales, and Technicians
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-white/10 rounded-lg">
+              <Shield className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-semibold text-lg">Data Governance</h3>
+              <p className="text-red-100 text-sm mt-1">
+                Enterprise-grade security with complete audit trails
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative z-10">
+          <p className="text-red-200 text-sm">
+            The Experts in Pest Control
+          </p>
+        </div>
+      </div>
+
+      {/* Right side - Login Form */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
+        <div className="w-full max-w-md">
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
             <img src="/rentokil-logo.svg" alt="Rentokil" className="h-8" />
             <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
               ALPHA
             </Badge>
           </div>
-          <CardTitle className="text-2xl">Welcome to Rentokil BI</CardTitle>
-          <CardDescription>
-            Sign in with your work email to access the dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="text-sm font-medium block mb-2">
-                Work Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="w-full pl-10 pr-4 py-2 border rounded-md focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-700"
-                  disabled={loading}
-                />
-              </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Welcome back
+              </h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-2">
+                Sign in to access your dashboard
+              </p>
             </div>
 
-            {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md text-sm">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                {error}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@rentokil.com"
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                    disabled={loading}
+                  />
+                </div>
               </div>
-            )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending magic link...
-                </>
-              ) : (
-                'Sign in with Email'
+              <div>
+                <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {error}
+                </div>
               )}
-            </Button>
-          </form>
 
-          <div className="mt-6 pt-6 border-t">
-            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              By signing in, you agree to provide feedback on this alpha version.
-              <br />
-              Your role selection will be verified by the admin team.
-            </p>
+              <Button
+                type="submit"
+                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                Alpha testing program - authorized users only.
+                <br />
+                Contact your admin for access credentials.
+              </p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <p className="text-center text-xs text-gray-400 mt-6">
+            Protected by enterprise-grade security
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
