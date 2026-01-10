@@ -4,14 +4,17 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Mail, Lock, AlertCircle, Loader2, BarChart3, Shield, Users } from 'lucide-react'
+import { Mail, Lock, AlertCircle, Loader2, BarChart3, Shield, Users, ArrowLeft, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+
+type ViewMode = 'login' | 'forgot-password' | 'reset-sent'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('login')
   const router = useRouter()
   const supabase = createClient()
 
@@ -52,16 +55,7 @@ export default function LoginPage() {
           if (signUpError) {
             // If user already exists with different auth method
             if (signUpError.message.includes('User already registered')) {
-              // Update password for existing user via password reset flow
-              const { error: resetError } = await supabase.auth.updateUser({
-                password: password
-              })
-
-              if (resetError) {
-                setError('Account exists. Please contact admin to reset your password.')
-              } else {
-                router.push('/onboarding')
-              }
+              setError('Account exists with a different password. Use "Forgot Password" to reset.')
             } else {
               setError(signUpError.message)
             }
@@ -80,6 +74,231 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      })
+
+      if (error) {
+        setError(error.message)
+      } else {
+        setViewMode('reset-sent')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const renderForm = () => {
+    if (viewMode === 'reset-sent') {
+      return (
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+            <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Check your email
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400">
+            We sent a password reset link to<br />
+            <strong className="text-gray-700 dark:text-gray-200">{email}</strong>
+          </p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">
+            Click the link in the email to reset your password. If you don't see it, check your spam folder.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => {
+              setViewMode('login')
+              setError(null)
+            }}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Sign In
+          </Button>
+        </div>
+      )
+    }
+
+    if (viewMode === 'forgot-password') {
+      return (
+        <>
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Reset your password
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-2">
+              Enter your email and we'll send you a reset link
+            </p>
+          </div>
+
+          <form onSubmit={handleForgotPassword} className="space-y-5">
+            <div>
+              <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@rentokil.com"
+                  className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                'Send Reset Link'
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                setViewMode('login')
+                setError(null)
+              }}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Sign In
+            </Button>
+          </form>
+        </>
+      )
+    }
+
+    // Default: login view
+    return (
+      <>
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Welcome to Rentokil BI
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">
+            Sign in or create your account
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+              Email Address
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@rentokil.com"
+                className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('forgot-password')
+                  setError(null)
+                }}
+                className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </Button>
+        </form>
+
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+            New users will be automatically registered.
+            <br />
+            Use at least 6 characters for your password.
+          </p>
+        </div>
+      </>
+    )
   }
 
   return (
@@ -157,82 +376,7 @@ export default function LoginPage() {
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Welcome to Rentokil BI
-              </h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-2">
-                Sign in or create your account
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@rentokil.com"
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-                New users will be automatically registered.
-                <br />
-                Use at least 6 characters for your password.
-              </p>
-            </div>
+            {renderForm()}
           </div>
         </div>
       </div>
