@@ -10,7 +10,7 @@ import {
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
   ClipboardList, Truck, Upload, Book, Shield, GitBranch,
-  ClipboardCheck
+  ClipboardCheck, Workflow
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -25,6 +25,7 @@ const executiveNav = [
   { name: 'Finance', href: '/finance', icon: DollarSign },
   { name: 'People', href: '/people', icon: Users },
   { name: 'Forecast', href: '/forecast', icon: Target },
+  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
 ]
 
 // Operations Manager specific navigation
@@ -35,6 +36,7 @@ const opsManagerNav = [
   { name: 'Sales', href: '/sales', icon: TrendingUp },
   { name: 'Finance', href: '/finance', icon: DollarSign },
   { name: 'Forecast', href: '/forecast', icon: Target },
+  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
 ]
 
 // Account Executive navigation
@@ -55,6 +57,7 @@ const branchManagerNav = [
   { name: 'Sales', href: '/sales', icon: TrendingUp },
   { name: 'Operations', href: '/ops', icon: Wrench },
   { name: 'Forecast', href: '/forecast', icon: Target },
+  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
 ]
 
 // Technician navigation
