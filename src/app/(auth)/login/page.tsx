@@ -41,21 +41,32 @@ export default function LoginPage() {
       })
 
       if (signInError) {
-        // If user doesn't exist, create account automatically
+        // If invalid credentials, could be new user OR existing magic link user
         if (signInError.message.includes('Invalid login credentials')) {
-          const { error: signUpError } = await supabase.auth.signUp({
+          // Try to sign up - this will set password for existing users or create new ones
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
             email,
             password,
-            options: {
-              // Auto-confirm for alpha testing (no email verification needed)
-              emailRedirectTo: `${window.location.origin}/onboarding`,
-            },
           })
 
           if (signUpError) {
-            setError(signUpError.message)
-          } else {
-            // Account created and signed in
+            // If user already exists with different auth method
+            if (signUpError.message.includes('User already registered')) {
+              // Update password for existing user via password reset flow
+              const { error: resetError } = await supabase.auth.updateUser({
+                password: password
+              })
+
+              if (resetError) {
+                setError('Account exists. Please contact admin to reset your password.')
+              } else {
+                router.push('/onboarding')
+              }
+            } else {
+              setError(signUpError.message)
+            }
+          } else if (signUpData.user) {
+            // New account created successfully
             router.push('/onboarding')
           }
         } else {
@@ -74,7 +85,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-red-600 via-red-700 to-red-800 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-red-600 via-red-700 to-red-800 p-12 flex-col justify-center items-center relative overflow-hidden">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-64 h-64 border border-white/20 rounded-full" />
@@ -82,58 +93,55 @@ export default function LoginPage() {
           <div className="absolute top-1/2 left-1/3 w-48 h-48 border border-white/20 rounded-full" />
         </div>
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-10 brightness-0 invert" />
-            <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+        <div className="relative z-10 text-center space-y-8">
+          {/* Large Logo */}
+          <div className="flex flex-col items-center gap-4">
+            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-24 brightness-0 invert" />
+            <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30 text-lg px-4 py-1">
               ALPHA
             </Badge>
           </div>
-          <p className="text-red-100 text-lg mt-1">Business Intelligence Platform</p>
-        </div>
 
-        <div className="relative z-10 space-y-8">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/10 rounded-lg">
-              <BarChart3 className="h-6 w-6 text-white" />
+          <p className="text-white text-2xl font-light">Business Intelligence Platform</p>
+
+          {/* Feature highlights */}
+          <div className="space-y-6 mt-12 text-left max-w-md">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-white/10 rounded-lg">
+                <BarChart3 className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold text-lg">Real-Time Analytics</h3>
+                <p className="text-red-100 text-sm mt-1">
+                  Monitor KPIs, revenue, and operational metrics
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-white font-semibold text-lg">Real-Time Analytics</h3>
-              <p className="text-red-100 text-sm mt-1">
-                Monitor KPIs, revenue, and operational metrics across all branches
-              </p>
+
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-white/10 rounded-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold text-lg">Role-Based Dashboards</h3>
+                <p className="text-red-100 text-sm mt-1">
+                  Personalized views for every team member
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-white/10 rounded-lg">
+                <Shield className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold text-lg">Data Governance</h3>
+                <p className="text-red-100 text-sm mt-1">
+                  Enterprise-grade security and audit trails
+                </p>
+              </div>
             </div>
           </div>
-
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/10 rounded-lg">
-              <Users className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-semibold text-lg">Role-Based Dashboards</h3>
-              <p className="text-red-100 text-sm mt-1">
-                Personalized views for Executives, Managers, Sales, and Technicians
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/10 rounded-lg">
-              <Shield className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-semibold text-lg">Data Governance</h3>
-              <p className="text-red-100 text-sm mt-1">
-                Enterprise-grade security with complete audit trails
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative z-10">
-          <p className="text-red-200 text-sm">
-            The Experts in Pest Control
-          </p>
         </div>
       </div>
 
@@ -141,8 +149,8 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
-            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-8" />
+          <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
+            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-16" />
             <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
               ALPHA
             </Badge>
@@ -226,10 +234,6 @@ export default function LoginPage() {
               </p>
             </div>
           </div>
-
-          <p className="text-center text-xs text-gray-400 mt-6">
-            Protected by enterprise-grade security
-          </p>
         </div>
       </div>
     </div>
