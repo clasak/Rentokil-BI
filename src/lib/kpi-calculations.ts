@@ -236,10 +236,21 @@ export function calculateKPIValues(role?: Role, userId?: string): Map<string, KP
   })
 
   // 6. Variance to Target MTD
+  // Target should be a fixed planning number, not derived from actual revenue
+  // Using a realistic monthly target based on account count and average value
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   const dayOfMonth = now.getDate()
-  const monthlyTarget = revenueMTD * 1.05
+
+  // Calculate a realistic monthly target based on account base
+  // Average ~$1,400/account/month * account count gives monthly target
+  const monthlyTarget = accounts.length * 1400
+
+  // Prorate target to current day of month for fair comparison
+  // Target for days 1 through today = monthlyTarget * (dayOfMonth / daysInMonth)
   const proratedTarget = monthlyTarget * safeDivide(dayOfMonth, daysInMonth, 1)
+
+  // Variance = (actual - target) / target
+  // Positive = ahead of target, negative = behind target
   const variance = safeDivide(revenueMTD - proratedTarget, proratedTarget, 0)
   const prevVariance = variance * (0.8 + Math.random() * 0.4)
   const varianceDef = getKPIBySlug('variance_to_target_mtd')!
