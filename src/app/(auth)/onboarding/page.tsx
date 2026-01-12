@@ -13,12 +13,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { Role } from '@/types'
 import { useAppStore } from '@/store'
-
-// Admin emails - these users automatically get exec role and skip onboarding
-const ADMIN_EMAILS = [
-  'cody.lytle@rentokil.com',
-  'cody.lytle@prestox.com',
-]
+import { isAdminEmail } from '@/lib/admin'
 
 interface RoleOption {
   value: Role
@@ -115,7 +110,7 @@ export default function OnboardingPage() {
         const email = user.email.toLowerCase()
 
         // Check if this is an admin user - auto-setup with exec role
-        if (ADMIN_EMAILS.includes(email)) {
+        if (isAdminEmail(email)) {
           console.log('Admin user detected, auto-configuring as exec')
 
           // Upsert admin profile with exec role

@@ -13,12 +13,7 @@ import {
   ClipboardCheck, Workflow, Lock
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-
-// Admin emails that can see the admin link
-const ADMIN_EMAILS = [
-  'cody.lytle@rentokil.com',
-  'cody.lytle@prestox.com',
-]
+import { isAdminEmail } from '@/lib/admin'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -152,9 +147,8 @@ export function Sidebar() {
           return
         }
         if (user?.email) {
-          const email = user.email.toLowerCase()
-          const isUserAdmin = ADMIN_EMAILS.includes(email)
-          console.log('Sidebar: Admin check -', { email, isUserAdmin, adminEmails: ADMIN_EMAILS })
+          const isUserAdmin = isAdminEmail(user.email)
+          console.log('Sidebar: Admin check -', { email: user.email, isUserAdmin })
           setIsAdmin(isUserAdmin)
         } else {
           console.log('Sidebar: No user email found')

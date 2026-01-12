@@ -25,12 +25,7 @@ import { Role, DemoMode, Scenario } from '@/types'
 import Link from 'next/link'
 import { getDataSourceName, getDataSourceStatus } from '@/services'
 import { createClient } from '@/lib/supabase/client'
-
-// Admin emails that can access this page
-const ADMIN_EMAILS = [
-  'cody.lytle@rentokil.com',
-  'cody.lytle@prestox.com',
-]
+import { isAdminEmail } from '@/lib/admin'
 
 interface LoginEvent {
   id: string
@@ -97,7 +92,7 @@ export default function AdminPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (user?.email) {
           setUserEmail(user.email)
-          const isUserAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase())
+          const isUserAdmin = isAdminEmail(user.email)
           setIsAdmin(isUserAdmin)
 
           // Fetch login events if admin
