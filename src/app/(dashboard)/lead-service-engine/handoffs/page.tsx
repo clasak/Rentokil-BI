@@ -163,17 +163,18 @@ export default function HandoffsPage() {
               <CardDescription>Average handoff wait time with 24-hour SLA target</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[250px]">
+              <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={bdMetrics?.trend || []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={(v) => `${v}h`} />
                     <Tooltip
+                      cursor={false}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border text-sm">
+                            <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-200 dark:border-gray-700 text-sm">
                               <div className="font-medium">{payload[0].payload.day}</div>
                               <div className="text-orange-600">{payload[0].value} hours</div>
                               <div className="text-gray-500">{payload[0].payload.count} leads</div>
@@ -272,17 +273,18 @@ export default function HandoffsPage() {
               <CardDescription>Average handoff wait time with 24-hour SLA target</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[250px]">
+              <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={opsMetrics?.trend || []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={(v) => `${v}h`} />
                     <Tooltip
+                      cursor={false}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border text-sm">
+                            <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-200 dark:border-gray-700 text-sm">
                               <div className="font-medium">{payload[0].payload.day}</div>
                               <div className="text-orange-600">{payload[0].value} hours</div>
                               <div className="text-gray-500">{payload[0].payload.count} leads</div>
