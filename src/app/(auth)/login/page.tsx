@@ -18,11 +18,11 @@ async function logLoginEvent(
 ) {
   try {
     await supabase.from('ops_events').insert({
-      agent: 'auth',
+      source: 'auth',
       event_type: eventType,
       severity: 'info',
       message: `User ${eventType}: ${email}`,
-      details: {
+      metadata: {
         email,
         timestamp: new Date().toISOString(),
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',

@@ -35,11 +35,11 @@ Verify these endpoints are accessible:
 
 | Endpoint | Used By | Test |
 |----------|---------|------|
-| `/api/health` | Timmy | `curl https://rentokil-bi.vercel.app/api/health` |
-| `/api/health/kpis` | Tommy | `curl https://rentokil-bi.vercel.app/api/health/kpis` |
-| `/api/reconcile` | Tommy | `curl https://rentokil-bi.vercel.app/api/reconcile` |
-| `/api/governance/definitions` | Tina | `curl https://rentokil-bi.vercel.app/api/governance/definitions` |
-| `/api/feedback` | Sophia | `curl -X POST https://rentokil-bi.vercel.app/api/feedback` |
+| `/api/health` | Timmy | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health` |
+| `/api/health/kpis` | Tommy | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health/kpis` |
+| `/api/reconcile` | Tommy | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/reconcile` |
+| `/api/governance/definitions` | Tina | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/governance/definitions` |
+| `/api/feedback` | Sophia | `curl -X POST https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/feedback` |
 
 ### 3. n8n Credentials
 
@@ -256,7 +256,7 @@ ORDER BY created_at DESC;
 ### HTTP Request timeout
 
 1. Increase timeout in node options (default: 10000ms)
-2. Verify APP_URL is correct (hardcoded: `https://rentokil-bi.vercel.app`)
+2. Verify APP_URL is correct (hardcoded: `https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app`)
 3. Check if Vercel deployment is healthy
 
 ### Postgres connection failed

@@ -31,7 +31,7 @@ interface LoginEvent {
   id: string
   event_type: string
   message: string
-  details: {
+  metadata: {
     email: string
     timestamp: string
     userAgent?: string
@@ -71,7 +71,8 @@ export default function AdminPage() {
       const { data, error } = await supabase
         .from('ops_events')
         .select('*')
-        .eq('agent', 'auth')
+        .eq('source', 'auth')
+        .in('event_type', ['login', 'signup'])
         .order('created_at', { ascending: false })
         .limit(20)
 
@@ -303,7 +304,7 @@ export default function AdminPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm dark:text-gray-100 truncate">
-                        {event.details?.email || 'Unknown user'}
+                        {event.metadata?.email || 'Unknown user'}
                       </span>
                       <Badge
                         variant={event.event_type === 'signup' ? 'default' : 'secondary'}

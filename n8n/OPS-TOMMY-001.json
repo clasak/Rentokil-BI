@@ -21,7 +21,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "https://rentokil-bi.vercel.app/api/health/kpis",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health/kpis",
         "options": {
           "timeout": 15000
         }
@@ -165,7 +165,7 @@
         "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Critical KPIs Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Critical KPIs:*\\n{{ $('Check Thresholds').item.json.criticalKpis.join(', ') }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi.vercel.app|View Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Critical KPIs Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Critical KPIs:*\\n{{ $('Check Thresholds').item.json.criticalKpis.join(', ') }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app|View Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
         "options": {}
       },
       "id": "slack-critical",
@@ -233,7 +233,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "https://rentokil-bi.vercel.app/api/reconcile",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/reconcile",
         "options": {
           "timeout": 30000
         }
@@ -318,7 +318,7 @@
         "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Reconciliation Failures Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Failed KPIs:*\\n{{ $json.summary.fail }} out of tolerance\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Passed:*\\n{{ $json.summary.pass }}/{{ $json.summary.total }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi.vercel.app/governance|View Governance Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Reconciliation Failures Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Failed KPIs:*\\n{{ $json.summary.fail }} out of tolerance\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Passed:*\\n{{ $json.summary.pass }}/{{ $json.summary.total }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/governance|View Governance Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
         "options": {}
       },
       "id": "slack-recon-failure",
