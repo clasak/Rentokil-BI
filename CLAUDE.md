@@ -459,6 +459,7 @@ NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=  # For technician route visualization
 | `/api/kpis?top10=true` | GET | TOP_10 KPIs only | Command Center |
 | `/api/kpis?role=rep` | GET | Role-scoped KPI data | Role-specific views |
 | `/api/reconcile` | GET/POST | Reconciliation with tolerance rules | Tommy agent, Governance |
+| `/api/reconcile/refresh` | POST | Auto-remediation: refresh data & retry reconciliation | Tommy agent |
 | `/api/governance/definitions` | GET | KPI definitions for audit | Tina agent |
 | `/api/parse-pdf` | POST | Extract text from Start Packet PDFs | New Start flow |
 | `/api/start-packet` | GET/POST | CRUD for Start Packets | AE new starts |
@@ -476,6 +477,61 @@ index:     1.0    // 1 point
 forecast:  5%     // 5 percent
 default:   1%     // fallback
 ```
+
+### Auto-Remediation System
+
+When reconciliation failures are detected, Tommy automatically attempts to fix them:
+
+**Flow:**
+```
+Reconciliation fails → Prepare failed KPIs → Call /api/reconcile/refresh
+                                                     ↓
+                                            Refresh all data sources
+                                                     ↓
+                                            Re-calculate KPIs
+                                                     ↓
+                                            Re-run reconciliation
+                                                     ↓
+                       ┌─── All fixed → Log success + Slack (green) ───┐
+                       │                                                │
+                       └─── Still failing → Log failure + Slack (red) ─┘
+                                    ↓
+                            nextAction: 'escalate_manual'
+```
+
+**Request body for `/api/reconcile/refresh`:**
+```typescript
+{
+  failedKpis: string[]      // KPI slugs that failed
+  retryCount: number        // Current attempt (default: 1)
+  maxRetries: number        // Max before escalation (default: 3)
+  originalResults: array    // Original reconciliation results
+}
+```
+
+**Response:**
+```typescript
+{
+  success: boolean
+  remediationResults: [{
+    kpiSlug: string
+    wasFixed: boolean
+    action: 'data_refresh' | 'recalculate' | 'none'
+    originalValue: number
+    newValue: number
+  }]
+  summary: {
+    fixed: number
+    stillFailing: number
+  }
+  nextAction: 'none' | 'escalate_manual' | 'retry_later'
+  message: string
+}
+```
+
+**Slack Alert Types:**
+- ✅ **Green**: All KPIs auto-fixed via data refresh
+- 🚨 **Red**: Some KPIs still failing after remediation attempt
 
 ---
 
@@ -498,12 +554,13 @@ Four automated agents monitor the application via n8n workflows. Configuration f
 - Monitors: app health, synthetic data, KPI calculation availability
 - Sends Slack alerts on failure
 
-**Tommy (KPI Snapshot)**
+**Tommy (KPI Snapshot + Auto-Remediation)**
 - Calls `/api/health/kpis` every 15 minutes for threshold checks
 - Calls `/api/reconcile` hourly for tolerance validation
 - Inserts snapshots into `kpi_snapshots` table
 - Detects anomalies (values outside 2 std deviations)
-- Sends Slack alerts for critical KPIs or reconciliation failures
+- **Auto-remediation**: On reconciliation failure, calls `/api/reconcile/refresh` to refresh data and retry
+- Sends Slack alerts for critical KPIs or remediation results
 
 **Tina (Governance)**
 - Calls `/api/governance/definitions` hourly

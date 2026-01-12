@@ -275,6 +275,62 @@
     },
     {
       "parameters": {
+        "jsCode": "// Prepare data for auto-remediation\nconst input = $input.first().json;\nconst failedKpis = input.results\n  .filter(r => r.overallStatus === 'fail')\n  .map(r => r.kpiSlug);\n\nreturn [{\n  json: {\n    failedKpis,\n    retryCount: 1,\n    maxRetries: 3,\n    originalResults: input.results,\n    originalSummary: input.summary,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "prepare-remediation",
+      "name": "Prepare Remediation Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/reconcile/refresh",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "auto-remediate",
+      "name": "Auto-Remediate (Refresh Data)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "still-failing",
+              "leftValue": "={{ $json.summary.stillFailing }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-remediation-result",
+      "name": "Still Failing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
         "operation": "insert",
         "schema": {
           "__rl": true,
@@ -289,22 +345,22 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "event_type": "reconciliation",
+            "event_type": "remediation",
             "severity": "critical",
             "source": "tommy",
-            "route": "/api/reconcile",
-            "message": "={{ 'Reconciliation failures detected: ' + $json.summary.fail + ' KPIs out of tolerance' }}",
+            "route": "/api/reconcile/refresh",
+            "message": "={{ 'Auto-remediation attempted but ' + $json.summary.stillFailing + ' KPIs still failing. Action: ' + $json.nextAction }}",
             "metadata": "={{ JSON.stringify($json) }}",
             "created_at": "={{ $now.toISO() }}"
           }
         },
         "options": {}
       },
-      "id": "log-recon-failure",
-      "name": "Log Recon Failure",
+      "id": "log-remediation-failed",
+      "name": "Log Remediation Failed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [660, 300],
+      "position": [1320, 200],
       "credentials": {
         "postgres": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
@@ -318,14 +374,68 @@
         "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Reconciliation Failures Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Failed KPIs:*\\n{{ $json.summary.fail }} out of tolerance\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Passed:*\\n{{ $json.summary.pass }}/{{ $json.summary.total }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/governance|View Governance Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Reconciliation Failures (Auto-Fix Attempted)\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Auto-Fix Result:*\\n{{ $json.summary.fixed }} fixed, {{ $json.summary.stillFailing }} still failing\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Next Action:*\\n{{ $json.nextAction === 'escalate_manual' ? '⚠️ Manual intervention required' : '🔄 Will retry' }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*Message:* {{ $json.message }}\"\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/governance|View Governance Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
         "options": {}
       },
-      "id": "slack-recon-failure",
-      "name": "Slack Recon Failure",
+      "id": "slack-remediation-failed",
+      "name": "Slack Remediation Failed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [880, 300]
+      "position": [1540, 200]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "remediation",
+            "severity": "info",
+            "source": "tommy",
+            "route": "/api/reconcile/refresh",
+            "message": "={{ 'Auto-remediation successful: ' + $json.summary.fixed + ' KPIs fixed via data refresh' }}",
+            "metadata": "={{ JSON.stringify($json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-remediation-success",
+      "name": "Log Remediation Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1320, 400],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#36A64F\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"✅ Reconciliation Auto-Fixed\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Fixed:*\\n{{ $json.summary.fixed }} KPI(s) via data refresh\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Status:*\\n{{ $json.newSummary.pass }}/{{ $json.newSummary.total }} passing\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/governance|View Governance Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-remediation-success",
+      "name": "Slack Remediation Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 400]
     },
     {
       "parameters": {
@@ -478,7 +588,7 @@
       "main": [
         [
           {
-            "node": "Log Recon Failure",
+            "node": "Prepare Remediation Data",
             "type": "main",
             "index": 0
           }
@@ -492,11 +602,62 @@
         ]
       ]
     },
-    "Log Recon Failure": {
+    "Prepare Remediation Data": {
       "main": [
         [
           {
-            "node": "Slack Recon Failure",
+            "node": "Auto-Remediate (Refresh Data)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto-Remediate (Refresh Data)": {
+      "main": [
+        [
+          {
+            "node": "Still Failing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still Failing?": {
+      "main": [
+        [
+          {
+            "node": "Log Remediation Failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Remediation Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Remediation Failed": {
+      "main": [
+        [
+          {
+            "node": "Slack Remediation Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Remediation Success": {
+      "main": [
+        [
+          {
+            "node": "Slack Remediation Success",
             "type": "main",
             "index": 0
           }
@@ -520,9 +681,12 @@
     },
     {
       "name": "data-quality"
+    },
+    {
+      "name": "auto-remediation"
     }
   ],
   "triggerCount": 2,
   "updatedAt": "2026-01-12T00:00:00.000Z",
-  "versionId": "3"
+  "versionId": "4"
 }

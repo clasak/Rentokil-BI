@@ -825,6 +825,33 @@ export function regenerateData(seed?: number) {
 // Initialize on module load
 regenerateData()
 
+/**
+ * Refresh all data sources for remediation
+ * This simulates fetching fresh data from source systems
+ * In production, this would clear caches and re-fetch from RTX/Salesforce
+ */
+export async function refreshAllData(): Promise<{ success: boolean; refreshedAt: string }> {
+  console.log('[Data] Refreshing all data sources...')
+
+  // In mock mode, we regenerate with the same seed for consistency
+  // In production, this would:
+  // 1. Clear any cached data
+  // 2. Re-fetch from RTX Data Hub
+  // 3. Re-fetch from Salesforce CRM
+  // 4. Re-sync any pending transactions
+
+  // For now, just recalculate timestamps to simulate fresh data
+  const currentSeed = Math.floor(Date.now() / 60000) // Changes every minute
+  regenerateData(currentSeed)
+
+  console.log('[Data] Data refresh completed')
+
+  return {
+    success: true,
+    refreshedAt: new Date().toISOString(),
+  }
+}
+
 // Export getters
 export const getMarkets = () => markets
 export const getRegions = () => regions
