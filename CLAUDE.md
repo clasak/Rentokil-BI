@@ -373,6 +373,52 @@ Lead Source Matrix component includes methodology documentation:
 
 Access via Help button in `/src/components/lead-engine/LeadSourceMatrix.tsx`
 
+### Chart Styling Rules (Recharts)
+
+**IMPORTANT**: All Recharts charts MUST follow these patterns:
+
+1. **No Gray Hover Overlay**: Always add `cursor={false}` to Tooltip components to disable the default gray overlay on hover:
+   ```typescript
+   <Tooltip cursor={false} content={...} />
+   ```
+
+2. **Dark Mode Grid Lines**: Wrap chart containers with these Tailwind CSS classes for theme-aware grid lines:
+   ```typescript
+   <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
+   ```
+
+3. **Tooltip Border Colors**: Always include explicit light mode border color:
+   ```typescript
+   <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-200 dark:border-gray-700">
+   ```
+
+4. **Hover Glow Effect** (optional): Add SVG filter for bar chart hover effects:
+   ```typescript
+   <BarChart>
+     <defs>
+       <filter id="glow-unique-id" x="-50%" y="-50%" width="200%" height="200%">
+         <feGaussianBlur stdDeviation="3" result="blur"/>
+         <feMerge>
+           <feMergeNode in="blur"/>
+           <feMergeNode in="SourceGraphic"/>
+         </feMerge>
+       </filter>
+     </defs>
+     <Bar activeBar={{ filter: 'url(#glow-unique-id)' }} />
+   </BarChart>
+   ```
+
+5. **No Hardcoded Grid Stroke Colors**: Never use `stroke="#e5e7eb"` on CartesianGrid - let CSS handle it:
+   ```typescript
+   // WRONG
+   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+
+   // CORRECT
+   <CartesianGrid strokeDasharray="3 3" />
+   ```
+
+Reference implementation: `/src/components/dashboard/OpsManagerCommandCenter.tsx`
+
 ---
 
 ## Git Workflow Notes
