@@ -15,6 +15,22 @@ const config: Config = {
         "2xl": "1400px",
       },
     },
+    screens: {
+      'xs': '375px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+      // Touch device detection
+      'touch': { 'raw': '(pointer: coarse)' },
+      'mouse': { 'raw': '(pointer: fine)' },
+      // Orientation
+      'portrait': { 'raw': '(orientation: portrait)' },
+      'landscape': { 'raw': '(orientation: landscape)' },
+      // PWA standalone mode detection
+      'standalone': { 'raw': '(display-mode: standalone)' },
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -84,6 +100,23 @@ const config: Config = {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-gentle": "pulse-gentle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+      },
+      spacing: {
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
+        'bottom-nav': '64px',
+      },
+      minHeight: {
+        'touch': '48px',
+        'screen-safe': 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+      },
+      minWidth: {
+        'touch': '48px',
+      },
+      padding: {
+        'safe': 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)',
       },
     },
   },

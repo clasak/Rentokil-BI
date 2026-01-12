@@ -3,6 +3,7 @@
 import { ReactNode, useState, useEffect } from 'react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { BottomNavigation } from './BottomNavigation'
 import { DataQualityBanner } from '@/components/features/DataQualityBanner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Tutorial } from '@/components/features/Tutorial'
@@ -66,10 +67,14 @@ export function MainLayout({ children }: MainLayoutProps) {
             mobileMenuOpen={mobileMenuOpen}
           />
           <DataQualityBanner />
-          <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 dark:bg-gray-950">
+          {/* Main content with bottom padding for mobile nav */}
+          <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 pb-20 lg:pb-6 dark:bg-gray-950">
             {children}
           </main>
         </div>
+
+        {/* Bottom Navigation - Mobile only */}
+        <BottomNavigation />
       </div>
       {/* Tutorial overlay */}
       <Tutorial />

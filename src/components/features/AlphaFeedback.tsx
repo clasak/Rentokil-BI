@@ -64,6 +64,7 @@ export function AlphaFeedback() {
   const [stepsToReproduce, setStepsToReproduce] = useState('')
   const [screenshots, setScreenshots] = useState<Screenshot[]>([])
   const [isCapturing, setIsCapturing] = useState(false)
+  const [canCaptureScreen, setCanCaptureScreen] = useState(false)
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
   const [submittedId, setSubmittedId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -73,6 +74,18 @@ export function AlphaFeedback() {
   const { settings } = useAppStore()
 
   const supabase = createClient()
+
+  // Check if screen capture is supported (not available on mobile)
+  useEffect(() => {
+    const checkScreenCaptureSupport = () => {
+      // Check if getDisplayMedia is available and we're not on mobile
+      const hasGetDisplayMedia = !!(navigator.mediaDevices?.getDisplayMedia)
+      // Additional check: mobile browsers may have the API but it won't work
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      setCanCaptureScreen(hasGetDisplayMedia && !isMobile)
+    }
+    checkScreenCaptureSupport()
+  }, [])
 
   // Load user profile on mount
   useEffect(() => {
@@ -574,33 +587,35 @@ export function AlphaFeedback() {
 
               {/* Screenshot Actions */}
               <div className="flex gap-2 mb-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={captureScreenshot}
-                  disabled={isCapturing || screenshots.length >= 3}
-                  className="flex-1 gap-2"
-                >
-                  {isCapturing ? (
-                    <>
-                      <span className="animate-spin">&#8987;</span>
-                      Capturing...
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="h-4 w-4" />
-                      Capture Screen
-                    </>
-                  )}
-                </Button>
+                {canCaptureScreen && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={captureScreenshot}
+                    disabled={isCapturing || screenshots.length >= 3}
+                    className="flex-1 gap-2"
+                  >
+                    {isCapturing ? (
+                      <>
+                        <span className="animate-spin">&#8987;</span>
+                        Capturing...
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="h-4 w-4" />
+                        Capture Screen
+                      </>
+                    )}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={screenshots.length >= 3}
-                  className="flex-1 gap-2"
+                  className={`${canCaptureScreen ? 'flex-1' : 'w-full'} gap-2`}
                 >
                   <Upload className="h-4 w-4" />
                   Upload Image
@@ -650,7 +665,11 @@ export function AlphaFeedback() {
                 <div className="flex items-center justify-center p-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-gray-400">
                   <div className="text-center">
                     <ImageIcon className="h-6 w-6 mx-auto mb-1 opacity-50" />
-                    <p className="text-xs">Capture or upload screenshots to help explain the issue</p>
+                    <p className="text-xs">
+                      {canCaptureScreen
+                        ? 'Capture or upload screenshots to help explain the issue'
+                        : 'Upload screenshots to help explain the issue'}
+                    </p>
                   </div>
                 </div>
               )}
