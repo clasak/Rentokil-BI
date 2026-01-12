@@ -74,7 +74,7 @@
             "status": "={{ $json.status }}",
             "variance_pct": "={{ $json.variance_pct }}",
             "source": "tommy",
-            "captured_at": "={{ $now.toISO() }}"
+            "snapshot_at": "={{ $now.toISO() }}"
           }
         },
         "options": {}
