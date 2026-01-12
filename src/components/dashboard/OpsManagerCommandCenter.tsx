@@ -333,8 +333,20 @@ export function OpsManagerCommandCenter() {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip
-                      contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}
                       cursor={false}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null
+                        return (
+                          <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-200 dark:border-gray-700">
+                            <p className="font-medium text-gray-900 dark:text-white mb-1">{label}</p>
+                            {payload.map((entry, index) => (
+                              <p key={index} className="text-sm text-gray-600 dark:text-gray-300">
+                                {entry.name}: {entry.value}
+                              </p>
+                            ))}
+                          </div>
+                        )
+                      }}
                     />
                     <Bar dataKey="completed" name="Completed" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} activeBar={{ filter: 'url(#glow-ops-mgr)' }} />
                     <Bar dataKey="remaining" name="Remaining" stackId="a" fill="#94a3b8" radius={[4, 4, 0, 0]} activeBar={{ filter: 'url(#glow-ops-mgr)' }} />
