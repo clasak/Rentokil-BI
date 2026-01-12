@@ -30,9 +30,14 @@ import {
 import {
   Search, Bell, RefreshCw, User, Shield, Map,
   Settings, HelpCircle, Sun, Moon, Monitor,
-  AlertTriangle, CheckCircle, Clock, LogOut, Mail
+  AlertTriangle, CheckCircle, Clock, LogOut, Mail, Menu
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+
+interface HeaderProps {
+  onMenuClick?: () => void
+  mobileMenuOpen?: boolean
+}
 
 // Search result type for better type safety
 interface SearchResult {
@@ -47,7 +52,7 @@ interface SearchResult {
 const MAX_RECENT_SEARCHES = 5
 const RECENT_SEARCHES_KEY = 'rentokil-bi-recent-searches'
 
-export function Header() {
+export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
   const router = useRouter()
   const supabase = createClient()
   const [searchOpen, setSearchOpen] = useState(false)
@@ -236,18 +241,37 @@ export function Header() {
 
   return (
     <TooltipProvider delayDuration={300}>
-    <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm">
+    <header className="h-14 sm:h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-3 sm:px-6 shadow-sm">
+      {/* Mobile Menu Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="lg:hidden mr-2"
+        onClick={onMenuClick}
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+
       {/* Search */}
       <div className="flex-1 max-w-xl">
         <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
           <DialogTrigger asChild>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              {/* Full search on desktop, icon only on mobile */}
               <Input
-                placeholder="Search accounts, opportunities, invoices..."
-                className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                placeholder="Search..."
+                className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hidden sm:block"
                 onFocus={() => setSearchOpen(true)}
               />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="sm:hidden"
+                onClick={() => setSearchOpen(true)}
+              >
+                <Search className="h-5 w-5" />
+              </Button>
             </div>
           </DialogTrigger>
           <DialogContent className="sm:max-w-xl">
@@ -335,8 +359,8 @@ export function Header() {
         </Dialog>
       </div>
 
-      {/* Center - Role Badge */}
-      <div className="flex items-center gap-4 mx-6">
+      {/* Center - Role Badge (hidden on mobile) */}
+      <div className="hidden md:flex items-center gap-4 mx-6">
         <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <Shield className="h-4 w-4 text-gray-600 dark:text-gray-400" />
           <span className="text-sm font-medium dark:text-gray-200">
@@ -351,64 +375,68 @@ export function Header() {
       </div>
 
       {/* Right side controls */}
-      <div className="flex items-center gap-3">
-        {/* Theme Toggle */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Select
-                value={isClient ? theme : 'light'}
-                onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
-              >
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Theme" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">
-                    <div className="flex items-center gap-2">
-                      <Sun className="h-4 w-4" />
-                      Light
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="dark">
-                    <div className="flex items-center gap-2">
-                      <Moon className="h-4 w-4" />
-                      Dark
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="system">
-                    <div className="flex items-center gap-2">
-                      <Monitor className="h-4 w-4" />
-                      System
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Change color theme</p>
-          </TooltipContent>
-        </Tooltip>
+      <div className="flex items-center gap-1 sm:gap-3">
+        {/* Theme Toggle - hidden on small screens */}
+        <div className="hidden sm:block">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <Select
+                  value={isClient ? theme : 'light'}
+                  onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
+                >
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">
+                      <div className="flex items-center gap-2">
+                        <Sun className="h-4 w-4" />
+                        Light
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="dark">
+                      <div className="flex items-center gap-2">
+                        <Moon className="h-4 w-4" />
+                        Dark
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="system">
+                      <div className="flex items-center gap-2">
+                        <Monitor className="h-4 w-4" />
+                        System
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Change color theme</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
 
-        {/* Refresh Data */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                refreshData()
-                window.location.reload()
-              }}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Refresh data</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* Refresh Data - hidden on mobile */}
+        <div className="hidden sm:block">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  refreshData()
+                  window.location.reload()
+                }}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Refresh data</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
 
         {/* Notifications */}
         <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
