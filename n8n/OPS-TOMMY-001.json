@@ -345,7 +345,7 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "event_type": "remediation",
+            "event_type": "reconciliation",
             "severity": "critical",
             "source": "tommy",
             "route": "/api/reconcile/refresh",
@@ -399,7 +399,7 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "event_type": "remediation",
+            "event_type": "reconciliation",
             "severity": "info",
             "source": "tommy",
             "route": "/api/reconcile/refresh",
