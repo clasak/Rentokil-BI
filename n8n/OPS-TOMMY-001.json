@@ -1,0 +1,528 @@
+{
+  "name": "OPS-TOMMY-001 KPI Snapshot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rentokil-bi.vercel.app/api/health/kpis",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-kpi-health",
+      "name": "Get KPI Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process KPI data and check thresholds\nconst input = $input.first().json;\nconst kpis = input.kpis || [];\nconst anomalies = input.anomalies || [];\n\nconst results = [];\nlet hasCritical = false;\nlet hasWarning = false;\nconst criticalKpis = [];\nconst warningKpis = [];\n\n// Map API status to database status (ok -> good)\nfunction mapStatus(apiStatus) {\n  if (apiStatus === 'ok') return 'good';\n  if (['good', 'warning', 'critical', 'neutral'].includes(apiStatus)) return apiStatus;\n  return 'neutral';\n}\n\nfor (const kpi of kpis) {\n  const apiStatus = kpi.status || 'ok';\n  const dbStatus = mapStatus(apiStatus);\n  \n  if (apiStatus === 'critical') {\n    hasCritical = true;\n    criticalKpis.push(kpi.slug);\n  } else if (apiStatus === 'warning') {\n    hasWarning = true;\n    warningKpis.push(kpi.slug);\n  }\n  \n  results.push({\n    kpi_slug: kpi.slug,\n    value: kpi.value,\n    status: dbStatus,\n    variance_pct: kpi.variance_pct || null,\n    source: 'tommy',\n    reason: kpi.reason || null\n  });\n}\n\n// Return as proper n8n item with json property\nreturn [{\n  json: {\n    kpis: results,\n    hasCritical,\n    hasWarning,\n    criticalKpis,\n    warningKpis,\n    anomalies,\n    overallStatus: input.status,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "check-thresholds",
+      "name": "Check Thresholds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Return individual KPI for batch insert\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  if (data && data.kpis && Array.isArray(data.kpis)) {\n    for (const kpi of data.kpis) {\n      results.push({ json: kpi });\n    }\n  }\n}\n\nreturn results.length > 0 ? results : [{ json: { error: 'No KPIs to process' } }];"
+      },
+      "id": "split-kpis",
+      "name": "Split KPIs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "kpi_snapshots",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "kpi_slug": "={{ $json.kpi_slug }}",
+            "value": "={{ $json.value }}",
+            "status": "={{ $json.status }}",
+            "variance_pct": "={{ $json.variance_pct }}",
+            "source": "tommy",
+            "captured_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "insert-snapshots",
+      "name": "Insert Snapshots",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 0],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-critical",
+              "leftValue": "={{ $('Check Thresholds').item.json.hasCritical }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "has-alerts",
+      "name": "Has Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "alert",
+            "severity": "critical",
+            "source": "tommy",
+            "route": "/api/health/kpis",
+            "message": "={{ 'Critical KPIs detected: ' + $('Check Thresholds').item.json.criticalKpis.join(', ') }}",
+            "metadata": "={{ JSON.stringify($('Check Thresholds').item.json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-critical",
+      "name": "Log Critical Alert",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1320, -100],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Critical KPIs Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Critical KPIs:*\\n{{ $('Check Thresholds').item.json.criticalKpis.join(', ') }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi.vercel.app|View Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-critical",
+      "name": "Slack Critical Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, -100]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "kpi_snapshot",
+            "severity": "info",
+            "source": "tommy",
+            "route": "/api/health/kpis",
+            "message": "={{ 'KPI snapshot completed: ' + $('Check Thresholds').item.json.kpis.length + ' KPIs captured' }}",
+            "metadata": "={{ JSON.stringify({ status: $('Check Thresholds').item.json.overallStatus, kpi_count: $('Check Thresholds').item.json.kpis.length }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-success-snapshot",
+      "name": "Log Snapshot Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1320, 100],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "hourly-trigger",
+      "name": "Every Hour (Reconciliation)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rentokil-bi.vercel.app/api/reconcile",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "run-reconciliation",
+      "name": "Run Reconciliation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-failures",
+              "leftValue": "={{ $json.summary.fail }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "recon-has-failures",
+      "name": "Has Failures?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "reconciliation",
+            "severity": "critical",
+            "source": "tommy",
+            "route": "/api/reconcile",
+            "message": "={{ 'Reconciliation failures detected: ' + $json.summary.fail + ' KPIs out of tolerance' }}",
+            "metadata": "={{ JSON.stringify($json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-recon-failure",
+      "name": "Log Recon Failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [660, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Reconciliation Failures Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Failed KPIs:*\\n{{ $json.summary.fail }} out of tolerance\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Passed:*\\n{{ $json.summary.pass }}/{{ $json.summary.total }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTommy\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi.vercel.app/governance|View Governance Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-recon-failure",
+      "name": "Slack Recon Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "reconciliation",
+            "severity": "info",
+            "source": "tommy",
+            "route": "/api/reconcile",
+            "message": "={{ 'Reconciliation passed: ' + $json.summary.pass + '/' + $json.summary.total + ' KPIs within tolerance' }}",
+            "metadata": "={{ JSON.stringify($json.summary) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-recon-success",
+      "name": "Log Recon Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [660, 500],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get KPI Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get KPI Health": {
+      "main": [
+        [
+          {
+            "node": "Check Thresholds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Thresholds": {
+      "main": [
+        [
+          {
+            "node": "Split KPIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split KPIs": {
+      "main": [
+        [
+          {
+            "node": "Insert Snapshots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Snapshots": {
+      "main": [
+        [
+          {
+            "node": "Has Critical?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Critical?": {
+      "main": [
+        [
+          {
+            "node": "Log Critical Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Snapshot Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Critical Alert": {
+      "main": [
+        [
+          {
+            "node": "Slack Critical Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Hour (Reconciliation)": {
+      "main": [
+        [
+          {
+            "node": "Run Reconciliation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Reconciliation": {
+      "main": [
+        [
+          {
+            "node": "Has Failures?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Failures?": {
+      "main": [
+        [
+          {
+            "node": "Log Recon Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Recon Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Recon Failure": {
+      "main": [
+        [
+          {
+            "node": "Slack Recon Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "15min"
+    },
+    {
+      "name": "data-quality"
+    }
+  ],
+  "triggerCount": 2,
+  "updatedAt": "2026-01-12T00:00:00.000Z",
+  "versionId": "3"
+}

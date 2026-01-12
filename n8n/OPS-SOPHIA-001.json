@@ -1,0 +1,424 @@
+{
+  "name": "OPS-SOPHIA-001 Feedback Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 10 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM feedback_submissions WHERE status = 'new' ORDER BY CASE severity WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END, created_at ASC LIMIT 50",
+        "options": {}
+      },
+      "id": "get-new-feedback",
+      "name": "Get New Feedback",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [220, 0],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-feedback",
+              "leftValue": "={{ $json.length || 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-new-feedback",
+      "name": "Has New Feedback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "feedback_check",
+            "severity": "info",
+            "source": "sophia",
+            "message": "No new feedback to process",
+            "metadata": "={{ JSON.stringify({ checked_at: $now.toISO() }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-no-feedback",
+      "name": "Log No Feedback",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [660, 150],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process feedback items for triage\nconst items = $input.all();\nconst results = [];\nlet criticalCount = 0;\nlet highCount = 0;\nlet totalCount = items.length;\n\nfor (const item of items) {\n  const feedback = item.json;\n  \n  if (feedback.severity === 'critical') criticalCount++;\n  if (feedback.severity === 'high') highCount++;\n  \n  results.push({\n    json: {\n      id: feedback.id,\n      title: feedback.title,\n      description: feedback.description,\n      feedback_type: feedback.feedback_type,\n      severity: feedback.severity,\n      submitter_name: feedback.submitter_name || 'Anonymous',\n      submitter_role: feedback.submitter_role || 'Unknown',\n      page_url: feedback.page_url,\n      created_at: feedback.created_at,\n      needs_slack_alert: feedback.severity === 'critical' || feedback.severity === 'high'\n    }\n  });\n}\n\n// Also return summary for batch logging\nreturn {\n  items: results,\n  summary: {\n    total: totalCount,\n    critical: criticalCount,\n    high: highCount,\n    needsAlert: criticalCount + highCount\n  }\n};"
+      },
+      "id": "process-feedback",
+      "name": "Process Feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, -50]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Return individual feedback items for loop processing\nconst data = $input.item.json;\nif (data.items) {\n  return data.items;\n}\nreturn [{ json: data }];"
+      },
+      "id": "split-feedback",
+      "name": "Split Feedback Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -50]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE feedback_submissions SET status = 'acknowledged', acknowledged_at = NOW(), updated_at = NOW() WHERE id = '{{ $json.id }}' RETURNING id, title, status",
+        "options": {}
+      },
+      "id": "acknowledge-feedback",
+      "name": "Acknowledge Feedback",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1100, -50],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-alert",
+              "leftValue": "={{ $('Split Feedback Items').item.json.needs_slack_alert }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "needs-slack-alert",
+      "name": "Needs Slack Alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1320, -50]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"{{ $('Split Feedback Items').item.json.severity === 'critical' ? '#FF0000' : '#FFA500' }}\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"{{ $('Split Feedback Items').item.json.severity === 'critical' ? '🚨' : '⚠️' }} Alpha Feedback: {{ $('Split Feedback Items').item.json.feedback_type.toUpperCase() }}\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Severity:*\\n{{ $('Split Feedback Items').item.json.severity }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Type:*\\n{{ $('Split Feedback Items').item.json.feedback_type }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*From:*\\n{{ $('Split Feedback Items').item.json.submitter_name }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Role:*\\n{{ $('Split Feedback Items').item.json.submitter_role }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*{{ $('Split Feedback Items').item.json.title }}*\\n{{ $('Split Feedback Items').item.json.description.substring(0, 500) }}{{ $('Split Feedback Items').item.json.description.length > 500 ? '...' : '' }}\"\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Page:*\\n`{{ $('Split Feedback Items').item.json.page_url }}`\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $('Split Feedback Items').item.json.created_at }}\"\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "send-slack-alert",
+      "name": "Send Slack Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, -150]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "feedback_triaged",
+            "severity": "={{ $('Split Feedback Items').item.json.severity }}",
+            "source": "sophia",
+            "message": "={{ 'Feedback acknowledged: ' + $('Split Feedback Items').item.json.title }}",
+            "metadata": "={{ JSON.stringify({ feedback_id: $('Split Feedback Items').item.json.id, feedback_type: $('Split Feedback Items').item.json.feedback_type, severity: $('Split Feedback Items').item.json.severity, submitter: $('Split Feedback Items').item.json.submitter_name, page_url: $('Split Feedback Items').item.json.page_url, slack_alerted: $('Split Feedback Items').item.json.needs_slack_alert }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-feedback-triaged",
+      "name": "Log Feedback Triaged",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1540, 50],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "feedback_batch",
+            "severity": "={{ $('Process Feedback').item.json.summary.critical > 0 ? 'critical' : $('Process Feedback').item.json.summary.high > 0 ? 'high' : 'info' }}",
+            "source": "sophia",
+            "message": "={{ 'Sophia triaged ' + $('Process Feedback').item.json.summary.total + ' feedback items (' + $('Process Feedback').item.json.summary.critical + ' critical, ' + $('Process Feedback').item.json.summary.high + ' high)' }}",
+            "metadata": "={{ JSON.stringify($('Process Feedback').item.json.summary) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-batch-summary",
+      "name": "Log Batch Summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1760, -50],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "merge-after-alert",
+      "name": "Merge After Alert",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1760, -150]
+    }
+  ],
+  "connections": {
+    "Every 10 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get New Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get New Feedback": {
+      "main": [
+        [
+          {
+            "node": "Has New Feedback?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has New Feedback?": {
+      "main": [
+        [
+          {
+            "node": "Process Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log No Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Feedback": {
+      "main": [
+        [
+          {
+            "node": "Split Feedback Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Feedback Items": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge Feedback": {
+      "main": [
+        [
+          {
+            "node": "Needs Slack Alert?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Slack Alert?": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Feedback Triaged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Alert": {
+      "main": [
+        [
+          {
+            "node": "Merge After Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Feedback Triaged": {
+      "main": [
+        [
+          {
+            "node": "Log Batch Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge After Alert": {
+      "main": [
+        [
+          {
+            "node": "Log Feedback Triaged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "10min"
+    },
+    {
+      "name": "feedback"
+    },
+    {
+      "name": "sophia"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-12T00:00:00.000Z",
+  "versionId": "2"
+}

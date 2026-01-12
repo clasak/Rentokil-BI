@@ -1,0 +1,567 @@
+{
+  "name": "OPS-TINA-001 Governance Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rentokil-bi.vercel.app/api/governance/definitions",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-definitions",
+      "name": "Get Current Definitions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "governance_snapshots",
+          "mode": "list"
+        },
+        "limit": 1,
+        "sort": {
+          "values": [
+            {
+              "column": "created_at",
+              "direction": "DESC"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-previous-snapshot",
+      "name": "Get Previous Snapshot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [220, 200],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "merge-data",
+      "name": "Merge Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [440, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare current definitions with previous snapshot\nconst items = $input.all();\nconst current = items[0]?.json || {};\nconst previous = items[1]?.json || {};\n\nconst currentHash = current.hash || '';\nconst previousHash = previous.snapshot_hash || '';\n\n// Check if this is the first run (no previous snapshot)\nconst isFirstRun = !previousHash;\n\n// Check if definitions have changed\nconst hasChanged = !isFirstRun && currentHash !== previousHash;\n\n// If changed, find what changed\nconst changes = [];\nif (hasChanged && current.definitions && previous.snapshot_data) {\n  const currentDefs = current.definitions;\n  const prevDefs = typeof previous.snapshot_data === 'string' \n    ? JSON.parse(previous.snapshot_data) \n    : previous.snapshot_data;\n  \n  // Create lookup maps\n  const currentMap = new Map(currentDefs.map(d => [d.slug, d]));\n  const prevMap = new Map((prevDefs.definitions || prevDefs).map(d => [d.slug, d]));\n  \n  // Check for new, removed, or modified KPIs\n  for (const [slug, def] of currentMap) {\n    const prevDef = prevMap.get(slug);\n    if (!prevDef) {\n      changes.push({\n        kpi_slug: slug,\n        change_type: 'new',\n        old_value: null,\n        new_value: def,\n        change_summary: `New KPI added: ${def.name}`\n      });\n    } else {\n      // Check specific fields for changes\n      const fieldsToCheck = ['definition', 'formula', 'warningThreshold', 'criticalThreshold', 'owner', 'primarySource'];\n      for (const field of fieldsToCheck) {\n        if (JSON.stringify(def[field]) !== JSON.stringify(prevDef[field])) {\n          let changeType = 'definition';\n          if (field.includes('Threshold')) changeType = 'threshold';\n          else if (field === 'owner') changeType = 'ownership';\n          else if (field === 'primarySource') changeType = 'source';\n          \n          changes.push({\n            kpi_slug: slug,\n            change_type: changeType,\n            field_changed: field,\n            old_value: { [field]: prevDef[field] },\n            new_value: { [field]: def[field] },\n            change_summary: `${def.name}: ${field} changed from \"${prevDef[field]}\" to \"${def[field]}\"`\n          });\n        }\n      }\n    }\n  }\n  \n  // Check for removed KPIs\n  for (const [slug, def] of prevMap) {\n    if (!currentMap.has(slug)) {\n      changes.push({\n        kpi_slug: slug,\n        change_type: 'deprecated',\n        old_value: def,\n        new_value: null,\n        change_summary: `KPI removed: ${def.name}`\n      });\n    }\n  }\n}\n\nreturn {\n  isFirstRun,\n  hasChanged,\n  currentHash,\n  previousHash,\n  kpi_count: current.kpi_count || 0,\n  changes,\n  changeCount: changes.length,\n  definitions: current.definitions || [],\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "compare-definitions",
+      "name": "Compare Definitions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-changes",
+              "leftValue": "={{ $json.hasChanged }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-changes",
+      "name": "Has Changes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 100]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Return individual changes for batch insert\nconst item = $input.item.json;\nif (item.changes && item.changes.length > 0) {\n  return item.changes.map(change => ({ json: change }));\n}\nreturn [];"
+      },
+      "id": "split-changes",
+      "name": "Split Changes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "governance_changes",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "kpi_slug": "={{ $json.kpi_slug }}",
+            "change_type": "={{ $json.change_type }}",
+            "old_value": "={{ JSON.stringify($json.old_value) }}",
+            "new_value": "={{ JSON.stringify($json.new_value) }}",
+            "field_changed": "={{ $json.field_changed || null }}",
+            "change_summary": "={{ $json.change_summary }}",
+            "changed_by": "system",
+            "approval_status": "pending"
+          }
+        },
+        "options": {}
+      },
+      "id": "insert-changes",
+      "name": "Insert Changes",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1320, 0],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "governance_change",
+            "severity": "high",
+            "source": "tina",
+            "route": "/api/governance/definitions",
+            "message": "={{ $('Compare Definitions').item.json.changeCount + ' KPI definition change(s) detected' }}",
+            "metadata": "={{ JSON.stringify({ changes: $('Compare Definitions').item.json.changes, currentHash: $('Compare Definitions').item.json.currentHash, previousHash: $('Compare Definitions').item.json.previousHash }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-changes",
+      "name": "Log Changes Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1100, 100],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FFA500\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"⚠️ KPI Definition Changes Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Changes:*\\n{{ $('Compare Definitions').item.json.changeCount }} definition(s) modified\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nTina\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi.vercel.app/governance|View Governance Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-changes",
+      "name": "Slack Changes Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 100]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "governance_snapshots",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "snapshot_hash": "={{ $('Compare Definitions').item.json.currentHash }}",
+            "kpi_count": "={{ $('Compare Definitions').item.json.kpi_count }}",
+            "snapshot_data": "={{ JSON.stringify({ definitions: $('Compare Definitions').item.json.definitions }) }}",
+            "source": "tina"
+          }
+        },
+        "options": {}
+      },
+      "id": "update-snapshot",
+      "name": "Update Snapshot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1100, 200],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-first-run",
+              "leftValue": "={{ $json.isFirstRun }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-first-run",
+      "name": "Is First Run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "governance_snapshots",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "snapshot_hash": "={{ $json.currentHash }}",
+            "kpi_count": "={{ $json.kpi_count }}",
+            "snapshot_data": "={{ JSON.stringify({ definitions: $json.definitions }) }}",
+            "source": "tina"
+          }
+        },
+        "options": {}
+      },
+      "id": "create-initial-snapshot",
+      "name": "Create Initial Snapshot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1100, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "governance_init",
+            "severity": "info",
+            "source": "tina",
+            "route": "/api/governance/definitions",
+            "message": "={{ 'Initial governance snapshot created: ' + $json.kpi_count + ' KPIs captured' }}",
+            "metadata": "={{ JSON.stringify({ hash: $json.currentHash, kpi_count: $json.kpi_count }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-initial-snapshot",
+      "name": "Log Initial Snapshot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1320, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "governance_check",
+            "severity": "info",
+            "source": "tina",
+            "route": "/api/governance/definitions",
+            "message": "Governance check completed: No changes detected",
+            "metadata": "={{ JSON.stringify({ hash: $('Compare Definitions').item.json.currentHash, kpi_count: $('Compare Definitions').item.json.kpi_count }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-no-changes",
+      "name": "Log No Changes",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1100, 400],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Get Current Definitions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Previous Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Definitions": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Previous Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Compare Definitions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare Definitions": {
+      "main": [
+        [
+          {
+            "node": "Has Changes?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is First Run?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Changes?": {
+      "main": [
+        [
+          {
+            "node": "Split Changes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Changes Event",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log No Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Changes": {
+      "main": [
+        [
+          {
+            "node": "Insert Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Changes Event": {
+      "main": [
+        [
+          {
+            "node": "Slack Changes Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is First Run?": {
+      "main": [
+        [
+          {
+            "node": "Create Initial Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Create Initial Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Log Initial Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "hourly"
+    },
+    {
+      "name": "governance"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-12T00:00:00.000Z",
+  "versionId": "3"
+}
