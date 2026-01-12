@@ -15,7 +15,6 @@ interface KPIResponse {
   trend?: number[]
   delta?: number
   higherIsBetter: boolean
-  unit: string
   format: string
 }
 
@@ -102,7 +101,6 @@ export async function GET(request: NextRequest): Promise<NextResponse<KPIsRespon
         trend: kpiValue.trend,
         delta: kpiValue.delta,
         higherIsBetter: kpiDef.higherIsBetter,
-        unit: kpiDef.unit,
         format: kpiDef.format,
       })
     }
