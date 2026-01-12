@@ -14,6 +14,12 @@ import { createClient } from '@/lib/supabase/client'
 import { Role } from '@/types'
 import { useAppStore } from '@/store'
 
+// Admin emails - these users automatically get exec role and skip onboarding
+const ADMIN_EMAILS = [
+  'cody.lytle@rentokil.com',
+  'cody.lytle@prestox.com',
+]
+
 interface RoleOption {
   value: Role
   label: string
@@ -86,6 +92,7 @@ export default function OnboardingPage() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [startTutorial, setStartTutorial] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [checkingProfile, setCheckingProfile] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const router = useRouter()
@@ -93,25 +100,85 @@ export default function OnboardingPage() {
   const { setRole, setTutorialActive, setTutorialStep } = useAppStore()
 
   useEffect(() => {
-    // Get the current user's email
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user?.email) {
+    // Get the current user and check for existing profile
+    const checkUserAndProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user?.email) {
+          // Not authenticated, redirect to login
+          router.push('/login')
+          return
+        }
+
         setUserEmail(user.email)
-        // Pre-fill name from email if available
+        const email = user.email.toLowerCase()
+
+        // Check if this is an admin user - auto-setup with exec role
+        if (ADMIN_EMAILS.includes(email)) {
+          console.log('Admin user detected, auto-configuring as exec')
+
+          // Upsert admin profile with exec role
+          await supabase
+            .from('user_profiles')
+            .upsert({
+              id: user.id,
+              email: user.email,
+              name: 'Admin',
+              role: 'exec',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+
+          // Set role in app store
+          setRole('exec')
+
+          // Set onboarding complete cookie
+          document.cookie = 'onboarding_complete=true; path=/; max-age=31536000'
+
+          // Redirect to dashboard immediately
+          router.push('/')
+          return
+        }
+
+        // Check if user already has a profile in Supabase
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('name, role')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.role) {
+          console.log('Existing profile found:', profile)
+
+          // User already has a profile - set role and redirect to dashboard
+          setRole(profile.role as Role)
+
+          // Set onboarding complete cookie
+          document.cookie = 'onboarding_complete=true; path=/; max-age=31536000'
+
+          // Redirect to dashboard
+          router.push('/')
+          return
+        }
+
+        // No existing profile - pre-fill name from email
         const namePart = user.email.split('@')[0]
         const formattedName = namePart
           .split(/[._-]/)
           .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
           .join(' ')
         setName(formattedName)
-      } else {
-        // Not authenticated, redirect to login
-        router.push('/login')
+        setCheckingProfile(false)
+      } catch (err) {
+        console.error('Error checking profile:', err)
+        // On error, show the form anyway
+        setCheckingProfile(false)
       }
     }
-    getUser()
-  }, [router, supabase.auth])
+
+    checkUserAndProfile()
+  }, [router, supabase, setRole])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -176,6 +243,20 @@ export default function OnboardingPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading state while checking for existing profile
+  if (checkingProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-sm text-muted-foreground">Checking your profile...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (

@@ -1,6 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Admin emails - these users automatically skip onboarding check
+const ADMIN_EMAILS = [
+  'cody.lytle@rentokil.com',
+  'cody.lytle@prestox.com',
+]
+
 export async function middleware(request: NextRequest) {
   // Check if Supabase is configured FIRST, before trying to create client
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -61,12 +67,31 @@ export async function middleware(request: NextRequest) {
   // If authenticated and trying to access login page
   if (user && request.nextUrl.pathname === '/login') {
     const url = request.nextUrl.clone()
+    // Admin users skip onboarding entirely
+    if (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+      // Set onboarding complete cookie for admin
+      supabaseResponse.cookies.set('onboarding_complete', 'true', {
+        path: '/',
+        maxAge: 31536000, // 1 year
+      })
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
     url.pathname = '/onboarding'
     return NextResponse.redirect(url)
   }
 
   // If authenticated and accessing dashboard (not onboarding), check if profile exists
   if (user && !isPublicPath && !isOnboardingPath) {
+    // Admin users always have access - set cookie and allow
+    if (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+      supabaseResponse.cookies.set('onboarding_complete', 'true', {
+        path: '/',
+        maxAge: 31536000, // 1 year
+      })
+      return supabaseResponse
+    }
+
     // Check cookie flag first
     const hasCompletedOnboarding = request.cookies.get('onboarding_complete')?.value === 'true'
 
