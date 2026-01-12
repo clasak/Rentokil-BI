@@ -18,7 +18,8 @@ import {
 import {
   Settings, Shield, Users, Target, Database, RefreshCw,
   AlertTriangle, Presentation, ExternalLink, Lock, Eye,
-  Crown, Building2, Briefcase, TrendingUp, Truck, UserCheck, Wrench
+  Crown, Building2, Briefcase, TrendingUp, Truck, UserCheck, Wrench,
+  LogIn, UserPlus, Clock, Loader2
 } from 'lucide-react'
 import { Role, DemoMode, Scenario } from '@/types'
 import Link from 'next/link'
@@ -31,10 +32,24 @@ const ADMIN_EMAILS = [
   'cody.lytle@prestox.com',
 ]
 
+interface LoginEvent {
+  id: string
+  event_type: string
+  message: string
+  details: {
+    email: string
+    timestamp: string
+    userAgent?: string
+  }
+  created_at: string
+}
+
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
   const supabase = createClient()
 
   const {
@@ -54,6 +69,27 @@ export default function AdminPage() {
   const scope = getCurrentUserScope()
   const dataSourceStatus = getDataSourceStatus()
 
+  // Fetch login events from ops_events table
+  const fetchLoginEvents = async () => {
+    setLoadingEvents(true)
+    try {
+      const { data, error } = await supabase
+        .from('ops_events')
+        .select('*')
+        .eq('agent', 'auth')
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (!error && data) {
+        setLoginEvents(data as LoginEvent[])
+      }
+    } catch (e) {
+      console.log('Failed to fetch login events:', e)
+    } finally {
+      setLoadingEvents(false)
+    }
+  }
+
   // Check if user is admin
   useEffect(() => {
     const checkAdmin = async () => {
@@ -61,7 +97,13 @@ export default function AdminPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (user?.email) {
           setUserEmail(user.email)
-          setIsAdmin(ADMIN_EMAILS.includes(user.email.toLowerCase()))
+          const isUserAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase())
+          setIsAdmin(isUserAdmin)
+
+          // Fetch login events if admin
+          if (isUserAdmin) {
+            fetchLoginEvents()
+          }
         }
       } catch (e) {
         console.error('Error checking admin status:', e)
@@ -75,6 +117,22 @@ export default function AdminPage() {
   const handleRefreshData = () => {
     refreshData()
     window.location.reload()
+  }
+
+  // Format relative time (e.g., "2 minutes ago")
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins} min ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+    return date.toLocaleDateString()
   }
 
   const getRoleIcon = (role: Role) => {
@@ -182,6 +240,96 @@ export default function AdminPage() {
             <span className="text-gray-500 dark:text-gray-400">Current scope: </span>
             <span className="font-medium dark:text-gray-100">{scope.scope}</span>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Login Activity */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <LogIn className="h-5 w-5" />
+                Login Activity
+              </CardTitle>
+              <CardDescription>
+                Recent user logins and signups
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchLoginEvents}
+              disabled={loadingEvents}
+              className="gap-2"
+            >
+              {loadingEvents ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingEvents && loginEvents.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : loginEvents.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <LogIn className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No login events recorded yet.</p>
+              <p className="text-xs mt-1">Events will appear here after users sign in.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {loginEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                >
+                  <div className={`p-2 rounded-full ${
+                    event.event_type === 'signup'
+                      ? 'bg-green-100 dark:bg-green-900/30'
+                      : 'bg-blue-100 dark:bg-blue-900/30'
+                  }`}>
+                    {event.event_type === 'signup' ? (
+                      <UserPlus className={`h-4 w-4 ${
+                        event.event_type === 'signup'
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-blue-600 dark:text-blue-400'
+                      }`} />
+                    ) : (
+                      <LogIn className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm dark:text-gray-100 truncate">
+                        {event.details?.email || 'Unknown user'}
+                      </span>
+                      <Badge
+                        variant={event.event_type === 'signup' ? 'default' : 'secondary'}
+                        className={`text-xs ${
+                          event.event_type === 'signup'
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : ''
+                        }`}
+                      >
+                        {event.event_type === 'signup' ? 'New User' : 'Login'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      <Clock className="h-3 w-3" />
+                      {formatRelativeTime(event.created_at)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
