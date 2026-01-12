@@ -10,9 +10,14 @@ import {
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
   ClipboardList, Truck, Upload, Book, Shield, GitBranch,
-  ClipboardCheck, Workflow, Lock
+  ClipboardCheck, Workflow, Lock, X
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+
+interface SidebarProps {
+  onNavigate?: () => void
+  isMobile?: boolean
+}
 
 // Admin emails that can see the admin link
 const ADMIN_EMAILS = [
@@ -133,7 +138,7 @@ function getRoleLabel(role: Role): string {
   }
 }
 
-export function Sidebar() {
+export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
   const pathname = usePathname()
   const { sidebarCollapsed, setSidebarCollapsed, settings: appSettings } = useAppStore()
   const [isClient, setIsClient] = useState(false)
@@ -171,6 +176,15 @@ export function Sidebar() {
   const currentDemoMode = isClient ? appSettings.demoMode : 'bi_leadership'
   const { main: navigation, showGovernance } = getNavigationForRole(currentRole)
 
+  // On mobile, never collapse - always show full width
+  const isCollapsed = isMobile ? false : sidebarCollapsed
+
+  const handleNavClick = () => {
+    if (onNavigate) {
+      onNavigate()
+    }
+  }
+
   const NavItem = ({ item }: { item: typeof executiveNav[0] }) => {
     const isActive = pathname === item.href ||
       (item.href !== '/' && pathname.startsWith(item.href))
@@ -178,17 +192,18 @@ export function Sidebar() {
     return (
       <Link
         href={item.href}
+        onClick={handleNavClick}
         className={cn(
           'nav-item group',
           isActive && 'nav-item-active',
-          sidebarCollapsed && 'justify-center px-2'
+          isCollapsed && 'justify-center px-2'
         )}
       >
         <item.icon className={cn(
           'h-5 w-5 flex-shrink-0',
           isActive ? 'text-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
         )} />
-        {!sidebarCollapsed && (
+        {!isCollapsed && (
           <span className={cn(
             isActive ? 'text-primary' : 'text-gray-700 dark:text-gray-200'
           )}>
@@ -202,14 +217,14 @@ export function Sidebar() {
   return (
     <div className={cn(
       'flex flex-col h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 transition-all duration-300',
-      sidebarCollapsed ? 'w-16' : 'w-64'
+      isCollapsed ? 'w-16' : 'w-64'
     )}>
       {/* Logo */}
       <div className={cn(
         'flex items-center px-4 border-b dark:border-gray-700',
-        sidebarCollapsed ? 'justify-center h-16' : 'justify-start h-24'
+        isCollapsed ? 'justify-center h-16' : 'justify-between h-24'
       )}>
-        {!sidebarCollapsed && (
+        {!isCollapsed && (
           <div className="flex flex-col">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" className="h-[60px] w-auto">
               <defs>
@@ -228,10 +243,21 @@ export function Sidebar() {
             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Business Intelligence</p>
           </div>
         )}
-        {sidebarCollapsed && (
+        {isCollapsed && (
           <div className="w-11 h-11 bg-rentokil-red rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-2xl">R</span>
           </div>
+        )}
+        {/* Close button for mobile */}
+        {isMobile && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onNavigate}
+            className="ml-auto"
+          >
+            <X className="h-5 w-5" />
+          </Button>
         )}
       </div>
 
@@ -267,7 +293,7 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* Role Indicator */}
-      {!sidebarCollapsed && (
+      {!isCollapsed && (
         <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Your Role</div>
           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -276,21 +302,23 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Collapse Button */}
-      <div className="p-2 border-t dark:border-gray-700">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="w-full justify-center"
-        >
-          {sidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
+      {/* Collapse Button - only on desktop */}
+      {!isMobile && (
+        <div className="p-2 border-t dark:border-gray-700">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="w-full justify-center"
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
