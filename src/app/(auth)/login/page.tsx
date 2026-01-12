@@ -37,6 +37,7 @@ async function logLoginEvent(
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('login')
@@ -294,6 +295,21 @@ export default function LoginPage() {
                 disabled={loading}
               />
             </div>
+          </div>
+
+          {/* Remember Me */}
+          <div className="flex items-center">
+            <input
+              id="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded cursor-pointer"
+              disabled={loading}
+            />
+            <label htmlFor="remember-me" className="ml-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+              Remember me
+            </label>
           </div>
 
           {error && (
