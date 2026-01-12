@@ -6,8 +6,33 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Mail, Lock, AlertCircle, Loader2, BarChart3, Shield, Users, ArrowLeft, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 type ViewMode = 'login' | 'forgot-password' | 'reset-sent'
+
+// Log login events to ops_events table for tracking
+async function logLoginEvent(
+  supabase: SupabaseClient,
+  email: string,
+  eventType: 'login' | 'signup'
+) {
+  try {
+    await supabase.from('ops_events').insert({
+      agent: 'auth',
+      event_type: eventType,
+      severity: 'info',
+      message: `User ${eventType}: ${email}`,
+      details: {
+        email,
+        timestamp: new Date().toISOString(),
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      },
+    })
+  } catch (err) {
+    // Don't block login if logging fails
+    console.log('Failed to log login event:', err)
+  }
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -60,6 +85,8 @@ export default function LoginPage() {
               setError(signUpError.message)
             }
           } else if (signUpData.user) {
+            // Log new user signup
+            await logLoginEvent(supabase, email, 'signup')
             // New account created successfully
             router.push('/onboarding')
           }
@@ -67,6 +94,8 @@ export default function LoginPage() {
           setError(signInError.message)
         }
       } else {
+        // Log successful login
+        await logLoginEvent(supabase, email, 'login')
         router.push('/onboarding')
       }
     } catch (err) {
