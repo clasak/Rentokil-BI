@@ -180,6 +180,7 @@ export interface KPIDefinition {
   dataQualityChecks: string[]
   drillPath: string
   format: 'currency' | 'percent' | 'number' | 'days' | 'index'
+  unit: string // Display unit (e.g., '$', '%', 'days', 'pts')
   higherIsBetter: boolean
   target?: number
   warningThreshold?: number
