@@ -337,7 +337,7 @@ export function OpsManagerCommandCenter() {
                       cursor={false}
                     />
                     <Bar dataKey="completed" name="Completed" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} activeBar={{ filter: 'url(#glow-ops-mgr)' }} />
-                    <Bar dataKey="remaining" name="Remaining" stackId="a" fill="#e5e7eb" radius={[4, 4, 0, 0]} activeBar={{ filter: 'url(#glow-ops-mgr)' }} />
+                    <Bar dataKey="remaining" name="Remaining" stackId="a" fill="#94a3b8" radius={[4, 4, 0, 0]} activeBar={{ filter: 'url(#glow-ops-mgr)' }} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

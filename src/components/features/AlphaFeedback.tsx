@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,6 +20,10 @@ import {
   User,
   AlertCircle,
   ChevronLeft,
+  Camera,
+  Upload,
+  X,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -33,6 +37,13 @@ import {
   requiresSeverity,
   requiresStepsToReproduce,
 } from '@/types/feedback'
+
+interface Screenshot {
+  id: string
+  dataUrl: string
+  name: string
+  timestamp: number
+}
 
 interface UserProfile {
   name: string
@@ -51,10 +62,13 @@ export function AlphaFeedback() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [stepsToReproduce, setStepsToReproduce] = useState('')
+  const [screenshots, setScreenshots] = useState<Screenshot[]>([])
+  const [isCapturing, setIsCapturing] = useState(false)
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
   const [submittedId, setSubmittedId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const pathname = usePathname()
   const { settings } = useAppStore()
 
@@ -106,6 +120,8 @@ export function AlphaFeedback() {
         setTitle('')
         setDescription('')
         setStepsToReproduce('')
+        setScreenshots([])
+        setIsCapturing(false)
         setSubmitState('idle')
         setSubmittedId(null)
         setErrorMessage(null)
@@ -123,6 +139,169 @@ export function AlphaFeedback() {
     setFeedbackType(null)
   }
 
+  // Capture screenshot of current page
+  const captureScreenshot = useCallback(async () => {
+    // Check limit before starting
+    if (screenshots.length >= 3) {
+      setErrorMessage('Maximum 3 screenshots allowed.')
+      return
+    }
+
+    setIsCapturing(true)
+    setErrorMessage(null) // Clear previous errors
+
+    let stream: MediaStream | null = null
+    let video: HTMLVideoElement | null = null
+
+    try {
+      // Check if screen capture API is available
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        setErrorMessage('Screen capture is not supported in this browser. Please use file upload instead.')
+        setIsCapturing(false)
+        return
+      }
+
+      // Request screen capture permission
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: 'browser',
+        } as MediaTrackConstraints,
+        audio: false,
+      })
+
+      // Create video element to capture frame
+      video = document.createElement('video')
+      video.srcObject = stream
+      await video.play()
+
+      // Create canvas to draw the frame
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      ctx?.drawImage(video, 0, 0)
+
+      // Convert to data URL (use JPEG for smaller file size)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+
+      // Add to screenshots (with limit check)
+      setScreenshots(prev => {
+        if (prev.length >= 3) return prev
+        return [...prev, {
+          id: `capture-${Date.now()}`,
+          dataUrl,
+          name: `Screenshot ${new Date().toLocaleTimeString()}`,
+          timestamp: Date.now(),
+        }]
+      })
+    } catch (error) {
+      // User cancelled or permission denied - don't show error for cancel
+      if ((error as Error).name !== 'AbortError' && (error as Error).name !== 'NotAllowedError') {
+        console.error('[Screenshot] Capture error:', error)
+        setErrorMessage('Failed to capture screenshot. Try uploading an image instead.')
+      }
+    } finally {
+      // Cleanup: stop all tracks and clear video source
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+      }
+      if (video) {
+        video.srcObject = null
+      }
+      setIsCapturing(false)
+    }
+  }, [screenshots.length])
+
+  // Validate image file signature (magic bytes) for security
+  const validateImageSignature = useCallback((file: File): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const arr = new Uint8Array(e.target?.result as ArrayBuffer)
+        // Check common image magic bytes
+        const isPNG = arr[0] === 0x89 && arr[1] === 0x50 && arr[2] === 0x4E && arr[3] === 0x47
+        const isJPEG = arr[0] === 0xFF && arr[1] === 0xD8 && arr[2] === 0xFF
+        const isGIF = arr[0] === 0x47 && arr[1] === 0x49 && arr[2] === 0x46
+        const isWebP = arr[0] === 0x52 && arr[1] === 0x49 && arr[2] === 0x46 && arr[3] === 0x46 &&
+                       arr[8] === 0x57 && arr[9] === 0x45 && arr[10] === 0x42 && arr[11] === 0x50
+        resolve(isPNG || isJPEG || isGIF || isWebP)
+      }
+      reader.onerror = () => resolve(false)
+      reader.readAsArrayBuffer(file.slice(0, 12)) // Only read first 12 bytes
+    })
+  }, [])
+
+  // Handle file upload
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    setErrorMessage(null) // Clear previous errors
+
+    // Calculate how many more screenshots we can add
+    const remainingSlots = 3 - screenshots.length
+    if (remainingSlots <= 0) {
+      setErrorMessage('Maximum 3 screenshots allowed.')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    // Process only up to the remaining slot count
+    const filesToProcess = Array.from(files).slice(0, remainingSlots)
+
+    for (const file of filesToProcess) {
+      // Validate MIME type (first line of defense)
+      if (!file.type.startsWith('image/')) {
+        setErrorMessage('Please upload image files only (PNG, JPG, GIF, WebP)')
+        continue
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setErrorMessage(`"${file.name}" is too large. Maximum size is 5MB.`)
+        continue
+      }
+
+      // Validate file signature (magic bytes) for security
+      const isValidImage = await validateImageSignature(file)
+      if (!isValidImage) {
+        setErrorMessage(`"${file.name}" is not a valid image file.`)
+        continue
+      }
+
+      // Read and add the file
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string
+        setScreenshots(prev => {
+          if (prev.length >= 3) return prev // Double-check limit
+          return [...prev, {
+            id: `upload-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+            dataUrl,
+            name: file.name.substring(0, 50), // Limit filename length
+            timestamp: Date.now(),
+          }]
+        })
+      }
+      reader.readAsDataURL(file)
+    }
+
+    // Show message if some files were skipped
+    if (files.length > remainingSlots) {
+      setErrorMessage(`Only ${remainingSlots} more screenshot(s) allowed. Some files were skipped.`)
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [screenshots.length, validateImageSignature])
+
+  // Remove a screenshot
+  const removeScreenshot = useCallback((id: string) => {
+    setScreenshots(prev => prev.filter(s => s.id !== id))
+  }, [])
+
   const handleSubmit = async () => {
     if (!feedbackType || !title.trim() || !description.trim()) return
 
@@ -138,11 +317,14 @@ export function AlphaFeedback() {
         ? stepsToReproduce.trim()
         : undefined,
       page_url: pathname,
+      // Include screenshot data URLs (in production, these would be uploaded to storage first)
+      screenshot_urls: screenshots.length > 0 ? screenshots.map(s => s.dataUrl) : undefined,
       metadata: {
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         screen_width: typeof window !== 'undefined' ? window.innerWidth : 0,
         screen_height: typeof window !== 'undefined' ? window.innerHeight : 0,
         timestamp: new Date().toISOString(),
+        screenshot_count: screenshots.length,
       },
     }
 
@@ -383,6 +565,100 @@ export function AlphaFeedback() {
                 />
               </div>
             )}
+
+            {/* Screenshot Section */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Screenshots <span className="text-gray-400">(optional)</span>
+              </label>
+
+              {/* Screenshot Actions */}
+              <div className="flex gap-2 mb-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={captureScreenshot}
+                  disabled={isCapturing || screenshots.length >= 3}
+                  className="flex-1 gap-2"
+                >
+                  {isCapturing ? (
+                    <>
+                      <span className="animate-spin">&#8987;</span>
+                      Capturing...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="h-4 w-4" />
+                      Capture Screen
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={screenshots.length >= 3}
+                  className="flex-1 gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload Image
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Screenshot Previews */}
+              {screenshots.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {screenshots.map((screenshot) => (
+                    <div
+                      key={screenshot.id}
+                      className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={screenshot.dataUrl}
+                        alt={screenshot.name}
+                        className="w-full h-20 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeScreenshot(screenshot.id)}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                        title="Remove screenshot"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 bg-black/50 text-white text-[10px] truncate">
+                        {screenshot.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Empty State */}
+              {screenshots.length === 0 && (
+                <div className="flex items-center justify-center p-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-gray-400">
+                  <div className="text-center">
+                    <ImageIcon className="h-6 w-6 mx-auto mb-1 opacity-50" />
+                    <p className="text-xs">Capture or upload screenshots to help explain the issue</p>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400 mt-1">
+                {screenshots.length}/3 screenshots &bull; Max 5MB each
+              </p>
+            </div>
 
             {/* Error Message */}
             {submitState === 'error' && errorMessage && (
