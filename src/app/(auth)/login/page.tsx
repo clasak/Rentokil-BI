@@ -7,10 +7,11 @@ import { Badge } from '@/components/ui/badge'
 import { Mail, Lock, AlertCircle, Loader2, BarChart3, Shield, Users, ArrowLeft, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { logLoginSuccess, logLoginFailure, logPasswordReset } from '@/lib/security-logger'
 
 type ViewMode = 'login' | 'forgot-password' | 'reset-sent'
 
-// Log login events to ops_events table for tracking
+// Log login events to ops_events table for tracking (legacy function, kept for backwards compatibility)
 async function logLoginEvent(
   supabase: SupabaseClient,
   email: string,
@@ -72,6 +73,11 @@ export default function LoginPage() {
       if (signInError) {
         // If invalid credentials, could be new user OR existing magic link user
         if (signInError.message.includes('Invalid login credentials')) {
+          // Log failed login attempt to security events (for Sam agent)
+          await logLoginFailure(email, 'Invalid credentials', {
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+          })
+
           // Try to sign up - this will set password for existing users or create new ones
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
             email,
@@ -82,21 +88,36 @@ export default function LoginPage() {
             // If user already exists with different auth method
             if (signUpError.message.includes('User already registered')) {
               setError('Account exists with a different password. Use "Forgot Password" to reset.')
+              // Log additional failure
+              await logLoginFailure(email, 'User registered with different auth method')
             } else {
               setError(signUpError.message)
+              await logLoginFailure(email, signUpError.message)
             }
           } else if (signUpData.user) {
-            // Log new user signup
+            // Log new user signup (both to ops_events and security_events)
             await logLoginEvent(supabase, email, 'signup')
+            await logLoginSuccess(email, signUpData.user.id, {
+              action: 'signup',
+              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+            })
             // New account created successfully
             router.push('/onboarding')
           }
         } else {
           setError(signInError.message)
+          // Log other login errors
+          await logLoginFailure(email, signInError.message, {
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+          })
         }
       } else {
-        // Log successful login
+        // Log successful login (both to ops_events and security_events)
         await logLoginEvent(supabase, email, 'login')
+        await logLoginSuccess(email, undefined, {
+          action: 'login',
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        })
         router.push('/onboarding')
       }
     } catch (err) {
@@ -125,6 +146,10 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else {
+        // Log password reset request to security events (for Sam agent)
+        await logPasswordReset(email, 'requested', {
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        })
         setViewMode('reset-sent')
       }
     } catch (err) {

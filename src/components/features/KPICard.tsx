@@ -63,6 +63,28 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
 
   const sparklineData = kpiValue.trend.map((value, index) => ({ value, index }))
 
+  // Calculate prior period value from delta percentage
+  const priorValue = kpiValue.deltaPercent !== 0
+    ? kpiValue.value / (1 + kpiValue.deltaPercent)
+    : kpiValue.value
+
+  // Get target methodology based on KPI category/format
+  const getTargetMethodology = (): string => {
+    if (definition.category === 'revenue' || definition.category === 'finance') {
+      return 'Annual quota pro-rated to month-to-date'
+    }
+    if (definition.format === 'percent') {
+      return 'Based on historical performance benchmark'
+    }
+    if (definition.format === 'index') {
+      return 'Calculated from weighted scoring model'
+    }
+    if (definition.format === 'days') {
+      return 'Industry standard benchmark'
+    }
+    return 'Target based on business objectives'
+  }
+
   return (
     <Link href={`/kpi/${kpiValue.slug}`}>
       <Card className={cn(
@@ -117,12 +139,29 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
                   {!isPositiveChange && !isNegativeChange && <Minus className="h-3 w-3" />}
                   <span>{deltaPercent > 0 ? '+' : ''}{deltaPercent.toFixed(1)}%</span>
                 </div>
-                <span className="text-xs text-gray-400">vs prior</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs text-gray-400 cursor-help border-b border-dotted border-gray-400">vs prior</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Prior: {formatValue(priorValue)}</p>
+                    <p className="text-xs">Current: {formatValue(kpiValue.value)}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
 
               {kpiValue.target !== undefined && !compact && (
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Target: {formatValue(kpiValue.target)}
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <span>Target: {formatValue(kpiValue.target)}</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs font-medium">Target Methodology</p>
+                      <p className="text-xs text-gray-400 mt-1">{getTargetMethodology()}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               )}
             </div>

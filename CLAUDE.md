@@ -499,9 +499,9 @@ NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=  # For technician route visualization
 
 | Endpoint | Method | Purpose | Used By |
 |----------|--------|---------|---------|
-| `/api/health` | GET | App health status | Timmy agent, monitoring |
+| `/api/health` | GET | App health status | Timmy, Derek agents |
 | `/api/health/kpis` | GET | KPI health with thresholds | Tommy agent |
-| `/api/kpis` | GET | All KPIs with role filtering | Dashboard components |
+| `/api/kpis` | GET | All KPIs with role filtering | Dashboard components, Pete |
 | `/api/kpis?top10=true` | GET | TOP_10 KPIs only | Command Center |
 | `/api/kpis?role=rep` | GET | Role-scoped KPI data | Role-specific views |
 | `/api/reconcile` | GET/POST | Reconciliation with tolerance rules | Tommy agent, Governance |
@@ -511,6 +511,13 @@ NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=  # For technician route visualization
 | `/api/start-packet` | GET/POST | CRUD for Start Packets | AE new starts |
 | `/api/start-packet/[id]` | GET/PUT/DELETE | Individual Start Packet | Start Packet detail |
 | `/api/notifications/ops-email` | POST | Ops notification emails | Handoff alerts |
+| `/api/alerts/business` | GET | Business rule alerts | Bailey agent |
+| `/api/security/events` | GET/POST | Security event logging | Login page, Sam agent |
+| `/api/security/threats` | GET | Threat detection (brute force, etc.) | Sam agent |
+| `/api/performance/metrics` | GET/POST | Performance metrics (latency) | Pete agent |
+| `/api/deployments` | GET/POST | Deployment tracking | Derek agent |
+| `/api/engagement/summary` | GET | User engagement metrics | Emma agent |
+| `/api/telemetry` | GET/POST | Client-side activity tracking | Dashboard telemetry |
 
 ### Reconciliation Tolerance Rules
 
@@ -583,7 +590,9 @@ Reconciliation fails → Prepare failed KPIs → Call /api/reconcile/refresh
 
 ## n8n AI Workforce Agents
 
-Four automated agents monitor the application via n8n workflows. Configuration files in `/n8n/`.
+Nine automated agents monitor the application via n8n workflows. Configuration files in `/n8n/`.
+
+### Core Agents (Monitoring & Quality)
 
 | Agent | File | Schedule | Purpose |
 |-------|------|----------|---------|
@@ -592,7 +601,17 @@ Four automated agents monitor the application via n8n workflows. Configuration f
 | **Tina** | `OPS-TINA-001.json` | Every hour | Governance, definition change detection |
 | **Sophia** | `OPS-SOPHIA-001.json` | Every 10 min | Feedback triage, Slack alerts |
 
-### Agent Details
+### Extended Agents (Business, Security, Performance, DevOps, Engagement)
+
+| Agent | File | Schedule | Purpose |
+|-------|------|----------|---------|
+| **Bailey** | `OPS-BAILEY-001.json` | Every 30 min | Business alerts - KPI threshold monitoring |
+| **Sam** | `OPS-SAM-001.json` | Every 15 min | Security - threat detection & anomaly monitoring |
+| **Pete** | `OPS-PETE-001.json` | Every 5 min | Performance - SLA monitoring & latency tracking |
+| **Derek** | `OPS-DEREK-001.json` | Every 30 min | Deployment - health verification post-deploy |
+| **Emma** | `OPS-EMMA-001.json` | Daily at 6am | Engagement - user activity & adoption metrics |
+
+### Core Agent Details
 
 **Timmy (Health Monitor)**
 - Calls `/api/health` every 5 minutes
@@ -621,6 +640,38 @@ Four automated agents monitor the application via n8n workflows. Configuration f
 - Automatically acknowledges feedback and updates status
 - Sends Slack alerts for critical/high severity items
 - Logs triage activity to `ops_events` table
+
+### Extended Agent Details
+
+**Bailey (Business Alerts)**
+- Calls `/api/alerts/business` every 30 minutes (business hours)
+- Monitors KPIs against business-defined thresholds (via `business_alert_rules` table)
+- Alerts: Revenue below target, Win rate declining, Service risk, AR aging, DSO
+- Sends Slack alerts by severity (Critical=Red, High=Orange)
+
+**Sam (Security Monitor)**
+- Calls `/api/security/threats` every 15 minutes
+- Reads from `security_events` table for login patterns
+- Detects: Brute force (>5 failures in 15 min), Privilege escalation, Session anomalies
+- Sends immediate Slack alerts for critical threats
+
+**Pete (Performance Monitor)**
+- Measures endpoint response times every 5 minutes
+- Monitors: `/api/health`, `/api/health/kpis`, `/api/kpis`
+- Tracks p50, p95, p99 latency; alerts on SLA breach (p95 > 2000ms)
+- Stores metrics in `performance_metrics` table
+
+**Derek (Deployment Monitor)**
+- Calls `/api/deployments` every 30 minutes
+- Waits 60s after new deploy for warmup, then verifies `/api/health`
+- Alerts on deployment failure with rollback recommendation
+- Stores deployment records in `deployments` table
+
+**Emma (Engagement Monitor)**
+- Calls `/api/engagement/summary` daily at 6am
+- Tracks DAU, sessions, avg duration, top pages, feature adoption
+- Reads from `user_activity` table (populated via `/api/telemetry`)
+- Alerts if DAU < 10 or engagement drops > 20%
 
 ### n8n Setup
 
@@ -695,6 +746,93 @@ CREATE TABLE kpi_snapshots (
 -- get_latest_governance_snapshot()
 -- get_pending_governance_changes()
 -- get_open_incidents()
+```
+
+### 007_new_agents.sql
+
+```sql
+-- Extended agent support tables for Bailey, Sam, Pete, Derek, Emma
+
+-- security_events: Login tracking for Sam security monitoring
+CREATE TABLE security_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,  -- login_success, login_failure, logout, password_reset, role_change, etc.
+  user_email TEXT,
+  user_id UUID,
+  ip_address TEXT,
+  user_agent TEXT,
+  severity TEXT NOT NULL,    -- critical, high, medium, low, info
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- performance_metrics: API latency for Pete performance monitoring
+CREATE TABLE performance_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  endpoint TEXT NOT NULL,
+  method TEXT DEFAULT 'GET',
+  response_time_ms INTEGER NOT NULL,
+  status_code INTEGER,
+  is_error BOOLEAN DEFAULT FALSE,
+  captured_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- deployments: Deployment tracking for Derek
+CREATE TABLE deployments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  deployment_id TEXT UNIQUE NOT NULL,
+  git_commit TEXT,
+  git_branch TEXT,
+  status TEXT NOT NULL,      -- building, ready, error, canceled
+  health_status TEXT,        -- healthy, degraded, unhealthy, pending
+  deployed_at TIMESTAMPTZ,
+  verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- user_activity: Client telemetry for Emma engagement tracking
+CREATE TABLE user_activity (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  user_email TEXT,
+  user_role TEXT,
+  page_url TEXT NOT NULL,
+  route TEXT,
+  action TEXT DEFAULT 'view',  -- view, click, submit, export, search
+  session_id TEXT,
+  duration_seconds INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- engagement_summary: Daily rollups for Emma
+CREATE TABLE engagement_summary (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  summary_date DATE NOT NULL UNIQUE,
+  total_users INTEGER DEFAULT 0,
+  active_users INTEGER DEFAULT 0,
+  new_users INTEGER DEFAULT 0,
+  total_sessions INTEGER DEFAULT 0,
+  avg_session_duration_seconds INTEGER DEFAULT 0,
+  top_pages JSONB DEFAULT '[]',
+  engagement_by_role JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- business_alert_rules: Configurable thresholds for Bailey
+CREATE TABLE business_alert_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rule_name TEXT NOT NULL,
+  kpi_slug TEXT NOT NULL,
+  condition TEXT NOT NULL,   -- below_target, above_target, below_threshold, above_threshold
+  threshold_value NUMERIC,
+  threshold_percent NUMERIC,
+  severity TEXT NOT NULL,    -- critical, high, medium, low
+  notify_roles TEXT[] DEFAULT ARRAY['exec'],
+  is_active BOOLEAN DEFAULT TRUE,
+  cooldown_minutes INTEGER DEFAULT 60,
+  last_triggered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
 ---

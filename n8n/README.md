@@ -4,12 +4,24 @@ This folder contains importable n8n workflow JSON files for the Rentokil BI AI W
 
 ## Agents Overview
 
+### Core Agents (Monitoring & Quality)
+
 | Agent | File | Schedule | Purpose |
 |-------|------|----------|---------|
 | **Timmy** | `OPS-TIMMY-001.json` | Every 5 min | Reliability monitoring - health checks |
 | **Tommy** | `OPS-TOMMY-001.json` | Every 15 min + hourly | Data quality - KPI snapshots & reconciliation |
 | **Tina** | `OPS-TINA-001.json` | Every hour | Governance - KPI definition change detection |
 | **Sophia** | `OPS-SOPHIA-001.json` | Every 10 min | Feedback intake - triage & Slack alerts |
+
+### Extended Agents (Business, Security, Performance, DevOps, Engagement)
+
+| Agent | File | Schedule | Purpose |
+|-------|------|----------|---------|
+| **Bailey** | `OPS-BAILEY-001.json` | Every 30 min (7am-7pm) | Business alerts - KPI threshold monitoring |
+| **Sam** | `OPS-SAM-001.json` | Every 15 min | Security - threat detection & anomaly monitoring |
+| **Pete** | `OPS-PETE-001.json` | Every 5 min | Performance - SLA monitoring & latency tracking |
+| **Derek** | `OPS-DEREK-001.json` | Every 30 min | Deployment - health verification post-deploy |
+| **Emma** | `OPS-EMMA-001.json` | Daily at 6am | Engagement - user activity & adoption metrics |
 
 ---
 
@@ -27,6 +39,8 @@ Run these migrations in your Supabase SQL Editor:
 002_kpi_snapshots.sql   # kpi_snapshots table
 003_governance.sql      # governance_snapshots, governance_changes, incidents tables
 004_feedback_submissions.sql  # feedback_submissions table (for Sophia)
+007_new_agents.sql      # security_events, performance_metrics, deployments,
+                        # user_activity, engagement_summary, business_alert_rules
 ```
 
 ### 2. API Endpoints Deployed
@@ -35,11 +49,16 @@ Verify these endpoints are accessible:
 
 | Endpoint | Used By | Test |
 |----------|---------|------|
-| `/api/health` | Timmy | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health` |
-| `/api/health/kpis` | Tommy | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health/kpis` |
+| `/api/health` | Timmy, Derek | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health` |
+| `/api/health/kpis` | Tommy, Pete | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health/kpis` |
 | `/api/reconcile` | Tommy | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/reconcile` |
 | `/api/governance/definitions` | Tina | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/governance/definitions` |
 | `/api/feedback` | Sophia | `curl -X POST https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/feedback` |
+| `/api/alerts/business` | Bailey | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/alerts/business` |
+| `/api/security/threats` | Sam | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/security/threats` |
+| `/api/performance/metrics` | Pete | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/performance/metrics` |
+| `/api/deployments` | Derek | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/deployments` |
+| `/api/engagement/summary` | Emma | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/engagement/summary` |
 
 ### 3. n8n Credentials
 
@@ -213,6 +232,191 @@ After import, each Postgres node will show a warning. For each:
 
 ---
 
+### OPS-BAILEY-001 (Business Alerts)
+
+**Schedule:** Every 30 minutes (business hours 7am-7pm recommended)
+
+**Flow:**
+```
+[Schedule] → [GET /api/alerts/business] → [Has Alerts?]
+                                              ├─ YES → [Split by Severity]
+                                              │           ├─ Critical → [Slack Red] → [Log to ops_events]
+                                              │           └─ High → [Slack Orange] → [Log to ops_events]
+                                              └─ NO  → [Log Quiet to ops_events]
+```
+
+**What it monitors:**
+- KPI values against business-defined thresholds (via `business_alert_rules` table)
+- Revenue below target (critical at -10%, warning at -5%)
+- Win rate declining below 28%
+- Service risk index below 70
+- AR aging exceeding $60M
+- DSO exceeding 50 days
+
+**Database Tables:**
+- Reads from: `business_alert_rules` (active rules with thresholds)
+- Writes to: `ops_events` (alerts with source = 'bailey')
+
+**Alert Severities:**
+| Severity | Color | Example |
+|----------|-------|---------|
+| Critical | 🔴 Red | Revenue MTD -10% vs target |
+| High | 🟠 Orange | Win rate dropped below 28% |
+| Medium | 🟡 Yellow | Capacity utilization below 65% |
+
+**Output:** Business alerts logged to `ops_events` with severity and recommended actions.
+
+---
+
+### OPS-SAM-001 (Security Monitor)
+
+**Schedule:** Every 15 minutes
+
+**Flow:**
+```
+[Schedule] → [GET /api/security/threats] → [Has Threats?]
+                                               ├─ YES → [Is Critical?]
+                                               │           ├─ YES → [Slack Critical] → [Log Critical to ops_events]
+                                               │           └─ NO  → [Slack Warning] → [Log High to ops_events]
+                                               └─ NO  → [Log Quiet to ops_events]
+```
+
+**What it monitors:**
+- Brute force attacks (>5 login failures in 15 min from same email/IP)
+- Privilege escalation (unauthorized role changes)
+- Session anomalies (impossible travel, unusual access patterns)
+- Failed login patterns
+
+**Database Tables:**
+- Reads from: `security_events` (login successes, failures, role changes)
+- Writes to: `ops_events` (threats with source = 'sam')
+
+**Threat Types:**
+| Type | Severity | Detection |
+|------|----------|-----------|
+| Brute Force | Critical | >5 failures in 15 min |
+| Privilege Escalation | Critical | Role change to exec/admin |
+| Session Anomaly | High | Unusual patterns |
+
+**Output:** Security threats logged to `ops_events`; critical threats trigger immediate Slack alerts.
+
+---
+
+### OPS-PETE-001 (Performance Monitor)
+
+**Schedule:** Every 5 minutes
+
+**Flow:**
+```
+[Schedule] → [Measure Endpoints] → [Split Metrics] → [Insert to performance_metrics]
+                                                          → [SLA Breach?]
+                                                               ├─ YES → [Slack Warning] → [Log to ops_events]
+                                                               └─ NO  → [Log Success to ops_events]
+```
+
+**What it monitors:**
+- API response times (p50, p95, p99 latency)
+- Endpoint availability
+- Error rates
+- SLA threshold breaches
+
+**Endpoints Monitored:**
+- `/api/health`
+- `/api/health/kpis`
+- `/api/kpis`
+
+**SLA Thresholds:**
+| Metric | Target | Breach |
+|--------|--------|--------|
+| p50 | < 500ms | > 500ms |
+| p95 | < 2000ms | > 2000ms (alerts) |
+| p99 | < 5000ms | > 5000ms |
+| Error Rate | < 1% | > 1% |
+
+**Database Tables:**
+- Writes to: `performance_metrics` (individual measurements)
+- Writes to: `ops_events` (SLA breaches with source = 'pete')
+
+**Output:** Performance metrics stored; SLA breaches trigger Slack alerts.
+
+---
+
+### OPS-DEREK-001 (Deployment Monitor)
+
+**Schedule:** Every 30 minutes (or webhook-triggered)
+
+**Flow:**
+```
+[Schedule/Webhook] → [GET /api/deployments] → [New Deployment?]
+                                                   ├─ YES → [Wait 60s Warmup] → [GET /api/health]
+                                                   │                               → [Health OK?]
+                                                   │                                    ├─ YES → [Slack Green] → [Log Healthy]
+                                                   │                                    └─ NO  → [Slack Red] → [Log Unhealthy]
+                                                   └─ NO  → [Log No Deploy to ops_events]
+```
+
+**What it monitors:**
+- New deployments detected via Vercel
+- Post-deployment health verification (after 60s warmup)
+- Deployment success/failure status
+- Rollback recommendations on failure
+
+**Database Tables:**
+- Reads from: `deployments` (deployment records)
+- Writes to: `ops_events` (verification results with source = 'derek')
+
+**Health Verification Checks:**
+1. `/api/health` returns 200 status
+2. Health status is "healthy" (not "degraded" or "unhealthy")
+3. Response time within acceptable range
+
+**Output:** Deployment verification logged to `ops_events`; failures trigger immediate Slack alerts with rollback suggestion.
+
+---
+
+### OPS-EMMA-001 (Engagement Monitor)
+
+**Schedule:** Daily at 6am
+
+**Flow:**
+```
+[Schedule Daily] → [GET /api/engagement/summary] → [Process Engagement]
+                                                        → [Save to engagement_summary]
+                                                        → [Has Alerts?]
+                                                             ├─ YES → [Slack Warning] → [Log Alert to ops_events]
+                                                             └─ NO  → [Log Success to ops_events]
+```
+
+**What it monitors:**
+- Daily Active Users (DAU)
+- Total sessions
+- Average session duration
+- Top pages by views
+- Feature adoption rates
+- Engagement by role
+
+**Database Tables:**
+- Reads from: `user_activity` (client-side telemetry)
+- Writes to: `engagement_summary` (daily rollups)
+- Writes to: `ops_events` (alerts with source = 'emma')
+
+**Alert Thresholds:**
+| Metric | Warning |
+|--------|---------|
+| DAU | < 10 users |
+| Sessions | < 20 sessions |
+| DAU Change | > -20% day-over-day |
+
+**Client-Side Integration:**
+Telemetry collected via `/api/telemetry` endpoint from:
+- Page views with route and duration
+- Feature interactions (clicks, exports, searches)
+- Session tracking
+
+**Output:** Daily engagement summary stored; low engagement triggers Slack alerts with recommendations.
+
+---
+
 ## Notification Setup (Optional)
 
 The workflows use **database-only logging** by default. All events are stored in `ops_events` table.
@@ -332,7 +536,7 @@ Check `ops_events` table for agent activity:
 ```sql
 SELECT source, event_type, severity, message, created_at
 FROM ops_events
-WHERE source IN ('timmy', 'tommy', 'tina', 'sophia')
+WHERE source IN ('timmy', 'tommy', 'tina', 'sophia', 'bailey', 'sam', 'pete', 'derek', 'emma')
 ORDER BY created_at DESC
 LIMIT 50;
 ```

@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
-  ArrowLeft,
   Plus,
   Trash2,
   DollarSign,
@@ -33,6 +32,7 @@ import {
   Users,
 } from 'lucide-react'
 import Link from 'next/link'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   initializeAEData,
   getAEData,
@@ -208,21 +208,22 @@ export default function ProposalsTrackerPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: 'My Dashboard', href: '/ae' },
+          { label: 'Sales Tracker', href: '/ae/tracker/totals' },
+          { label: 'Proposals' }
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/ae">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Monthly Proposals</h1>
-            <p className="text-gray-500 dark:text-gray-400">
-              Track and manage your sales pipeline
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Monthly Proposals</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Track and manage your sales pipeline
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {/* AE Selector */}

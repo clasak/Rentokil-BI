@@ -1,0 +1,433 @@
+{
+  "name": "OPS-DEREK-001 Deployment Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/deployments",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-deployments",
+      "name": "Get Deployments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check for new deployments and verify health\nconst input = $input.first().json;\nconst deployments = input.deployments || [];\nconst latest = input.latest;\n\n// Determine if this is a new deployment we haven't verified\nlet needsVerification = false;\nlet isNewDeployment = false;\n\nif (latest) {\n  // Check if latest deployment is ready but not verified\n  if (latest.status === 'ready' && (!latest.health_status || latest.health_status === 'pending')) {\n    needsVerification = true;\n    isNewDeployment = true;\n  }\n  // Check if latest deployment failed\n  if (latest.status === 'error') {\n    needsVerification = false;\n    isNewDeployment = true;\n  }\n}\n\nreturn [{\n  json: {\n    hasDeployments: deployments.length > 0,\n    needsVerification,\n    isNewDeployment,\n    isError: latest?.status === 'error',\n    latest,\n    summary: input.summary,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "check-deployments",
+      "name": "Check Deployments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-verify",
+              "leftValue": "={{ $json.needsVerification }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "needs-verification",
+      "name": "Needs Verification?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "wait-warmup",
+      "name": "Wait 60s (Warmup)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [880, -100]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "verify-health",
+      "name": "Verify Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, -100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process health check result\nconst healthResponse = $input.first().json;\nconst deploymentData = $('Check Deployments').item.json;\nconst latest = deploymentData.latest;\n\nconst isHealthy = healthResponse.status === 'healthy';\nconst healthStatus = healthResponse.status; // healthy, degraded, unhealthy\n\nreturn [{\n  json: {\n    isHealthy,\n    healthStatus,\n    deployment_id: latest?.deployment_id,\n    git_branch: latest?.git_branch,\n    git_commit: latest?.git_commit,\n    healthResponse,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-health",
+      "name": "Process Health Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-healthy",
+              "leftValue": "={{ $json.isHealthy }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "health-check",
+      "name": "Health OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1540, -100]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "deployment_verified",
+            "severity": "info",
+            "source": "derek",
+            "route": "/api/health",
+            "message": "={{ 'Deployment verified healthy: ' + $json.deployment_id + ' (branch: ' + $json.git_branch + ')' }}",
+            "metadata": "={{ JSON.stringify($json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-healthy",
+      "name": "Log Healthy",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1760, -200],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#36A64F\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"✅ Deployment Verified\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Deployment:*\\n{{ $json.deployment_id || 'Latest' }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Branch:*\\n{{ $json.git_branch || 'alpha-test' }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Health:*\\n{{ $json.healthStatus }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nDerek (Deployment)\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app|📊 View Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-healthy",
+      "name": "Slack Deployment OK",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, -200]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "deployment",
+            "severity": "critical",
+            "source": "derek",
+            "route": "/api/health",
+            "message": "={{ 'Deployment UNHEALTHY: ' + $json.deployment_id + ' - Health status: ' + $json.healthStatus }}",
+            "metadata": "={{ JSON.stringify($json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-unhealthy",
+      "name": "Log Unhealthy",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1760, 0],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 Deployment Health FAILED\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Deployment:*\\n{{ $json.deployment_id || 'Latest' }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Branch:*\\n{{ $json.git_branch || 'alpha-test' }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Health:*\\n{{ $json.healthStatus }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nDerek (Deployment)\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*IMMEDIATE ACTION REQUIRED*\\nConsider rollback if issues persist.\\n\\n<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/health|🔍 Health Check>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-unhealthy",
+      "name": "Slack Deployment Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "deployment",
+            "severity": "info",
+            "source": "derek",
+            "route": "/api/deployments",
+            "message": "Deployment check: No new deployments requiring verification",
+            "metadata": "={{ JSON.stringify($json.summary || {}) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-no-deploy",
+      "name": "Log No New Deploy",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 100],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get Deployments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Deployments": {
+      "main": [
+        [
+          {
+            "node": "Check Deployments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Deployments": {
+      "main": [
+        [
+          {
+            "node": "Needs Verification?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Verification?": {
+      "main": [
+        [
+          {
+            "node": "Wait 60s (Warmup)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log No New Deploy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60s (Warmup)": {
+      "main": [
+        [
+          {
+            "node": "Verify Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Health": {
+      "main": [
+        [
+          {
+            "node": "Process Health Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Health Result": {
+      "main": [
+        [
+          {
+            "node": "Health OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health OK?": {
+      "main": [
+        [
+          {
+            "node": "Log Healthy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Unhealthy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Healthy": {
+      "main": [
+        [
+          {
+            "node": "Slack Deployment OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Unhealthy": {
+      "main": [
+        [
+          {
+            "node": "Slack Deployment Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "30min"
+    },
+    {
+      "name": "deployment"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-13T00:00:00.000Z",
+  "versionId": "1"
+}
