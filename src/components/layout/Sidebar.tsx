@@ -47,12 +47,11 @@ const opsManagerNav = [
 ]
 
 // Account Executive navigation
+// Note: Proposals and Sales are sub-tabs within Sales Tracker, not separate nav items
 const aeNav = [
   { name: 'My Dashboard', href: '/ae', icon: LayoutDashboard },
   { name: 'Import Quote', href: '/ae/import', icon: Upload },
   { name: 'Sales Tracker', href: '/ae/tracker/totals', icon: Target },
-  { name: 'Proposals', href: '/ae/tracker/proposals', icon: FileText },
-  { name: 'Sales', href: '/ae/tracker/sales', icon: ClipboardList },
   { name: 'New Starts', href: '/ae/new-starts', icon: Truck },
 ]
 

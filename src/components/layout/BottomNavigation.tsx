@@ -75,8 +75,8 @@ const BOTTOM_NAV_CONFIG: Record<Role, NavItem[]> = {
   rep: [
     { name: 'Dashboard', href: '/ae', icon: LayoutDashboard },
     { name: 'Tracker', href: '/ae/tracker/totals', icon: Target },
-    { name: 'Proposals', href: '/ae/tracker/proposals', icon: FileText },
     { name: 'New Start', href: '/ae/new-starts', icon: Truck },
+    { name: 'Import', href: '/ae/import', icon: FileText },
     { name: 'Profile', href: '/settings', icon: User },
   ],
   technician: [

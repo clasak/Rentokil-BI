@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAppStore, DEMO_MODE_CONFIG, ROLE_PERMISSIONS } from '@/store'
 import { KPICard } from '@/components/features/KPICard'
 import { VarianceNarrative } from '@/components/features/VarianceNarrative'
@@ -11,21 +13,89 @@ import { calculateKPIValues, getVarianceDrivers, getActionItems } from '@/lib/kp
 import { KPIValue, ActionItem, VarianceDriver } from '@/types'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
+  Tooltip as RadixTooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
-import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock, X, ExternalLink } from 'lucide-react'
+import seedrandom from 'seedrandom'
+
+type KpiStatusFilter = 'all' | 'good' | 'warning' | 'critical'
+
+interface PeriodBreakdown {
+  name: string
+  value: number
+  index: number
+}
+
+// Generate daily breakdown from weekly total using deterministic random
+function generateDailyBreakdown(weeklyTotal: number, periodIndex: number, seed: string): { day: string; value: number }[] {
+  const rng = seedrandom(`${seed}-daily-${periodIndex}`)
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const weights = days.map(() => 0.8 + rng() * 0.4) // 0.8-1.2 variance
+  const sum = weights.reduce((a, b) => a + b, 0)
+  return days.map((day, i) => ({
+    day,
+    value: (weights[i] / sum) * weeklyTotal
+  }))
+}
 
 export function ExecutiveCommandCenter() {
   const { settings, currentUser, getCurrentUserScope } = useAppStore()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [kpiValues, setKpiValues] = useState<Map<string, KPIValue>>(new Map())
   const [varianceDrivers, setVarianceDrivers] = useState<VarianceDriver[]>([])
   const [actions, setActions] = useState<ActionItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentDate, setCurrentDate] = useState('')
   const [currentTime, setCurrentTime] = useState('')
+  const [kpiStatusFilter, setKpiStatusFilter] = useState<KpiStatusFilter>('all')
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodBreakdown | null>(null)
+
+  // Initialize filter from URL on mount
+  useEffect(() => {
+    const status = searchParams.get('status')
+    if (status && ['good', 'warning', 'critical'].includes(status)) {
+      setKpiStatusFilter(status as KpiStatusFilter)
+    }
+  }, [searchParams])
+
+  // Sync filter to URL
+  const updateFilterUrl = useCallback((filter: KpiStatusFilter) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (filter === 'all') {
+      params.delete('status')
+    } else {
+      params.set('status', filter)
+    }
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
+    router.replace(newUrl, { scroll: false })
+  }, [searchParams, router])
+
+  // Handle filter click with scroll
+  const handleFilterClick = useCallback((filter: KpiStatusFilter) => {
+    setKpiStatusFilter(filter)
+    updateFilterUrl(filter)
+    // Smooth scroll to KPI grid
+    setTimeout(() => {
+      document.getElementById('kpi-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  }, [updateFilterUrl])
 
   useEffect(() => {
     setCurrentDate(new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
@@ -77,10 +147,31 @@ export function ExecutiveCommandCenter() {
     : `${roleLabel}${userScope.scope ? ` • ${userScope.scope}` : ''}`
 
   const revenueTrend = kpiValues.get('revenue_mtd')?.trend || []
-  const revenueChartData = revenueTrend.map((value, index) => ({
+  const revenueChartData: PeriodBreakdown[] = revenueTrend.map((value, index) => ({
     name: `W${index + 1}`,
     value: value,
+    index: index,
   }))
+
+  // Handle chart click to show period breakdown
+  const handleChartClick = useCallback((data: { activePayload?: Array<{ payload: PeriodBreakdown }> }) => {
+    if (data?.activePayload?.[0]?.payload) {
+      setSelectedPeriod(data.activePayload[0].payload)
+    }
+  }, [])
+
+  // Generate daily breakdown data when a period is selected
+  const dailyBreakdownData = selectedPeriod
+    ? generateDailyBreakdown(selectedPeriod.value, selectedPeriod.index, settings.refreshSeed?.toString() || 'default')
+    : []
+
+  // Calculate prior period comparison
+  const priorPeriodValue = selectedPeriod && selectedPeriod.index > 0
+    ? revenueChartData[selectedPeriod.index - 1]?.value || 0
+    : 0
+  const periodVariance = selectedPeriod && priorPeriodValue
+    ? ((selectedPeriod.value - priorPeriodValue) / priorPeriodValue) * 100
+    : 0
 
   const criticalKpis = Array.from(kpiValues.values()).filter(k => k.status === 'critical')
   const warningKpis = Array.from(kpiValues.values()).filter(k => k.status === 'warning')
@@ -142,56 +233,98 @@ export function ExecutiveCommandCenter() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card id="revenue-mtd-card" className="bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white glow-primary">
-          <CardContent className="pt-6">
-            <div className="text-sm opacity-80">Revenue MTD</div>
-            <div className="text-3xl font-bold mt-1">
-              {revenueMTD ? formatCurrency(revenueMTD.value) : '-'}
-            </div>
-            <div className={`text-sm mt-2 flex items-center gap-1 ${
-              revenueMTD && revenueMTD.deltaPercent >= 0
-                ? 'text-green-200'
-                : 'text-yellow-200'
-            }`}>
-              {revenueMTD && revenueMTD.deltaPercent >= 0 ? (
-                <TrendingUp className="h-3 w-3" />
-              ) : (
-                <TrendingDown className="h-3 w-3" />
-              )}
-              {revenueMTD && revenueMTD.deltaPercent > 0 ? '+' : ''}
-              {revenueMTD ? (revenueMTD.deltaPercent * 100).toFixed(1) : 0}% vs prior
-            </div>
-          </CardContent>
-        </Card>
+        <Link href="/kpi/revenue_mtd" className="block group">
+          <Card id="revenue-mtd-card" className="bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white glow-primary h-full transition-transform group-hover:scale-[1.02] group-hover:shadow-lg">
+            <CardContent className="pt-6">
+              <div className="text-sm opacity-80">Revenue MTD</div>
+              <div className="text-3xl font-bold mt-1">
+                {revenueMTD ? formatCurrency(revenueMTD.value) : '-'}
+              </div>
+              <div className={`text-sm mt-2 flex items-center gap-1 ${
+                revenueMTD && revenueMTD.deltaPercent >= 0
+                  ? 'text-green-200'
+                  : 'text-yellow-200'
+              }`}>
+                {revenueMTD && revenueMTD.deltaPercent >= 0 ? (
+                  <TrendingUp className="h-3 w-3" />
+                ) : (
+                  <TrendingDown className="h-3 w-3" />
+                )}
+                {revenueMTD && revenueMTD.deltaPercent > 0 ? '+' : ''}
+                {revenueMTD ? (revenueMTD.deltaPercent * 100).toFixed(1) : 0}% vs prior
+              </div>
+              <div className="text-xs opacity-60 mt-2 group-hover:opacity-80 transition-opacity">Click for details</div>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card id="variance-card" className={`${varianceToTarget && varianceToTarget.value >= 0 ? 'bg-gradient-to-br from-blue-500 to-blue-600 glow-info' : 'bg-gradient-to-br from-red-500 to-red-600 glow-danger'} text-white`}>
-          <CardContent className="pt-6">
-            <div className="text-sm opacity-80">Variance to Target</div>
-            <div className="text-3xl font-bold mt-1">
-              {varianceToTarget ? `${(varianceToTarget.value * 100).toFixed(1)}%` : '-'}
-            </div>
-            <div className="text-sm mt-2 opacity-80">
-              {varianceToTarget && varianceToTarget.value >= 0 ? 'Ahead of plan' : 'Behind plan'}
-            </div>
-          </CardContent>
-        </Card>
+        <Link href="/kpi/variance_to_target_mtd" className="block group">
+          <Card id="variance-card" className={`${varianceToTarget && varianceToTarget.value >= 0 ? 'bg-gradient-to-br from-blue-500 to-blue-600 glow-info' : 'bg-gradient-to-br from-red-500 to-red-600 glow-danger'} text-white h-full transition-transform group-hover:scale-[1.02] group-hover:shadow-lg`}>
+            <CardContent className="pt-6">
+              <div className="text-sm opacity-80">Variance to Target</div>
+              <div className="text-3xl font-bold mt-1">
+                {varianceToTarget ? `${(varianceToTarget.value * 100).toFixed(1)}%` : '-'}
+              </div>
+              <div className="text-sm mt-2 opacity-80">
+                {varianceToTarget && varianceToTarget.value >= 0 ? 'Ahead of plan' : 'Behind plan'}
+              </div>
+              <div className="text-xs opacity-60 mt-2 group-hover:opacity-80 transition-opacity">Click for details</div>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card id="kpi-health-card">
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500 dark:text-gray-400">KPI Health</div>
-            <div className="flex items-center gap-4 mt-2">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{goodKpis.length}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Good</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{warningKpis.length}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Warning</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-600 dark:text-red-400">{criticalKpis.length}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Critical</div>
-              </div>
+            <div className="flex items-center gap-2 mt-2">
+              <RadixTooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleFilterClick('good')}
+                    className={`text-center min-h-[44px] min-w-[44px] p-2 rounded-lg cursor-pointer transition-all hover:bg-green-50 dark:hover:bg-green-900/20 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${kpiStatusFilter === 'good' ? 'bg-green-50 dark:bg-green-900/20 ring-2 ring-green-500' : ''}`}
+                    aria-label={`Filter to ${goodKpis.length} good KPIs`}
+                  >
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{goodKpis.length}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Good</div>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">KPIs meeting or exceeding targets</p>
+                  <p className="text-xs text-gray-400 mt-1">Click to filter</p>
+                </TooltipContent>
+              </RadixTooltip>
+              <RadixTooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleFilterClick('warning')}
+                    className={`text-center min-h-[44px] min-w-[44px] p-2 rounded-lg cursor-pointer transition-all hover:bg-yellow-50 dark:hover:bg-yellow-900/20 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 ${kpiStatusFilter === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/20 ring-2 ring-yellow-500' : ''}`}
+                    aria-label={`Filter to ${warningKpis.length} warning KPIs`}
+                  >
+                    <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{warningKpis.length}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Warning</div>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">KPIs approaching threshold limits</p>
+                  <p className="text-xs text-gray-400 mt-1">Click to filter</p>
+                </TooltipContent>
+              </RadixTooltip>
+              <RadixTooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleFilterClick('critical')}
+                    className={`text-center min-h-[44px] min-w-[44px] p-2 rounded-lg cursor-pointer transition-all hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${kpiStatusFilter === 'critical' ? 'bg-red-50 dark:bg-red-900/20 ring-2 ring-red-500' : ''}`}
+                    aria-label={`Filter to ${criticalKpis.length} critical KPIs`}
+                  >
+                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">{criticalKpis.length}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Critical</div>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">KPIs requiring immediate attention</p>
+                  <p className="text-xs text-gray-400 mt-1">Click to filter</p>
+                </TooltipContent>
+              </RadixTooltip>
             </div>
           </CardContent>
         </Card>
@@ -213,34 +346,91 @@ export function ExecutiveCommandCenter() {
         <div className="lg:col-span-2 space-y-6">
           {/* Top KPI Cards */}
           <div id="kpi-grid">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-              <TrendingUp className="h-5 w-5" />
-              Key Performance Indicators
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
+                <TrendingUp className="h-5 w-5" />
+                Key Performance Indicators
+              </h2>
+              {kpiStatusFilter !== 'all' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setKpiStatusFilter('all')
+                    updateFilterUrl('all')
+                  }}
+                  className="gap-1"
+                >
+                  <X className="h-3 w-3" />
+                  Clear filter ({kpiStatusFilter})
+                </Button>
+              )}
+            </div>
+
+            {/* Screen reader live region for filter changes */}
+            <div aria-live="polite" className="sr-only">
+              {(() => {
+                const filteredCount = TOP_10_KPIS.filter(slug => {
+                  const kpi = kpiValues.get(slug)
+                  return kpiStatusFilter === 'all' || kpi?.status === kpiStatusFilter
+                }).length
+                return `${filteredCount} KPIs shown${kpiStatusFilter !== 'all' ? `, filtered by ${kpiStatusFilter} status` : ''}`
+              })()}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {TOP_10_KPIS.map(slug => {
-                const kpiValue = kpiValues.get(slug)
-                if (!kpiValue) return null
-                return (
-                  <KPICard
-                    key={slug}
-                    kpiValue={kpiValue}
-                    highlighted={highlightedKpis.includes(slug)}
-                  />
-                )
-              })}
+              {(() => {
+                const filteredKpis = TOP_10_KPIS.filter(slug => {
+                  const kpi = kpiValues.get(slug)
+                  return kpiStatusFilter === 'all' || kpi?.status === kpiStatusFilter
+                })
+
+                if (filteredKpis.length === 0) {
+                  return (
+                    <div className="col-span-2 text-center py-12 text-gray-500 dark:text-gray-400">
+                      <CheckCircle className="h-12 w-12 mx-auto mb-3 text-green-500" />
+                      <p className="font-medium">No KPIs in &apos;{kpiStatusFilter}&apos; status</p>
+                      <Button
+                        variant="link"
+                        onClick={() => {
+                          setKpiStatusFilter('all')
+                          updateFilterUrl('all')
+                        }}
+                        className="mt-2"
+                      >
+                        Show all KPIs
+                      </Button>
+                    </div>
+                  )
+                }
+
+                return filteredKpis.map(slug => {
+                  const kpiValue = kpiValues.get(slug)
+                  if (!kpiValue) return null
+                  return (
+                    <KPICard
+                      key={slug}
+                      kpiValue={kpiValue}
+                      highlighted={highlightedKpis.includes(slug)}
+                    />
+                  )
+                })
+              })()}
             </div>
           </div>
 
           {/* Revenue Trend Chart */}
           <Card id="revenue-trend-chart">
             <CardHeader>
-              <CardTitle className="text-base">Revenue Trend (Last 12 Periods)</CardTitle>
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Revenue Trend (Last 12 Periods)</span>
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">Click any point for details</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-64 [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueChartData}>
+                  <AreaChart data={revenueChartData} onClick={handleChartClick} style={{ cursor: 'pointer' }}>
                     <defs>
                       <filter id="glow-cmd" x="-50%" y="-50%" width="200%" height="200%">
                         <feGaussianBlur stdDeviation="2" result="blur"/>
@@ -260,13 +450,84 @@ export function ExecutiveCommandCenter() {
                       stroke="#E4002B"
                       fill="#E4002B20"
                       strokeWidth={2}
-                      activeDot={{ r: 6, filter: 'url(#glow-cmd)' }}
+                      activeDot={{ r: 8, fill: '#E4002B', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
+
+          {/* Period Breakdown Modal */}
+          <Dialog open={!!selectedPeriod} onOpenChange={() => setSelectedPeriod(null)}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>{selectedPeriod?.name} Revenue Breakdown</span>
+                  <Link
+                    href="/kpi/revenue_mtd"
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    Full Details <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </DialogTitle>
+              </DialogHeader>
+
+              {selectedPeriod && (
+                <div className="space-y-6">
+                  {/* Period Summary */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">Period Total</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {formatCurrency(selectedPeriod.value)}
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">vs Prior Period</div>
+                      <div className={`text-2xl font-bold flex items-center gap-1 ${
+                        periodVariance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {periodVariance >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                        {periodVariance >= 0 ? '+' : ''}{periodVariance.toFixed(1)}%
+                      </div>
+                      {priorPeriodValue > 0 && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Prior: {formatCurrency(priorPeriodValue)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Daily Breakdown Chart */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Daily Breakdown</h4>
+                    <div className="h-48 [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dailyBreakdownData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="day" />
+                          <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`} />
+                          <Tooltip content={<ChartTooltip formatter={formatCurrency} />} cursor={false} />
+                          <Bar dataKey="value" fill="#E4002B" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => setSelectedPeriod(null)}>
+                      Close
+                    </Button>
+                    <Button size="sm" className="flex-1" asChild>
+                      <Link href="/kpi/revenue_mtd">View Full KPI Details</Link>
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* Variance Narrative */}
           <VarianceNarrative

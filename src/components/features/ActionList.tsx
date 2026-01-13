@@ -12,8 +12,22 @@ import {
   AlertTriangle, Clock, DollarSign, User,
   ChevronRight, Zap, Target, Filter, ArrowUpDown
 } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 type FilterOption = 'all' | 'critical' | 'high' | 'collections' | 'stalled'
+
+// Tooltip descriptions for each filter type
+const FILTER_TOOLTIPS: Record<FilterOption, string> = {
+  all: 'Show all priority actions',
+  critical: 'Requires immediate action - significant financial impact',
+  high: 'Should be addressed within 24-48 hours',
+  collections: 'Accounts with outstanding AR issues',
+  stalled: 'Opportunities with no activity for 7+ days',
+}
 
 interface ActionListProps {
   actions: ActionItem[]
@@ -151,26 +165,33 @@ export function ActionList({
           <div className="mt-3 space-y-2">
             <div className="flex flex-wrap gap-2">
               {filterOptions.map(option => (
-                <button
-                  key={option.key}
-                  onClick={() => setActiveFilter(option.key)}
-                  className={cn(
-                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
-                    activeFilter === option.key
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  )}
-                >
-                  {option.label}
-                  <span className={cn(
-                    "ml-0.5 px-1.5 py-0.5 rounded-full text-[10px]",
-                    activeFilter === option.key
-                      ? "bg-primary-foreground/20"
-                      : "bg-gray-200 dark:bg-gray-700"
-                  )}>
-                    {option.count}
-                  </span>
-                </button>
+                <Tooltip key={option.key}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setActiveFilter(option.key)}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                        activeFilter === option.key
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      )}
+                      aria-label={`${option.label}: ${FILTER_TOOLTIPS[option.key]}`}
+                    >
+                      {option.label}
+                      <span className={cn(
+                        "ml-0.5 px-1.5 py-0.5 rounded-full text-[10px]",
+                        activeFilter === option.key
+                          ? "bg-primary-foreground/20"
+                          : "bg-gray-200 dark:bg-gray-700"
+                      )}>
+                        {option.count}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-sm">{FILTER_TOOLTIPS[option.key]}</p>
+                  </TooltipContent>
+                </Tooltip>
               ))}
             </div>
             <div className="flex items-center gap-1 text-[10px] text-gray-400">
