@@ -311,7 +311,7 @@ export function LeadTable({
                     <div className="text-sm">{lead.owner}</div>
                     <div className="text-xs text-gray-500">{lead.ownerRole}</div>
                   </TableCell>
-                  <TableCell className="text-right font-medium">
+                  <TableCell className="text-right font-medium whitespace-nowrap">
                     {formatCurrency(lead.estimatedValue)}
                   </TableCell>
                 </TableRow>

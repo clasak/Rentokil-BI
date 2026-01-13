@@ -343,7 +343,7 @@ function AtRiskPageContent() {
       </Card>
 
       {/* Action Guidance */}
-      <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-800">
+      <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-800 mb-4 lg:mb-0">
         <CardContent className="pt-6">
           <h3 className="font-semibold text-lg mb-3">Recommended Actions</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
