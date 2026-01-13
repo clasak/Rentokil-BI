@@ -34,6 +34,11 @@ export function PresenterMode() {
     setMounted(true)
   }, [])
 
+  // Debug logging
+  useEffect(() => {
+    console.log('[PresenterMode] mounted:', mounted, 'presenterMode:', presenterMode)
+  }, [mounted, presenterMode])
+
   // Use default values during SSR to prevent hydration mismatch
   const isPresenterMode = mounted ? presenterMode : false
   const isMinimized = mounted ? presenterMinimized : false
