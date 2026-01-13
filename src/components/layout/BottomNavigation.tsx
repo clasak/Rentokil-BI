@@ -68,7 +68,7 @@ const BOTTOM_NAV_CONFIG: Record<Role, NavItem[]> = {
   ops_manager: [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Ops', href: '/ops', icon: Wrench },
-    { name: 'New Starts', href: '/new-starts', icon: Truck },
+    { name: 'New Starts', href: '/ops/new-starts', icon: Truck },
     { name: 'Leads', href: '/lead-service-engine', icon: Zap },
     { name: 'Profile', href: '/settings', icon: User },
   ],

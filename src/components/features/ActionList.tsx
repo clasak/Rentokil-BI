@@ -220,7 +220,7 @@ export function ActionList({
                         {getTypeLabel(action.type)}
                       </Badge>
                     </div>
-                    <h4 className="font-medium text-sm truncate text-gray-900 dark:text-white">{action.title}</h4>
+                    <h4 className="font-medium text-sm truncate text-gray-900 dark:text-white" title={action.title}>{action.title}</h4>
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
                       <span className="flex items-center gap-1">
                         <User className="h-3 w-3" />
