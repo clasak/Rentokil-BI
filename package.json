@@ -11,7 +11,14 @@
     "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .next node_modules/.cache",
-    "reset": "rm -rf .next node_modules/.cache && npm run dev"
+    "reset": "rm -rf .next node_modules/.cache && npm run dev",
+    "cap:init": "npx cap init 'Rentokil BI' com.rentokil.bi --web-dir=out",
+    "cap:add:ios": "npx cap add ios",
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:open:ios": "npx cap open ios",
+    "cap:open:android": "npx cap open android",
+    "cap:build": "npm run build && npx cap sync"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.0",

@@ -3,7 +3,8 @@
 import { useEffect, useState, createContext, useContext, ReactNode } from 'react'
 import { registerServiceWorker, skipWaiting, getStatus } from '@/lib/pwa/register-sw'
 import { offlineStorage } from '@/lib/pwa/offline-storage'
-import { InstallPrompt } from './InstallPrompt'
+// InstallPrompt removed - using native app stores instead
+// import { InstallPrompt } from './InstallPrompt'
 import { OfflineBanner } from './OfflineBanner'
 import { Button } from '@/components/ui/button'
 import { RefreshCw, X } from 'lucide-react'
@@ -165,8 +166,7 @@ export function PWAProvider({ children }: PWAProviderProps) {
         </div>
       )}
 
-      {/* Install prompt */}
-      <InstallPrompt />
+      {/* Install prompt removed - using native app stores instead */}
 
       {/* Offline banner */}
       <OfflineBanner />
