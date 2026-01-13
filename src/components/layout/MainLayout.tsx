@@ -68,7 +68,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           />
           <DataQualityBanner />
           {/* Main content with bottom padding for mobile nav */}
-          <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 pb-20 lg:pb-6 dark:bg-gray-950">
+          <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 pb-24 lg:pb-6 dark:bg-gray-950">
             {children}
           </main>
         </div>

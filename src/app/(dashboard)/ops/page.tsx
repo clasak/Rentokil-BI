@@ -348,7 +348,7 @@ export default function OpsPage() {
                 <TableHead className="text-center">Today&apos;s Stops</TableHead>
                 <TableHead className="text-center">Completed</TableHead>
                 <TableHead className="text-center">Callbacks</TableHead>
-                <TableHead className="text-right min-w-[100px]">Utilization</TableHead>
+                <TableHead className="text-right min-w-[120px] whitespace-nowrap">Utilization</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -392,11 +392,11 @@ export default function OpsPage() {
                       {tech.callbacks}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right min-w-[100px]">
+                  <TableCell className="text-right min-w-[120px]">
                     <div className="flex items-center justify-end gap-2">
                       <Progress
                         value={Math.min(tech.utilization, 100)}
-                        className="w-16 h-2"
+                        className="w-16 h-2 hidden sm:block"
                       />
                       <span className={
                         tech.utilization > 100 ? 'text-red-600 font-medium' :

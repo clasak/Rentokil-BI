@@ -224,7 +224,7 @@ export function LeadTable({
                 Owner <SortIcon field="owner" />
               </TableHead>
               <TableHead
-                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-right"
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-right min-w-[90px]"
                 onClick={() => handleSort('estimatedValue')}
               >
                 Value <SortIcon field="estimatedValue" />
