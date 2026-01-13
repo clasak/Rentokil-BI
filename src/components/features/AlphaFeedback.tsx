@@ -225,6 +225,15 @@ export function AlphaFeedback() {
     }
   }, [screenshots.length])
 
+  // Sanitize filename to remove control characters and limit length
+  const sanitizeFilename = useCallback((filename: string): string => {
+    return filename
+      .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+      .replace(/[<>:"/\\|?*]/g, '_')   // Replace dangerous chars with underscore
+      .substring(0, 50)                 // Limit length
+      .trim() || 'screenshot'           // Fallback if empty
+  }, [])
+
   // Validate image file signature (magic bytes) for security
   const validateImageSignature = useCallback((file: File): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -237,7 +246,14 @@ export function AlphaFeedback() {
         const isGIF = arr[0] === 0x47 && arr[1] === 0x49 && arr[2] === 0x46
         const isWebP = arr[0] === 0x52 && arr[1] === 0x49 && arr[2] === 0x46 && arr[3] === 0x46 &&
                        arr[8] === 0x57 && arr[9] === 0x45 && arr[10] === 0x42 && arr[11] === 0x50
-        resolve(isPNG || isJPEG || isGIF || isWebP)
+        // HEIC/HEIF support for iOS (ftyp box with heic/heix/mif1 brand)
+        const isFtyp = arr[4] === 0x66 && arr[5] === 0x74 && arr[6] === 0x79 && arr[7] === 0x70
+        const isHEIC = isFtyp && (
+          (arr[8] === 0x68 && arr[9] === 0x65 && arr[10] === 0x69 && arr[11] === 0x63) || // heic
+          (arr[8] === 0x68 && arr[9] === 0x65 && arr[10] === 0x69 && arr[11] === 0x78) || // heix
+          (arr[8] === 0x6D && arr[9] === 0x69 && arr[10] === 0x66 && arr[11] === 0x31)    // mif1
+        )
+        resolve(isPNG || isJPEG || isGIF || isWebP || isHEIC)
       }
       reader.onerror = () => resolve(false)
       reader.readAsArrayBuffer(file.slice(0, 12)) // Only read first 12 bytes
@@ -282,6 +298,9 @@ export function AlphaFeedback() {
         continue
       }
 
+      // Sanitize filename before storing
+      const safeName = sanitizeFilename(file.name)
+
       // Read and add the file
       const reader = new FileReader()
       reader.onload = (e) => {
@@ -291,7 +310,7 @@ export function AlphaFeedback() {
           return [...prev, {
             id: `upload-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             dataUrl,
-            name: file.name.substring(0, 50), // Limit filename length
+            name: safeName,
             timestamp: Date.now(),
           }]
         })
@@ -308,7 +327,7 @@ export function AlphaFeedback() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-  }, [screenshots.length, validateImageSignature])
+  }, [screenshots.length, validateImageSignature, sanitizeFilename])
 
   // Remove a screenshot
   const removeScreenshot = useCallback((id: string) => {
@@ -415,7 +434,7 @@ export function AlphaFeedback() {
         <Button
           variant="outline"
           size="sm"
-          className="fixed bottom-4 right-4 z-50 gap-2 shadow-lg bg-white dark:bg-gray-800 border-2 border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+          className="fixed bottom-20 lg:bottom-4 right-4 z-50 gap-2 shadow-lg bg-white dark:bg-gray-800 border-2 border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"
         >
           <MessageSquarePlus className="h-4 w-4 text-purple-600" />
           <span className="hidden sm:inline">Feedback</span>
