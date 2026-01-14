@@ -28,7 +28,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
   Legend,
 } from 'recharts'
 import {
@@ -54,8 +53,7 @@ import {
   REGION_NAMES,
   MARKET_NAMES,
 } from '@/lib/daily-sales-data'
-import { MarketCode, RegionCode, DailySalesEntry, Branch } from '@/types/daily-sales-cadence'
-import Link from 'next/link'
+import { MarketCode, RegionCode, DailySalesEntry } from '@/types/daily-sales-cadence'
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
