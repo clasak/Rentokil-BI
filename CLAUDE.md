@@ -519,6 +519,51 @@ NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=  # For technician route visualization
 | `/api/engagement/summary` | GET | User engagement metrics | Emma agent |
 | `/api/telemetry` | GET/POST | Client-side activity tracking | Dashboard telemetry |
 
+### RTX Data Hub Endpoints
+
+| Endpoint | Method | Purpose | Used By |
+|----------|--------|---------|---------|
+| `/api/rtx/health` | GET | RTX connection health, latency, entity availability | RTX Intake workflow, Unified Monitor |
+| `/api/rtx/discover` | POST | Schema discovery - auto-detect entities and fields | RTX Intake workflow |
+| `/api/rtx/sync` | POST | Trigger data sync (full or incremental) | RTX Intake workflow |
+| `/api/rtx/sync/status` | GET | Check sync status by ID or latest | RTX Intake workflow |
+| `/api/rtx/integrity` | GET | Data quality checks (nulls, duplicates, orphans) | RTX Intake workflow |
+| `/api/rtx/reconcile` | POST | Compare RTX values with app KPI calculations | Tommy agent |
+| `/api/rtx/failover` | GET/POST | Get status or log failover/recovery events | Service layer, RTX Intake |
+
+### RTX Failover System
+
+The service layer includes automatic failover when RTX Data Hub is unavailable:
+
+```typescript
+// Failover configuration (/src/services/index.ts)
+const FAILOVER_CONFIG = {
+  maxConsecutiveFailures: 3,      // Trigger failover after 3 failures
+  healthCheckIntervalMs: 60000,   // Check RTX health every 60 seconds
+  recoveryCheckIntervalMs: 300000 // Try to recover every 5 minutes
+}
+```
+
+**Failover Flow:**
+1. Track consecutive RTX failures via `recordRTXFailure()`
+2. After 3 failures, trigger failover to mock data
+3. Send Slack alert via `/api/rtx/failover`
+4. Continue health checks in background
+5. Auto-recover when RTX becomes healthy via `recordRTXSuccess()`
+
+**Failover State:**
+```typescript
+interface FailoverState {
+  isUsingFallback: boolean        // Currently using mock data?
+  primarySource: 'rtx'            // Primary data source
+  fallbackSource: 'mock'          // Fallback data source
+  consecutiveFailures: number     // Failure count
+  failoverAt: Date | null         // When failover occurred
+  lastHealthCheck: Date | null    // Last health check time
+  lastError: string | null        // Last error message
+}
+```
+
 ### Reconciliation Tolerance Rules
 
 ```typescript
@@ -591,6 +636,35 @@ Reconciliation fails → Prepare failed KPIs → Call /api/reconcile/refresh
 ## n8n AI Workforce Agents
 
 Nine automated agents monitor the application via n8n workflows. Configuration files in `/n8n/`.
+
+### Consolidated Workflows (Recommended)
+
+For production use, we recommend the consolidated two-workflow architecture:
+
+| Workflow | File | Schedule | Purpose |
+|----------|------|----------|---------|
+| **OPS-UNIFIED-001** | `OPS-UNIFIED-001.json` | Every 5 min | Consolidated monitoring (all 9 agents with conditional execution) |
+| **OPS-RTX-INTAKE-001** | `OPS-RTX-INTAKE-001.json` | Every 15 min | RTX Data Hub data intake, schema discovery, and validation |
+
+**Benefits:**
+- ~70% reduction in workflow executions (from ~1,153/day to ~300-350/day)
+- Single point of control for all monitoring
+- Conditional execution based on time (agents run at their designated intervals)
+- Separate data intake workflow for easy refinement
+
+**OPS-UNIFIED-001 Agent Schedule:**
+| Agent | Frequency | Condition |
+|-------|-----------|-----------|
+| Timmy, Pete, RTX Health | Every 5 min | Always |
+| Sophia | Every 10 min | `minute % 10 === 0` |
+| Tommy, Sam | Every 15 min | `minute % 15 === 0` |
+| Bailey, Derek, RTX Integrity | Every 30 min | `minute % 30 === 0` |
+| Tina, Reconcile | Hourly | `minute === 0` |
+| Emma | Daily 6am | `minute === 0 && hour === 6` |
+
+### Individual Agent Workflows (Legacy)
+
+The individual workflows below are kept for reference:
 
 ### Core Agents (Monitoring & Quality)
 
@@ -835,6 +909,93 @@ CREATE TABLE business_alert_rules (
 );
 ```
 
+### 008_rtx_monitoring.sql
+
+```sql
+-- RTX Data Hub monitoring and data integrity tables
+
+-- rtx_health_log: Connection health history
+CREATE TABLE rtx_health_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  status TEXT NOT NULL,           -- healthy, degraded, unhealthy, unreachable
+  latency_ms INTEGER,
+  entities_available TEXT[],
+  error_message TEXT,
+  checked_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- rtx_schema_registry: Discovered entities and fields
+CREATE TABLE rtx_schema_registry (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_name TEXT NOT NULL,
+  field_name TEXT NOT NULL,
+  field_type TEXT,                -- string, number, date, boolean, object, array
+  is_required BOOLEAN DEFAULT FALSE,
+  is_nullable BOOLEAN DEFAULT TRUE,
+  sample_values JSONB DEFAULT '[]',
+  null_rate NUMERIC,
+  min_value NUMERIC,
+  max_value NUMERIC,
+  discovered_at TIMESTAMPTZ DEFAULT NOW(),
+  last_seen_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(entity_name, field_name)
+);
+
+-- rtx_sync_log: Data sync history
+CREATE TABLE rtx_sync_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sync_type TEXT NOT NULL,        -- full, incremental, schema_only
+  entity_name TEXT,
+  status TEXT NOT NULL,           -- running, success, partial, failed
+  records_fetched INTEGER DEFAULT 0,
+  records_created INTEGER DEFAULT 0,
+  records_updated INTEGER DEFAULT 0,
+  records_skipped INTEGER DEFAULT 0,
+  records_failed INTEGER DEFAULT 0,
+  duration_ms INTEGER,
+  error_message TEXT,
+  metadata JSONB DEFAULT '{}',
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- rtx_integrity_checks: Data quality validation results
+CREATE TABLE rtx_integrity_checks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_name TEXT NOT NULL,
+  check_type TEXT NOT NULL,       -- null_rate, duplicate, orphan, range, format
+  status TEXT NOT NULL,           -- ok, warning, critical
+  records_checked INTEGER,
+  issues_found INTEGER,
+  issue_details JSONB DEFAULT '[]',
+  checked_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- data_source_status: Current source with failover tracking
+CREATE TABLE data_source_status (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  primary_source TEXT NOT NULL DEFAULT 'rtx',
+  fallback_source TEXT NOT NULL DEFAULT 'mock',
+  is_using_fallback BOOLEAN DEFAULT FALSE,
+  event_type TEXT,                -- failover, recovery, manual_switch
+  failover_reason TEXT,
+  consecutive_failures INTEGER DEFAULT 0,
+  rtx_health TEXT,                -- healthy, degraded, unhealthy, unreachable
+  failover_at TIMESTAMPTZ,
+  recovery_at TIMESTAMPTZ,
+  alert_sent BOOLEAN DEFAULT FALSE,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Helper functions:
+-- get_rtx_entity_schema(entity_name) - Get schema for an entity
+-- detect_rtx_schema_changes(entity_name) - Detect schema drift
+-- get_last_rtx_sync(entity_name) - Get last successful sync
+-- get_rtx_integrity_status() - Get overall data quality status
+-- get_current_data_source() - Get current active data source
+```
+
 ---
 
 ## Lead Service Engine
@@ -1025,6 +1186,341 @@ Additional documentation in `/docs/`:
 - API endpoint tests
 - Authentication flow tests
 - Performance targets (page load < 2s, KPI calc < 500ms)
+
+---
+
+## RTX Monitoring System Deployment Guide
+
+This section provides step-by-step instructions for deploying the RTX Data Hub monitoring system to production.
+
+### Prerequisites
+
+Before deploying, ensure you have:
+- [ ] Vercel project connected to this repository
+- [ ] Supabase project with admin access
+- [ ] n8n instance (cloud or self-hosted)
+- [ ] Slack workspace (optional, for alerts)
+
+---
+
+### Step 1: Run Database Migration (Supabase)
+
+**Time required**: ~5 minutes
+
+1. **Open Supabase Dashboard**
+   - Go to your project at https://supabase.com/dashboard
+   - Navigate to **SQL Editor**
+
+2. **Run Migration 008**
+   - Open `/supabase/migrations/008_rtx_monitoring.sql` from this repository
+   - Copy the entire contents
+   - Paste into SQL Editor and click **Run**
+
+3. **Verify Tables Created**
+   ```sql
+   -- Run this query to verify
+   SELECT table_name FROM information_schema.tables
+   WHERE table_schema = 'public'
+   AND table_name LIKE 'rtx_%' OR table_name = 'data_source_status';
+   ```
+
+   Expected tables (6 total):
+   - `rtx_health_log`
+   - `rtx_schema_registry`
+   - `rtx_sync_log`
+   - `rtx_integrity_checks`
+   - `rtx_reconciliation`
+   - `data_source_status`
+
+4. **Verify Helper Functions**
+   ```sql
+   SELECT routine_name FROM information_schema.routines
+   WHERE routine_schema = 'public'
+   AND routine_name LIKE 'get_rtx_%' OR routine_name LIKE 'detect_rtx_%';
+   ```
+
+---
+
+### Step 2: Configure Vercel Environment Variables
+
+**Time required**: ~5 minutes
+
+1. **Open Vercel Dashboard**
+   - Go to your project at https://vercel.com
+   - Navigate to **Settings** > **Environment Variables**
+
+2. **Add RTX API Authentication Key**
+
+   | Variable | Value | Environment |
+   |----------|-------|-------------|
+   | `INTERNAL_API_KEY` | Generate a secure random string (32+ chars) | Production, Preview |
+
+   **Generate a secure key:**
+   ```bash
+   # Option 1: Using openssl
+   openssl rand -base64 32
+
+   # Option 2: Using node
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   ```
+
+3. **Add RTX Data Hub Credentials** (if connecting to actual RTX)
+
+   | Variable | Value | Environment |
+   |----------|-------|-------------|
+   | `RTX_API_ENDPOINT` | `https://rtx-data-hub.rentokil.com/api/v1` | Production |
+   | `RTX_API_KEY` | Your RTX API key from IT | Production |
+   | `RTX_API_TIMEOUT` | `30000` | Production |
+
+4. **Add Slack Webhook** (optional, for alerts)
+
+   | Variable | Value | Environment |
+   |----------|-------|-------------|
+   | `SLACK_WEBHOOK_URL` | Your Slack incoming webhook URL | Production |
+
+5. **Redeploy**
+   - Click **Deployments** > Select latest > **Redeploy**
+   - Or push a commit to trigger automatic deployment
+
+---
+
+### Step 3: Configure n8n Credentials
+
+**Time required**: ~10 minutes
+
+1. **Create HTTP Header Auth Credential**
+   - In n8n, go to **Settings** > **Credentials** > **Add Credential**
+   - Select **HTTP Header Auth**
+   - Configure:
+     - **Name**: `RTX-API-Key`
+     - **Header Name**: `Authorization`
+     - **Header Value**: `Bearer YOUR_INTERNAL_API_KEY_FROM_STEP_2`
+   - Save the credential
+   - **Copy the credential ID** (shown in URL: `/credentials/xxxxx`)
+
+2. **Create Supabase Postgres Credential** (if not already done)
+   - Add Credential > **Postgres**
+   - Configure:
+     - **Name**: `Supabase-Prod`
+     - **Host**: Your Supabase Session Pooler host (from Settings > Database > Connection string)
+     - **Database**: `postgres`
+     - **User**: `postgres.xxxxx` (from connection string)
+     - **Password**: Your database password
+     - **Port**: `5432` (or `6543` for pooler)
+     - **SSL**: Enable
+   - Save and copy the credential ID
+
+---
+
+### Step 4: Import and Configure n8n Workflows
+
+**Time required**: ~15 minutes
+
+#### 4.1 Import OPS-RTX-INTAKE-001 Workflow
+
+1. **Import the workflow**
+   - In n8n, click **Workflows** > **Import from File**
+   - Select `/n8n/OPS-RTX-INTAKE-001.json`
+
+2. **Update credential references**
+   - Open the imported workflow
+   - Search for `REPLACE_WITH_RTX_API_CREDENTIAL_ID`
+   - Replace all instances with your `RTX-API-Key` credential ID
+   - Search for `REPLACE_WITH_SUPABASE_CREDENTIAL_ID`
+   - Replace all instances with your `Supabase-Prod` credential ID
+
+3. **Update API base URL**
+   - Search for `YOUR_VERCEL_DEPLOYMENT_URL`
+   - Replace with your production URL (e.g., `https://rentokil-bi.vercel.app`)
+
+4. **Update Slack webhook** (if using alerts)
+   - Find the Slack nodes
+   - Update the webhook URL to your Slack incoming webhook
+
+5. **Save and activate**
+   - Click **Save**
+   - Toggle **Active** to enable the workflow
+
+#### 4.2 Import OPS-UNIFIED-001 Workflow (Optional)
+
+If using the consolidated monitoring workflow:
+
+1. Import `/n8n/OPS-UNIFIED-001.json`
+2. Follow the same credential replacement steps as above
+3. This workflow includes all 9 agents with conditional execution
+
+---
+
+### Step 5: Test the Deployment
+
+**Time required**: ~10 minutes
+
+1. **Test RTX Health Endpoint**
+   ```bash
+   # Should return health status (no auth required for GET)
+   curl https://YOUR_VERCEL_URL/api/rtx/health
+   ```
+
+   Expected response:
+   ```json
+   {
+     "status": "healthy",
+     "timestamp": "2026-01-14T...",
+     "connection": { "reachable": true, "latency_ms": 45 },
+     "entities": { "accounts": { "available": true } }
+   }
+   ```
+
+2. **Test Authenticated Endpoint**
+   ```bash
+   # Should require auth for POST
+   curl -X POST https://YOUR_VERCEL_URL/api/rtx/discover \
+     -H "Authorization: Bearer YOUR_INTERNAL_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"force": true}'
+   ```
+
+3. **Test n8n Workflow Manually**
+   - In n8n, open the workflow
+   - Click **Execute Workflow** (play button)
+   - Verify all nodes execute successfully
+   - Check Supabase tables for new records
+
+4. **Verify Database Writes**
+   ```sql
+   -- Check health logs
+   SELECT * FROM rtx_health_log ORDER BY captured_at DESC LIMIT 5;
+
+   -- Check sync logs
+   SELECT * FROM rtx_sync_log ORDER BY completed_at DESC LIMIT 5;
+
+   -- Check data source status
+   SELECT * FROM data_source_status ORDER BY created_at DESC LIMIT 1;
+   ```
+
+---
+
+### Step 6: Verify RTX Discovery Dashboard
+
+**Time required**: ~5 minutes
+
+1. **Navigate to the dashboard**
+   - Go to `https://YOUR_VERCEL_URL/governance/rtx-discovery`
+   - Login with a governance-enabled role (exec, manager, etc.)
+
+2. **Run Discovery**
+   - Click the **Run Discovery** button
+   - Wait for schema discovery to complete
+   - Verify entity cards appear with field information
+
+3. **Check Sidebar Navigation**
+   - Governance section should show **RTX Discovery** link
+   - Only visible to roles with governance access
+
+---
+
+### Troubleshooting
+
+#### API Returns 401 Unauthorized
+
+**Cause**: Invalid or missing `INTERNAL_API_KEY`
+
+**Fix**:
+1. Verify the key is set in Vercel environment variables
+2. Verify the key matches what's in n8n credential
+3. Ensure the `Authorization` header format is `Bearer <key>`
+
+#### n8n Workflow Fails with "Invalid credentials"
+
+**Cause**: Credential ID not updated in workflow
+
+**Fix**:
+1. Open workflow JSON in a text editor
+2. Search for all `REPLACE_WITH_` placeholders
+3. Replace with actual credential IDs from n8n
+
+#### Database Tables Not Found
+
+**Cause**: Migration not run
+
+**Fix**:
+1. Re-run `/supabase/migrations/008_rtx_monitoring.sql` in SQL Editor
+2. Check for any SQL errors in the output
+3. Verify using the verification queries above
+
+#### Slack Alerts Not Sending
+
+**Cause**: Webhook URL not configured
+
+**Fix**:
+1. Create an incoming webhook in Slack (Apps > Incoming Webhooks)
+2. Add `SLACK_WEBHOOK_URL` to Vercel environment variables
+3. Redeploy the application
+
+#### Health Check Shows "unreachable"
+
+**Cause**: RTX Data Hub not configured or unavailable
+
+**Fix**:
+1. This is expected if `RTX_API_ENDPOINT` is not set
+2. The app will use mock data as fallback
+3. To connect to actual RTX, add the RTX credentials to Vercel
+
+---
+
+### Production Checklist
+
+Before going live, verify:
+
+- [ ] Database migration ran successfully (6 tables created)
+- [ ] `INTERNAL_API_KEY` set in Vercel (32+ character random string)
+- [ ] n8n `RTX-API-Key` credential created with matching key
+- [ ] n8n `Supabase-Prod` credential created and working
+- [ ] OPS-RTX-INTAKE-001 workflow imported and activated
+- [ ] Manual workflow execution succeeds
+- [ ] `/api/rtx/health` returns valid response
+- [ ] RTX Discovery dashboard accessible at `/governance/rtx-discovery`
+- [ ] Slack alerts working (if configured)
+
+---
+
+### Security Notes
+
+1. **INTERNAL_API_KEY**: This key protects all RTX POST endpoints. Keep it secret.
+   - Never commit to repository
+   - Rotate periodically (quarterly recommended)
+   - Only share with n8n administrators
+
+2. **Supabase Service Role Key**: Used by API routes for database access.
+   - Already set in Vercel as `SUPABASE_SERVICE_ROLE_KEY`
+   - Never expose to client-side code
+
+3. **Row Level Security**: All RTX tables have RLS policies.
+   - `authenticated` users can read
+   - Only `service_role` can write
+   - API routes use service role for writes
+
+---
+
+### Monitoring and Maintenance
+
+#### Daily Checks
+
+- [ ] n8n workflow execution history - any failures?
+- [ ] Supabase logs - any errors?
+- [ ] Slack alerts - any critical issues?
+
+#### Weekly Checks
+
+- [ ] Review `rtx_health_log` for degraded periods
+- [ ] Review `rtx_integrity_checks` for data quality trends
+- [ ] Check `data_source_status` for failover events
+
+#### Monthly Tasks
+
+- [ ] Review and rotate `INTERNAL_API_KEY` if needed
+- [ ] Clean up old logs (>90 days)
+- [ ] Review n8n workflow execution statistics
 
 ---
 

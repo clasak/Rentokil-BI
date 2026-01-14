@@ -2,7 +2,26 @@
 
 This folder contains importable n8n workflow JSON files for the Rentokil BI AI Workforce agents.
 
-## Agents Overview
+## Workflow Architecture
+
+### Consolidated Approach (Recommended)
+
+For production use, we recommend the consolidated two-workflow architecture:
+
+| Workflow | File | Schedule | Purpose |
+|----------|------|----------|---------|
+| **OPS-UNIFIED-001** | `OPS-UNIFIED-001.json` | Every 5 min | Consolidated monitoring (all 9 agents) |
+| **OPS-RTX-INTAKE-001** | `OPS-RTX-INTAKE-001.json` | Every 15 min | RTX Data Hub data intake & validation |
+
+**Benefits:**
+- ~70% reduction in workflow executions (from ~1,153/day to ~300-350/day)
+- Single point of control for all monitoring
+- Conditional execution based on time (agents run at their designated intervals)
+- Separate data intake workflow for easy refinement
+
+### Individual Agent Workflows (Legacy)
+
+The individual workflows below are kept for reference and can be used if you prefer separate workflows per agent.
 
 ### Core Agents (Monitoring & Quality)
 
@@ -41,6 +60,8 @@ Run these migrations in your Supabase SQL Editor:
 004_feedback_submissions.sql  # feedback_submissions table (for Sophia)
 007_new_agents.sql      # security_events, performance_metrics, deployments,
                         # user_activity, engagement_summary, business_alert_rules
+008_rtx_monitoring.sql  # rtx_health_log, rtx_schema_registry, rtx_sync_log,
+                        # rtx_integrity_checks, data_source_status
 ```
 
 ### 2. API Endpoints Deployed
@@ -59,6 +80,12 @@ Verify these endpoints are accessible:
 | `/api/performance/metrics` | Pete | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/performance/metrics` |
 | `/api/deployments` | Derek | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/deployments` |
 | `/api/engagement/summary` | Emma | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/engagement/summary` |
+| `/api/rtx/health` | RTX Intake | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/health` |
+| `/api/rtx/discover` | RTX Intake | `curl -X POST https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/discover` |
+| `/api/rtx/sync` | RTX Intake | `curl -X POST https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/sync` |
+| `/api/rtx/integrity` | RTX Intake | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/integrity` |
+| `/api/rtx/failover` | RTX Intake | `curl https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/failover` |
+| `/api/rtx/reconcile` | RTX Intake | `curl -X POST https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/reconcile` |
 
 ### 3. n8n Credentials
 
@@ -74,6 +101,31 @@ Create a Postgres credential named `Supabase-Prod`:
 | SSL | **Disable** (for pooler connections) |
 
 **Note:** Use Session Pooler (not Direct Connection) for IPv4 compatibility with n8n.
+
+### 4. RTX API Credential (for RTX Intake Workflow)
+
+The RTX endpoints require authentication for POST requests. Create an HTTP Header Auth credential named `RTX-API-Key`:
+
+1. In n8n, go to **Credentials** → **Create New**
+2. Select **HTTP Header Auth**
+3. Configure:
+
+| Field | Value |
+|-------|-------|
+| Name | `RTX-API-Key` |
+| Header Name | `Authorization` |
+| Header Value | `Bearer YOUR_INTERNAL_API_KEY` |
+
+4. In your Vercel/deployment environment, set:
+   ```bash
+   INTERNAL_API_KEY=your-secure-random-key
+   ```
+
+5. After importing `OPS-RTX-INTAKE-001.json`, update the credential ID:
+   - Find nodes with `REPLACE_WITH_RTX_API_CREDENTIAL_ID`
+   - Replace with your actual credential ID from n8n
+
+**Security Note:** This key authenticates n8n workflows to call internal RTX endpoints. GET endpoints are public for dashboard access, but POST endpoints (discover, sync, failover) require authentication.
 
 ---
 
@@ -550,6 +602,150 @@ WHERE severity IN ('critical', 'high')
   AND created_at > NOW() - INTERVAL '24 hours'
 ORDER BY created_at DESC;
 ```
+
+---
+
+---
+
+## Consolidated Workflows
+
+### OPS-UNIFIED-001 (Consolidated Monitoring)
+
+**Schedule:** Every 5 minutes (with conditional agent execution)
+
+**Agent Execution Schedule:**
+| Agent | Frequency | Condition |
+|-------|-----------|-----------|
+| Timmy | Every 5 min | Always |
+| Pete | Every 5 min | Always |
+| RTX Health | Every 5 min | Always |
+| Sophia | Every 10 min | `minute % 10 === 0` |
+| Tommy | Every 15 min | `minute % 15 === 0` |
+| Sam | Every 15 min | `minute % 15 === 0` |
+| Bailey | Every 30 min | `minute % 30 === 0` |
+| Derek | Every 30 min | `minute % 30 === 0` |
+| RTX Integrity | Every 30 min | `minute % 30 === 0` |
+| Tina | Hourly | `minute === 0` |
+| Reconcile | Hourly | `minute === 0` |
+| Emma | Daily 6am | `minute === 0 && hour === 6` |
+
+**Flow:**
+```
+[Schedule 5 min] → [Schedule Router] → [Parallel Agent Execution]
+                                             ├─ Timmy: Health Check
+                                             ├─ Pete: Performance
+                                             ├─ RTX: Health
+                                             ├─ (Conditional) Sophia, Tommy, Sam, etc.
+                                             └─ [Merge Results]
+                                                  → [Process Results]
+                                                       ├─ [Prepare Logs] → [Insert to ops_events]
+                                                       └─ [Has Alerts?]
+                                                            ├─ YES → [Slack Alert]
+                                                            └─ NO  → (done)
+```
+
+**Output:** All agent results consolidated; alerts batched; single log entry per cycle.
+
+---
+
+### OPS-RTX-INTAKE-001 (Data Intake)
+
+**Schedule:** Every 15 minutes (configurable)
+
+**Flow:**
+```
+[Schedule 15 min] → [Check RTX Health] → [Is Healthy?]
+                                              ├─ NO  → [Trigger Failover] → [Log Failover Event]
+                                              └─ YES → [Needs Discovery?]
+                                                           ├─ YES (daily) → [Run Schema Discovery]
+                                                           │                    → [Has Changes?]
+                                                           │                         ├─ YES → [Slack Schema Changes]
+                                                           │                         └─ (continue)
+                                                           └─ (continue) → [Run Data Sync]
+                                                                               → [Sync Succeeded?]
+                                                                                    ├─ NO  → [Log Failure] → [Slack Sync Failure]
+                                                                                    └─ YES → [Run Integrity Check]
+                                                                                                  → [Integrity Healthy?]
+                                                                                                       ├─ NO  → [Log Warning] → [Slack Integrity Warning]
+                                                                                                       └─ YES → [Log Success]
+```
+
+**What it monitors:**
+- RTX Data Hub connection health
+- Schema discovery (runs daily at midnight UTC)
+- Data sync status and record counts
+- Data integrity (null rates, duplicates, orphans)
+- Automatic failover to mock data when RTX unavailable
+
+**Database Tables:**
+- Reads from: `rtx_schema_registry` (discovered schema)
+- Writes to: `rtx_health_log`, `rtx_sync_log`, `rtx_integrity_checks`, `data_source_status`, `ops_events`
+
+**Failover Behavior:**
+1. RTX health check runs every 15 minutes
+2. If unhealthy 3 consecutive times, triggers failover to mock data
+3. Logs failover event and sends Slack alert
+4. Continues checking in background
+5. Auto-recovers when RTX becomes healthy
+
+**Output:** Sync results logged; integrity issues trigger warnings; failover events trigger critical alerts.
+
+---
+
+## RTX Data Hub Integration
+
+### Environment Variables
+
+```bash
+# RTX Data Hub Configuration
+RTX_API_ENDPOINT=https://rtx-data-hub.rentokil.com/api/v1
+RTX_API_KEY=your_api_key
+RTX_API_TIMEOUT=30000
+
+# Data Source Selection
+NEXT_PUBLIC_DATA_SOURCE=rtx  # or 'mock' or 'hybrid'
+```
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/rtx/health` | GET | Check RTX connection, latency, entity availability |
+| `/api/rtx/discover` | POST | Discover and register schema from RTX |
+| `/api/rtx/sync` | POST | Trigger data sync (full or incremental) |
+| `/api/rtx/sync/status` | GET | Check sync status by ID or latest |
+| `/api/rtx/integrity` | GET | Run data quality checks |
+| `/api/rtx/reconcile` | POST | Compare RTX values with app calculations |
+| `/api/rtx/failover` | GET/POST | Get status or log failover/recovery events |
+
+### Schema Discovery
+
+Since the actual RTX data structure may be unknown initially:
+
+1. **First Connect**: Full schema discovery runs
+2. **Daily Refresh**: Checks for schema changes at midnight UTC
+3. **Change Detection**: Alerts on added/removed/changed fields
+4. **Graceful Handling**: Unknown fields logged but don't fail sync
+
+### Failover Configuration
+
+```typescript
+const FAILOVER_CONFIG = {
+  maxConsecutiveFailures: 3,      // Trigger failover after 3 failures
+  healthCheckIntervalMs: 60000,   // Check RTX health every 60 seconds
+  recoveryCheckIntervalMs: 300000 // Try to recover every 5 minutes
+}
+```
+
+### Database Tables (Migration 008)
+
+| Table | Purpose |
+|-------|---------|
+| `rtx_health_log` | Connection health history |
+| `rtx_schema_registry` | Discovered entities and fields |
+| `rtx_sync_log` | Data sync history |
+| `rtx_integrity_checks` | Data quality validation results |
+| `data_source_status` | Current source with failover tracking |
 
 ---
 

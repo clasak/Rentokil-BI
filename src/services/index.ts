@@ -2,7 +2,7 @@
  * Service Provider
  *
  * This module exports the appropriate service provider based on configuration.
- * Supports multiple data sources: mock, RTX Data Hub, Salesforce, or hybrid mode.
+ * Supports multiple data sources: mock, RTX Data Hub, or hybrid mode with failover.
  *
  * USAGE:
  * ```typescript
@@ -26,7 +26,6 @@
  * Set NEXT_PUBLIC_DATA_SOURCE in .env.local:
  *   - 'mock' (default): Use synthetic demo data
  *   - 'rtx': Use RTX Data Hub (requires RTX_API_KEY)
- *   - 'salesforce': Use Salesforce CRM (requires SF credentials)
  *   - 'hybrid': Try RTX first, fallback to mock if unavailable
  *
  * RTX DATA HUB:
@@ -34,11 +33,13 @@
  *   RTX_API_KEY=your_api_key
  *   RTX_API_TIMEOUT=30000
  *
- * SALESFORCE:
- *   SALESFORCE_LOGIN_URL=https://login.salesforce.com
- *   SALESFORCE_USERNAME=your_username
- *   SALESFORCE_PASSWORD=your_password
- *   SALESFORCE_SECURITY_TOKEN=your_token
+ * FAILOVER:
+ * When DATA_SOURCE is 'rtx' or 'hybrid', the system will:
+ * 1. Track consecutive RTX failures
+ * 2. After 3 failures, automatically switch to mock data
+ * 3. Continue health checks in background
+ * 4. Auto-recover when RTX becomes healthy again
+ * 5. Log all failover/recovery events to database and Slack
  */
 
 import type { ServiceProvider } from './types'
@@ -70,6 +71,46 @@ export const DATA_SOURCE: DataSourceType =
 export const USE_MOCK_DATA = DATA_SOURCE === 'mock'
 
 /**
+ * Failover configuration
+ */
+export const FAILOVER_CONFIG = {
+  maxConsecutiveFailures: 3,      // Trigger failover after 3 consecutive failures
+  healthCheckIntervalMs: 60000,   // Check RTX health every 60 seconds
+  recoveryCheckIntervalMs: 300000 // Try to recover every 5 minutes
+}
+
+/**
+ * Failover state tracking
+ */
+export interface FailoverState {
+  isUsingFallback: boolean
+  primarySource: 'rtx'
+  fallbackSource: 'mock'
+  consecutiveFailures: number
+  failoverAt: Date | null
+  lastHealthCheck: Date | null
+  lastError: string | null
+}
+
+// Global failover state
+let failoverState: FailoverState = {
+  isUsingFallback: true, // Start with mock until RTX is proven healthy
+  primarySource: 'rtx',
+  fallbackSource: 'mock',
+  consecutiveFailures: 0,
+  failoverAt: null,
+  lastHealthCheck: null,
+  lastError: null
+}
+
+/**
+ * Get current failover state
+ */
+export function getFailoverState(): Readonly<FailoverState> {
+  return { ...failoverState }
+}
+
+/**
  * Check if we're in demo mode (always use mock data)
  * This takes precedence over DATA_SOURCE
  */
@@ -84,6 +125,91 @@ export function isDemoMode(): boolean {
  */
 export function isRTXConfigured(): boolean {
   return rtxClient.isConfigured()
+}
+
+/**
+ * Record RTX failure for failover tracking
+ */
+export function recordRTXFailure(error: string): void {
+  failoverState.consecutiveFailures++
+  failoverState.lastError = error
+  failoverState.lastHealthCheck = new Date()
+
+  if (failoverState.consecutiveFailures >= FAILOVER_CONFIG.maxConsecutiveFailures) {
+    triggerFailover(error)
+  }
+}
+
+/**
+ * Record RTX success (reset failure count)
+ */
+export function recordRTXSuccess(): void {
+  const wasUsingFallback = failoverState.isUsingFallback
+
+  failoverState.consecutiveFailures = 0
+  failoverState.lastError = null
+  failoverState.lastHealthCheck = new Date()
+
+  if (wasUsingFallback) {
+    triggerRecovery()
+  }
+}
+
+/**
+ * Trigger failover to mock data
+ */
+async function triggerFailover(reason: string): Promise<void> {
+  if (failoverState.isUsingFallback) return // Already in failover mode
+
+  failoverState.isUsingFallback = true
+  failoverState.failoverAt = new Date()
+
+  console.error(`[Services] RTX failover triggered: ${reason}`)
+
+  // Log failover via API (fire and forget)
+  try {
+    fetch('/api/rtx/failover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'failover',
+        reason,
+        consecutive_failures: failoverState.consecutiveFailures,
+        rtx_health: 'unreachable'
+      })
+    }).catch(() => {
+      // Ignore fetch errors during failover
+    })
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Trigger recovery back to RTX
+ */
+async function triggerRecovery(): Promise<void> {
+  if (!failoverState.isUsingFallback) return // Not in failover mode
+
+  failoverState.isUsingFallback = false
+
+  console.log('[Services] RTX recovered, switching back to production data')
+
+  // Log recovery via API (fire and forget)
+  try {
+    fetch('/api/rtx/failover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'recovery',
+        rtx_health: 'healthy'
+      })
+    }).catch(() => {
+      // Ignore fetch errors
+    })
+  } catch {
+    // Ignore
+  }
 }
 
 // =============================================================================
@@ -101,11 +227,17 @@ function createHybridProvider(): ServiceProvider {
 }
 
 /**
- * Get the appropriate service provider based on configuration
+ * Get the appropriate service provider based on configuration and failover state
  */
 function getServiceProvider(): ServiceProvider {
   // Always use mock in demo mode
   if (isDemoMode()) {
+    return mockServiceProvider
+  }
+
+  // Check failover state first
+  if (failoverState.isUsingFallback && DATA_SOURCE !== 'mock') {
+    console.log('[Services] Using mock data due to RTX failover')
     return mockServiceProvider
   }
 
@@ -118,11 +250,6 @@ function getServiceProvider(): ServiceProvider {
       // RTX provider doesn't implement full ServiceProvider interface yet
       // For now, return mock provider
       console.log('[Services] RTX mode: RTX provider not fully implemented, using mock')
-      return mockServiceProvider
-
-    case 'salesforce':
-      // Salesforce provider not implemented yet
-      console.warn('[Services] Salesforce provider not implemented. Falling back to mock data.')
       return mockServiceProvider
 
     case 'hybrid':
