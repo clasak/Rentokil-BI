@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   RefreshCw,
   Database,
@@ -118,7 +119,15 @@ export default function RTXDiscoveryPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: 'Governance', href: '/governance' },
+          { label: 'RTX Discovery' }
+        ]}
+      />
+
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
