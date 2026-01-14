@@ -36,7 +36,9 @@ export const KPI_DICTIONARY: KPIDefinition[] = [
     benchmarks: [
       { name: 'Industry Average', value: 15000000, source: 'NPMA Annual Report 2024', asOfDate: '2024-01' },
       { name: 'Top Quartile', value: 22000000, source: 'Internal Benchmark Study', asOfDate: '2024-06' }
-    ]
+    ],
+    // Hierarchical aggregation: sum revenue from all subordinates
+    aggregationType: 'sum',
   },
   {
     slug: 'pipeline_30_60_90',
@@ -83,7 +85,9 @@ GROUP BY bucket`,
     benchmarks: [
       { name: 'Pipeline Coverage Ratio', value: 3.0, source: 'Sales Best Practices', asOfDate: '2024-01' },
       { name: 'Healthy Pipeline Mix', value: 0.4, source: 'Internal Analysis (% in 0-30 bucket)', asOfDate: '2024-06' }
-    ]
+    ],
+    // Hierarchical aggregation: sum pipeline value from all subordinates
+    aggregationType: 'sum',
   },
   {
     slug: 'win_rate',
@@ -128,7 +132,10 @@ WHERE stage IN ('closed_won', 'closed_lost')
     benchmarks: [
       { name: 'Industry Average', value: 0.32, source: 'NPMA Sales Benchmark Survey', asOfDate: '2024-01' },
       { name: 'Top Performer', value: 0.45, source: 'Internal Top Quartile Analysis', asOfDate: '2024-06' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by deal count
+    aggregationType: 'weighted_average',
+    weightField: 'deal_count',
   },
   {
     slug: 'avg_cycle_time_days',
@@ -171,7 +178,10 @@ WHERE stage = 'closed_won'
     benchmarks: [
       { name: 'Residential Target', value: 21, source: 'Internal Standard', asOfDate: '2024-01' },
       { name: 'Commercial Target', value: 60, source: 'Internal Standard', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by deal count
+    aggregationType: 'weighted_average',
+    weightField: 'deal_count',
   },
   {
     slug: 'forecast_revenue_8w',
@@ -220,7 +230,9 @@ FROM pipeline_forecast p, recurring_base r`,
     benchmarks: [
       { name: 'Target Accuracy (MAE)', value: 0.08, source: 'FP&A Standard', asOfDate: '2024-01' },
       { name: 'Historical Accuracy', value: 0.062, source: 'Last 12 Months Backtest', asOfDate: '2024-06' }
-    ]
+    ],
+    // Hierarchical aggregation: sum forecasted revenue from all subordinates
+    aggregationType: 'sum',
   },
   {
     slug: 'variance_to_target_mtd',
@@ -264,7 +276,10 @@ JOIN monthly_targets t ON rev.market_id = t.market_id`,
     benchmarks: [
       { name: 'On Track', value: 0, source: 'Internal Standard', asOfDate: '2024-01' },
       { name: 'Acceptable Range', value: -0.03, source: 'Finance Policy', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by revenue
+    aggregationType: 'weighted_average',
+    weightField: 'revenue',
   },
   {
     slug: 'service_risk_index',
@@ -311,7 +326,10 @@ WHERE date = CURRENT_DATE`,
     benchmarks: [
       { name: 'Excellent', value: 90, source: 'Internal Standard', asOfDate: '2024-01' },
       { name: 'Industry Average', value: 75, source: 'NPMA Operations Survey', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by account count
+    aggregationType: 'weighted_average',
+    weightField: 'account_count',
   },
   {
     slug: 'callback_rate',
@@ -358,7 +376,10 @@ WHERE s.status = 'completed'
     benchmarks: [
       { name: 'Industry Best Practice', value: 0.05, source: 'NPMA Operations Benchmark', asOfDate: '2024-01' },
       { name: 'Unacceptable', value: 0.10, source: 'Internal Standard', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by service count
+    aggregationType: 'weighted_average',
+    weightField: 'service_count',
   },
   {
     slug: 'missed_service_rate',
@@ -403,7 +424,10 @@ WHERE scheduled_date >= CURRENT_DATE - 7
     benchmarks: [
       { name: 'Target', value: 0.02, source: 'Internal Standard', asOfDate: '2024-01' },
       { name: 'Industry Average', value: 0.035, source: 'NPMA Operations Survey', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by service count
+    aggregationType: 'weighted_average',
+    weightField: 'service_count',
   },
   {
     slug: 'avg_response_time_hours',
@@ -447,7 +471,10 @@ WHERE type = 'on_demand'
     benchmarks: [
       { name: 'Emergency Target', value: 4, source: 'SLA Requirement', asOfDate: '2024-01' },
       { name: 'Standard Target', value: 24, source: 'Internal Standard', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by service count
+    aggregationType: 'weighted_average',
+    weightField: 'service_count',
   },
   {
     slug: 'ar_aging',
@@ -494,7 +521,9 @@ GROUP BY aging_bucket`,
     benchmarks: [
       { name: 'Target 90+ %', value: 0.05, source: 'Finance Policy', asOfDate: '2024-01' },
       { name: 'Industry Average 90+ %', value: 0.08, source: 'NPMA Finance Survey', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: sum AR balances from all subordinates
+    aggregationType: 'sum',
   },
   {
     slug: 'dso',
@@ -537,7 +566,10 @@ JOIN revenue_30d rev ON ar.market_id = rev.market_id`,
     benchmarks: [
       { name: 'Best in Class', value: 28, source: 'Internal Top Quartile', asOfDate: '2024-01' },
       { name: 'Industry Average', value: 38, source: 'NPMA Finance Survey', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by AR balance
+    aggregationType: 'weighted_average',
+    weightField: 'ar_balance',
   },
   {
     slug: 'capacity_utilization',
@@ -581,7 +613,10 @@ WHERE tc.date = CURRENT_DATE`,
     benchmarks: [
       { name: 'Optimal', value: 0.85, source: 'Operations Best Practice', asOfDate: '2024-01' },
       { name: 'Maximum Safe', value: 0.95, source: 'HR Guidelines', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by available hours (capacity)
+    aggregationType: 'weighted_average',
+    weightField: 'service_count',
   },
   {
     slug: 'scheduling_pressure_index',
@@ -626,7 +661,10 @@ WHERE date = CURRENT_DATE`,
     benchmarks: [
       { name: 'Healthy', value: 30, source: 'Operations Standard', asOfDate: '2024-01' },
       { name: 'Crisis Level', value: 70, source: 'Operations Standard', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by technician count
+    aggregationType: 'weighted_average',
+    weightField: 'service_count',
   },
   {
     slug: 'crm_hygiene_score',
@@ -675,7 +713,10 @@ FROM hygiene_components`,
     benchmarks: [
       { name: 'Target', value: 90, source: 'Sales Ops Policy', asOfDate: '2024-01' },
       { name: 'Minimum Acceptable', value: 75, source: 'Sales Ops Policy', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by opportunity count
+    aggregationType: 'weighted_average',
+    weightField: 'opportunity_value',
   },
   {
     slug: 'stalled_opps',
@@ -720,7 +761,9 @@ WHERE stage NOT IN ('closed_won', 'closed_lost')
     benchmarks: [
       { name: 'Target % of Pipeline', value: 0.15, source: 'Sales Ops Policy', asOfDate: '2024-01' },
       { name: 'Alert Threshold', value: 0.25, source: 'Sales Ops Policy', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: sum stalled opportunity values
+    aggregationType: 'sum',
   },
   {
     slug: 'retention_risk',
@@ -772,7 +815,9 @@ FROM risk_scored_accounts WHERE risk_score > 0.7`,
     benchmarks: [
       { name: 'Target At-Risk %', value: 0.05, source: 'Customer Success Policy', asOfDate: '2024-01' },
       { name: 'Critical Threshold', value: 0.10, source: 'Customer Success Policy', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: sum at-risk contract values
+    aggregationType: 'sum',
   },
   {
     slug: 'complaint_rate',
@@ -816,7 +861,10 @@ WHERE s.completed_date >= DATE_TRUNC('month', CURRENT_DATE)`,
     benchmarks: [
       { name: 'Best in Class', value: 3, source: 'Internal Top Quartile', asOfDate: '2024-01' },
       { name: 'Industry Average', value: 7, source: 'NPMA Customer Service Survey', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by service count
+    aggregationType: 'weighted_average',
+    weightField: 'service_count',
   },
   {
     slug: 'nrr',
@@ -866,7 +914,10 @@ FROM cohort_revenue`,
     benchmarks: [
       { name: 'Excellent', value: 1.05, source: 'Industry Best Practice', asOfDate: '2024-01' },
       { name: 'Industry Average', value: 0.98, source: 'NPMA Revenue Survey', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by starting revenue
+    aggregationType: 'weighted_average',
+    weightField: 'revenue',
   },
   {
     slug: 'margin_proxy',
@@ -912,7 +963,10 @@ WHERE r.service_month = DATE_TRUNC('month', CURRENT_DATE)`,
     benchmarks: [
       { name: 'Target', value: 0.45, source: 'Finance Policy', asOfDate: '2024-01' },
       { name: 'Industry Average', value: 0.42, source: 'NPMA Financial Benchmark', asOfDate: '2024-01' }
-    ]
+    ],
+    // Hierarchical aggregation: weighted average by revenue
+    aggregationType: 'weighted_average',
+    weightField: 'revenue',
   },
 ]
 

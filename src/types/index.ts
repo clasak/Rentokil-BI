@@ -164,6 +164,10 @@ export interface TechnicianCapacity {
 // KPI Types
 export type KPICategory = 'revenue' | 'sales' | 'operations' | 'finance' | 'workforce' | 'quality'
 
+// Aggregation types for hierarchical KPI rollups
+export type AggregationType = 'sum' | 'average' | 'weighted_average' | 'min' | 'max' | 'count' | 'latest'
+export type WeightField = 'deal_count' | 'account_count' | 'service_count' | 'ar_balance' | 'revenue' | 'opportunity_value'
+
 export interface KPIDefinition {
   slug: string
   name: string
@@ -193,6 +197,9 @@ export interface KPIDefinition {
   usedBy?: string[] // KPIs that depend on this one
   businessContext?: string // Why this KPI matters for pest control industry
   benchmarks?: KPIBenchmark[] // Industry benchmarks for comparison
+  // Hierarchical aggregation configuration
+  aggregationType?: AggregationType // How to roll up this KPI in hierarchy (default: sum)
+  weightField?: WeightField // For weighted_average, what field to weight by
 }
 
 export interface KPILineage {
