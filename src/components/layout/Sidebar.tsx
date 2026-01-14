@@ -51,6 +51,7 @@ const marketVPNav = [
 const regionDirectorNav = [
   { name: 'Command Center', href: '/', icon: LayoutDashboard },
   { name: 'Daily Rollup', href: '/region/daily', icon: CalendarDays },
+  { name: 'Weekly WIG', href: '/region/weekly-wig', icon: ClipboardCheck },
   { name: 'Sales', href: '/sales', icon: TrendingUp },
   { name: 'Operations', href: '/ops', icon: Wrench },
   { name: 'Finance', href: '/finance', icon: DollarSign },
