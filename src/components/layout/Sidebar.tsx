@@ -24,9 +24,33 @@ interface SidebarProps {
   isMobile?: boolean
 }
 
-// Executive / Manager navigation
+// Executive navigation (no daily cadence - they don't need branch-level detail)
 const executiveNav = [
   { name: 'Command Center', href: '/', icon: LayoutDashboard },
+  { name: 'Sales', href: '/sales', icon: TrendingUp },
+  { name: 'Operations', href: '/ops', icon: Wrench },
+  { name: 'Finance', href: '/finance', icon: DollarSign },
+  { name: 'People', href: '/people', icon: Users },
+  { name: 'Forecast', href: '/forecast', icon: Target },
+  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
+]
+
+// Market Director / Market Sales Director navigation (includes market-level daily rollup)
+const marketDirectorNav = [
+  { name: 'Command Center', href: '/', icon: LayoutDashboard },
+  { name: 'Daily Rollup', href: '/market/daily', icon: CalendarDays },
+  { name: 'Sales', href: '/sales', icon: TrendingUp },
+  { name: 'Operations', href: '/ops', icon: Wrench },
+  { name: 'Finance', href: '/finance', icon: DollarSign },
+  { name: 'People', href: '/people', icon: Users },
+  { name: 'Forecast', href: '/forecast', icon: Target },
+  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
+]
+
+// Region Director navigation (includes region-level daily rollup)
+const regionDirectorNav = [
+  { name: 'Command Center', href: '/', icon: LayoutDashboard },
+  { name: 'Daily Rollup', href: '/region/daily', icon: CalendarDays },
   { name: 'Sales', href: '/sales', icon: TrendingUp },
   { name: 'Operations', href: '/ops', icon: Wrench },
   { name: 'Finance', href: '/finance', icon: DollarSign },
@@ -100,9 +124,12 @@ function getNavigationForRole(role: Role) {
     case 'manager':
       return { main: branchManagerNav, showGovernance: true }
     case 'sales_manager':
+      return { main: executiveNav, showGovernance: true }
     case 'region_director':
+      return { main: regionDirectorNav, showGovernance: true }
     case 'market_sales_director':
     case 'market_director':
+      return { main: marketDirectorNav, showGovernance: true }
     case 'exec':
       return { main: executiveNav, showGovernance: true }
     default:
