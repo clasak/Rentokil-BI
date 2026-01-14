@@ -44,8 +44,10 @@ This matrix shows which roles can access which routes in the Rentokil BI applica
 | Role | Expected Scope | Test Criteria | Status |
 |------|---------------|---------------|--------|
 | exec | All markets, all data | See 6 markets, all KPIs, full pipeline | [ ] |
-| market_director | Assigned market(s) | Only assigned market data in grids | [ ] |
+| market_vp | Assigned market(s) | Only assigned market data in grids | [ ] |
+| market_sales_director | Assigned market(s) | Only assigned market data, sales-focused views | [ ] |
 | region_director | Assigned region | Only assigned region branches | [ ] |
+| region_sales_manager | Assigned region | Only assigned region branches, sales-focused views | [ ] |
 | manager | Assigned branch | Single branch data only | [ ] |
 | sales_manager | Assigned reps | Only opportunities owned by assigned reps | [ ] |
 | ops_manager | Assigned technicians | Only service events for assigned techs | [ ] |

@@ -44,14 +44,14 @@ Backend-ready architecture with swappable providers:
 
 Usage: `import { services } from '@/services'` then `await services.accounts.getAll()`
 
-### Role Hierarchy (8 roles)
+### Role Hierarchy (10 roles)
 
 ```
-exec → market_director → region_director → manager
-                                              ↓
-                              sales_manager ← → ops_manager
-                                    ↓               ↓
-                                   rep         technician
+exec → market_vp / market_sales_director → region_director / region_sales_manager → manager
+                                                                                       ↓
+                                                                       sales_manager ← → ops_manager
+                                                                             ↓               ↓
+                                                                            rep         technician
 ```
 
 Navigation and data visibility change based on role:
@@ -174,8 +174,10 @@ const ADMIN_EMAILS = [
 | Role | Main Navigation | Governance Section |
 |------|----------------|-------------------|
 | `exec` | Command Center, Sales, Ops, Finance, People, Forecast, Lead Service Engine | Yes |
-| `market_director` | Same as exec | Yes |
-| `region_director` | Same as exec | Yes |
+| `market_vp` | Same as exec + Daily Rollup | Yes |
+| `market_sales_director` | Same as exec + Daily Rollup | Yes |
+| `region_director` | Same as exec + Daily Rollup | Yes |
+| `region_sales_manager` | Same as exec + Daily Rollup | Yes |
 | `sales_manager` | Same as exec | Yes |
 | `manager` | Command Center, Daily Cadence, WIG Scorecard, Sales, Ops, Forecast, Lead Service Engine | Yes |
 | `ops_manager` | Command Center, Ops, New Starts, Sales, Finance, Forecast, Lead Service Engine | Yes |

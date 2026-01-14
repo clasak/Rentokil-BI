@@ -37,7 +37,7 @@ const BOTTOM_NAV_CONFIG: Record<Role, NavItem[]> = {
     { name: 'Forecast', href: '/forecast', icon: Target },
     { name: 'Profile', href: '/settings', icon: User },
   ],
-  market_director: [
+  market_vp: [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Daily', href: '/market/daily', icon: Calendar },
     { name: 'Sales', href: '/sales', icon: TrendingUp },
@@ -56,6 +56,13 @@ const BOTTOM_NAV_CONFIG: Record<Role, NavItem[]> = {
     { name: 'Daily', href: '/region/daily', icon: Calendar },
     { name: 'Sales', href: '/sales', icon: TrendingUp },
     { name: 'Ops', href: '/ops', icon: Wrench },
+    { name: 'Profile', href: '/settings', icon: User },
+  ],
+  region_sales_manager: [
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Daily', href: '/region/daily', icon: Calendar },
+    { name: 'Sales', href: '/sales', icon: TrendingUp },
+    { name: 'People', href: '/people', icon: Users },
     { name: 'Profile', href: '/settings', icon: User },
   ],
   manager: [

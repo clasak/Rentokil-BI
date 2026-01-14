@@ -134,9 +134,10 @@ export default function AdminPage() {
   const getRoleIcon = (role: Role) => {
     switch (role) {
       case 'exec': return Crown
-      case 'market_director': return Building2
+      case 'market_vp': return Building2
       case 'market_sales_director': return TrendingUp
       case 'region_director': return Users
+      case 'region_sales_manager': return TrendingUp
       case 'manager': return Briefcase
       case 'sales_manager': return TrendingUp
       case 'ops_manager': return Truck
@@ -408,8 +409,10 @@ export default function AdminPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="exec">Executive</SelectItem>
-                  <SelectItem value="market_director">Market Director</SelectItem>
+                  <SelectItem value="market_vp">Market VP</SelectItem>
+                  <SelectItem value="market_sales_director">Market Sales Director</SelectItem>
                   <SelectItem value="region_director">Region Director</SelectItem>
+                  <SelectItem value="region_sales_manager">Region Sales Manager</SelectItem>
                   <SelectItem value="manager">Branch Manager</SelectItem>
                   <SelectItem value="sales_manager">Sales Manager</SelectItem>
                   <SelectItem value="ops_manager">Operations Manager</SelectItem>

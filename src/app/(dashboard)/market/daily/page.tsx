@@ -125,7 +125,7 @@ export default function MarketDailyPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Market Daily Rollup</h1>
-          <p className="text-gray-500 dark:text-gray-400">Market Director view - Regional performance summary</p>
+          <p className="text-gray-500 dark:text-gray-400">Market VP view - Regional performance summary</p>
         </div>
         <div className="flex items-center gap-4">
           <Select value={selectedMarket} onValueChange={(v) => setSelectedMarket(v as MarketCode)}>

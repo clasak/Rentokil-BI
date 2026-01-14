@@ -122,7 +122,7 @@ export async function GET(): Promise<NextResponse<ThreatsResponse>> {
           const newRole = metadata.new_role as string
 
           // Check for escalation to admin/exec roles
-          const sensitiveRoles = ['exec', 'market_director', 'admin']
+          const sensitiveRoles = ['exec', 'market_vp', 'admin']
           if (sensitiveRoles.includes(newRole) && !sensitiveRoles.includes(oldRole)) {
             threats.push({
               type: 'privilege_escalation',

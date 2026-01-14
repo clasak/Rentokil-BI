@@ -32,8 +32,8 @@ const ROLE_OPTIONS: RoleOption[] = [
     color: 'text-purple-600'
   },
   {
-    value: 'market_director',
-    label: 'Market Director',
+    value: 'market_vp',
+    label: 'Market VP',
     description: 'Oversees multiple regions within a market',
     icon: Building2,
     color: 'text-blue-600'
@@ -51,6 +51,13 @@ const ROLE_OPTIONS: RoleOption[] = [
     description: 'Manages branches within a region',
     icon: Users,
     color: 'text-indigo-600'
+  },
+  {
+    value: 'region_sales_manager',
+    label: 'Region Sales Manager',
+    description: 'Sales leadership for a region, oversees branch sales teams',
+    icon: TrendingUp,
+    color: 'text-indigo-500'
   },
   {
     value: 'manager',

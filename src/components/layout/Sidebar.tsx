@@ -35,8 +35,8 @@ const executiveNav = [
   { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
 ]
 
-// Market Director / Market Sales Director navigation (includes market-level daily rollup)
-const marketDirectorNav = [
+// Market VP / Market Sales Director navigation (includes market-level daily rollup)
+const marketVPNav = [
   { name: 'Command Center', href: '/', icon: LayoutDashboard },
   { name: 'Daily Rollup', href: '/market/daily', icon: CalendarDays },
   { name: 'Sales', href: '/sales', icon: TrendingUp },
@@ -47,7 +47,7 @@ const marketDirectorNav = [
   { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
 ]
 
-// Region Director navigation (includes region-level daily rollup)
+// Region Director / Region Sales Manager navigation (includes region-level daily rollup)
 const regionDirectorNav = [
   { name: 'Command Center', href: '/', icon: LayoutDashboard },
   { name: 'Daily Rollup', href: '/region/daily', icon: CalendarDays },
@@ -125,11 +125,12 @@ function getNavigationForRole(role: Role) {
       return { main: branchManagerNav, showGovernance: true }
     case 'sales_manager':
       return { main: executiveNav, showGovernance: true }
+    case 'region_sales_manager':
     case 'region_director':
       return { main: regionDirectorNav, showGovernance: true }
     case 'market_sales_director':
-    case 'market_director':
-      return { main: marketDirectorNav, showGovernance: true }
+    case 'market_vp':
+      return { main: marketVPNav, showGovernance: true }
     case 'exec':
       return { main: executiveNav, showGovernance: true }
     default:
@@ -142,12 +143,14 @@ function getRoleLabel(role: Role): string {
   switch (role) {
     case 'exec':
       return 'Executive'
-    case 'market_director':
-      return 'Market Director'
+    case 'market_vp':
+      return 'Market VP'
     case 'market_sales_director':
       return 'Market Sales Director'
     case 'region_director':
       return 'Region Director'
+    case 'region_sales_manager':
+      return 'Region Sales Manager'
     case 'manager':
       return 'Branch Manager'
     case 'sales_manager':

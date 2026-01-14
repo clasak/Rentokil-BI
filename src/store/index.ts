@@ -378,10 +378,13 @@ export const useAppStore = create<AppState>()(
           case 'region_director':
             scopeLabel = `${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
             break
+          case 'region_sales_manager':
+            scopeLabel = `Sales: ${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
+            break
           case 'market_sales_director':
             scopeLabel = `Sales: ${marketNames.join(', ')}`
             break
-          case 'market_director':
+          case 'market_vp':
             scopeLabel = marketNames.join(', ')
             break
           default:
@@ -406,7 +409,11 @@ export const useAppStore = create<AppState>()(
       // Migrate persisted state to fix invalid roles
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const validRoles: Role[] = ['exec', 'market_director', 'market_sales_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+          const validRoles: Role[] = ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+          // Migrate old market_director to market_vp
+          if ((state.settings.role as string) === 'market_director') {
+            state.settings.role = 'market_vp'
+          }
           if (!validRoles.includes(state.settings.role)) {
             state.settings.role = 'exec'
           }
@@ -457,8 +464,8 @@ export const ROLE_PERMISSIONS: Record<Role, {
     canEdit: ['settings', 'targets'],
     canExport: ['all'],
   },
-  market_director: {
-    label: 'Market Director',
+  market_vp: {
+    label: 'Market VP',
     description: 'Access to all regions and branches within assigned market',
     canView: ['market_data', 'all_regions', 'all_branches'],
     canEdit: ['market_targets'],
@@ -477,6 +484,13 @@ export const ROLE_PERMISSIONS: Record<Role, {
     canView: ['region_data', 'all_region_branches'],
     canEdit: ['region_targets'],
     canExport: ['region_data'],
+  },
+  region_sales_manager: {
+    label: 'Region Sales Manager',
+    description: 'Sales leadership for region, oversight of all branch sales teams',
+    canView: ['region_data', 'all_region_branches', 'sales_pipeline', 'rep_performance'],
+    canEdit: ['sales_targets', 'sales_forecasts'],
+    canExport: ['sales_data', 'region_data'],
   },
   manager: {
     label: 'Branch Manager',

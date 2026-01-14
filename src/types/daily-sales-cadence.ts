@@ -104,7 +104,7 @@ export interface RegionSummary {
   branchesOffTrack: number
 }
 
-// Market summary for Market Director / Market Sales Director view
+// Market summary for Market VP / Market Sales Director view
 export interface MarketSummary {
   market: MarketCode
   regionCount: number

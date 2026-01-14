@@ -991,7 +991,7 @@ export function getARAgingBreakdown(role?: Role, userId?: string): { bucket: str
 // HIERARCHICAL KPI AGGREGATION
 // ============================================================================
 // Functions for cascading KPI data upward through the role hierarchy:
-// Rep/Technician → Sales/Ops Manager → Branch Manager → Region Director → Market Director → Exec
+// Rep/Technician → Sales/Ops Manager → Branch Manager → Region Director → Market VP → Exec
 
 import {
   HierarchicalKPIResult,

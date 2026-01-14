@@ -1,5 +1,5 @@
 // Hierarchical KPI aggregation types for cascading data flow
-// Rep → Branch Manager → Region Director → Market Director → Exec
+// Rep → Branch Manager → Region Director → Market VP → Exec
 
 import { Role, KPIValue, AggregationType, WeightField } from './index'
 
@@ -14,7 +14,7 @@ export type HierarchyLevel =
   | 'team'         // Sales Manager's team, Ops Manager's technicians
   | 'branch'       // Branch Manager's branch
   | 'region'       // Region Director's region
-  | 'market'       // Market Director's market
+  | 'market'       // Market VP's market
   | 'company'      // Executive - entire company
 
 /**
@@ -26,9 +26,10 @@ export const ROLE_TO_HIERARCHY_LEVEL: Record<Role, HierarchyLevel> = {
   'sales_manager': 'team',
   'ops_manager': 'team',
   'manager': 'branch',
+  'region_sales_manager': 'region',   // Region-level sales leadership
   'region_director': 'region',
   'market_sales_director': 'market',  // Market-level sales leadership
-  'market_director': 'market',
+  'market_vp': 'market',
   'exec': 'company',
 }
 

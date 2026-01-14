@@ -218,13 +218,13 @@ function generateUsers(markets: Market[], regions: Region[], branches: Branch[],
     ))
   }
 
-  // 2. Create Market Directors (1 per market) - sees all regions/branches in their market
+  // 2. Create Market VPs (1 per market) - sees all regions/branches in their market
   markets.forEach(market => {
     const marketRegions = regions.filter(r => r.marketId === market.id)
     const marketBranches = branches.filter(b => b.marketId === market.id)
     result.push(createUser(
-      'market_director',
-      'Market Director',
+      'market_vp',
+      'Market VP',
       [market.id],
       marketRegions.map(r => r.id),
       marketBranches.map(b => b.id),
@@ -252,6 +252,19 @@ function generateUsers(markets: Market[], regions: Region[], branches: Branch[],
     result.push(createUser(
       'region_director',
       'Region Director',
+      [region.marketId],
+      [region.id],
+      regionBranches.map(b => b.id),
+      []
+    ))
+  })
+
+  // 3.5. Create Region Sales Managers (1 per region) - sales leadership for entire region
+  regions.forEach(region => {
+    const regionBranches = branches.filter(b => b.regionId === region.id)
+    result.push(createUser(
+      'region_sales_manager',
+      'Region Sales Manager',
       [region.marketId],
       [region.id],
       regionBranches.map(b => b.id),
@@ -962,7 +975,7 @@ export function filterByRole(
       return false
     }
 
-    // Region-level filtering (for market_director and region_director)
+    // Region-level filtering (for market_vp and region_director)
     if (item.regionId && user.assignedRegions?.length > 0) {
       if (!user.assignedRegions.includes(item.regionId)) {
         return false
@@ -978,8 +991,10 @@ export function filterByRole(
 
     // Role-specific filtering
     switch (role) {
-      case 'market_director':
+      case 'market_vp':
+      case 'market_sales_director':
       case 'region_director':
+      case 'region_sales_manager':
       case 'manager':
         // These roles see all data in their assigned scope (handled above)
         return true
