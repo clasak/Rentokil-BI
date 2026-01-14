@@ -3,6 +3,7 @@
 export type Role =
   | 'exec'
   | 'market_director'
+  | 'market_sales_director'
   | 'region_director'
   | 'manager'
   | 'sales_manager'

@@ -232,6 +232,20 @@ function generateUsers(markets: Market[], regions: Region[], branches: Branch[],
     ))
   })
 
+  // 2.5. Create Market Sales Directors (1 per market) - sales leadership for entire market
+  markets.forEach(market => {
+    const marketRegions = regions.filter(r => r.marketId === market.id)
+    const marketBranches = branches.filter(b => b.marketId === market.id)
+    result.push(createUser(
+      'market_sales_director',
+      'Market Sales Director',
+      [market.id],
+      marketRegions.map(r => r.id),
+      marketBranches.map(b => b.id),
+      []
+    ))
+  })
+
   // 3. Create Region Directors (1 per region) - sees all branches in their region
   regions.forEach(region => {
     const regionBranches = branches.filter(b => b.regionId === region.id)

@@ -135,6 +135,7 @@ export default function AdminPage() {
     switch (role) {
       case 'exec': return Crown
       case 'market_director': return Building2
+      case 'market_sales_director': return TrendingUp
       case 'region_director': return Users
       case 'manager': return Briefcase
       case 'sales_manager': return TrendingUp

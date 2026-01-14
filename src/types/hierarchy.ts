@@ -27,6 +27,7 @@ export const ROLE_TO_HIERARCHY_LEVEL: Record<Role, HierarchyLevel> = {
   'ops_manager': 'team',
   'manager': 'branch',
   'region_director': 'region',
+  'market_sales_director': 'market',  // Market-level sales leadership
   'market_director': 'market',
   'exec': 'company',
 }

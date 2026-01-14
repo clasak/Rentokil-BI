@@ -378,6 +378,9 @@ export const useAppStore = create<AppState>()(
           case 'region_director':
             scopeLabel = `${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
             break
+          case 'market_sales_director':
+            scopeLabel = `Sales: ${marketNames.join(', ')}`
+            break
           case 'market_director':
             scopeLabel = marketNames.join(', ')
             break
@@ -403,7 +406,7 @@ export const useAppStore = create<AppState>()(
       // Migrate persisted state to fix invalid roles
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const validRoles: Role[] = ['exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+          const validRoles: Role[] = ['exec', 'market_director', 'market_sales_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
           if (!validRoles.includes(state.settings.role)) {
             state.settings.role = 'exec'
           }
@@ -460,6 +463,13 @@ export const ROLE_PERMISSIONS: Record<Role, {
     canView: ['market_data', 'all_regions', 'all_branches'],
     canEdit: ['market_targets'],
     canExport: ['market_data'],
+  },
+  market_sales_director: {
+    label: 'Market Sales Director',
+    description: 'Sales leadership for entire market, oversight of all region directors and sales teams',
+    canView: ['market_data', 'all_regions', 'all_branches', 'sales_pipeline', 'rep_performance'],
+    canEdit: ['sales_targets', 'sales_forecasts'],
+    canExport: ['sales_data', 'market_data'],
   },
   region_director: {
     label: 'Region Director',

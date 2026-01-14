@@ -126,6 +126,36 @@ export const ROLE_TUTORIALS: Record<Role, { name: string; welcome: string; steps
       }
     ]
   },
+  market_sales_director: {
+    name: 'Market Sales Director Dashboard',
+    welcome: 'Welcome! As a Market Sales Director, you lead sales strategy across your entire market. This tutorial will show you how to monitor and drive sales performance.',
+    steps: [
+      {
+        elementId: 'kpi-grid',
+        title: 'Market Sales Overview',
+        description: 'Your command center shows sales KPIs across all regions. Focus on pipeline health and revenue attainment.',
+        route: '/',
+        position: 'center',
+        highlight: true
+      },
+      {
+        elementId: 'sales-kpi-cards',
+        title: 'Pipeline Dashboard',
+        description: 'Monitor pipeline by region, identify stalled opportunities, and track win rates across your market.',
+        route: '/sales',
+        position: 'bottom',
+        highlight: true
+      },
+      {
+        elementId: 'lead-engine-nav',
+        title: 'Lead Service Engine',
+        description: 'Track lead conversion across all regions. Identify which sources and teams perform best.',
+        route: '/lead-service-engine',
+        position: 'center',
+        highlight: true
+      }
+    ]
+  },
   region_director: {
     name: 'Region Director Dashboard',
     welcome: 'Welcome! As a Region Director, you manage branches within your region. Let\'s explore your dashboard.',

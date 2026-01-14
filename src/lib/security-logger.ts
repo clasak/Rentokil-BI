@@ -146,7 +146,7 @@ export async function logRoleChange(
   metadata?: Record<string, unknown>
 ): Promise<void> {
   // Determine severity based on role escalation
-  const sensitiveRoles = ['exec', 'market_director', 'admin']
+  const sensitiveRoles = ['exec', 'market_director', 'market_sales_director', 'admin']
   const isEscalation = sensitiveRoles.includes(newRole) && !sensitiveRoles.includes(oldRole)
 
   await logSecurityEvent({

@@ -1834,6 +1834,7 @@ const userFields: FieldDefinition[] = [
     validValues: [
       { value: 'exec', label: 'Executive', description: 'C-suite and VP level, enterprise view' },
       { value: 'market_director', label: 'Market Director', description: 'Regional P&L ownership' },
+      { value: 'market_sales_director', label: 'Market Sales Director', description: 'Market-level sales leadership' },
       { value: 'region_director', label: 'Region Director', description: 'Multi-branch oversight' },
       { value: 'manager', label: 'Branch Manager', description: 'Single branch P&L' },
       { value: 'sales_manager', label: 'Sales Manager', description: 'Sales team leadership' },
@@ -1867,7 +1868,7 @@ const userFields: FieldDefinition[] = [
         ruleType: 'enum',
         severity: 'critical',
         description: 'Role must be one of the defined values',
-        validationLogic: "role IN ('exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician')",
+        validationLogic: "role IN ('exec', 'market_director', 'market_sales_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician')",
         failureMessage: 'Invalid user role',
         remediation: 'Update role to valid value based on job family'
       }

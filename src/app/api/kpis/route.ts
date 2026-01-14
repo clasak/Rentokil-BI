@@ -6,7 +6,7 @@ import type { Role } from '@/types'
 import type { HierarchicalKPIResult, SubordinateKPIResult } from '@/types/hierarchy'
 
 // Valid roles for input validation
-const VALID_ROLES: Role[] = ['exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+const VALID_ROLES: Role[] = ['exec', 'market_director', 'market_sales_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
 
 interface KPIResponse {
   slug: string

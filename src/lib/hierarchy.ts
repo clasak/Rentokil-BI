@@ -184,7 +184,8 @@ export function getSubordinateUserIds(userId: string, role: Role): string[] {
       return users.filter(u => u.id !== userId).map(u => u.id)
 
     case 'market_director':
-      // Market directors see everyone in their assigned markets
+    case 'market_sales_director':
+      // Market directors/sales directors see everyone in their assigned markets
       return users
         .filter(u =>
           u.id !== userId &&
@@ -249,7 +250,8 @@ export function getDirectSubordinates(
       return { type: 'market', entities: markets }
 
     case 'market_director':
-      // Market directors see regions in their market
+    case 'market_sales_director':
+      // Market directors/sales directors see regions in their market
       return {
         type: 'region',
         entities: regions.filter(r => user.assignedMarkets.includes(r.marketId)),
@@ -414,12 +416,20 @@ export function getParentManagerId(userId: string): string | null {
       return regionDirector?.id || null
 
     case 'region_director':
-      // Region Director's parent is their Market Director
+      // Region Director's parent is their Market Director (or Market Sales Director)
       const marketDirector = users.find(u =>
-        u.role === 'market_director' &&
+        (u.role === 'market_director' || u.role === 'market_sales_director') &&
         u.assignedMarkets.some(m => user.assignedMarkets.includes(m))
       )
       return marketDirector?.id || null
+
+    case 'market_sales_director':
+      // Market Sales Director's parent is Market Director
+      const mktDirector = users.find(u =>
+        u.role === 'market_director' &&
+        u.assignedMarkets.some(m => user.assignedMarkets.includes(m))
+      )
+      return mktDirector?.id || null
 
     case 'market_director':
       // Market Director's parent is Executive
@@ -451,7 +461,7 @@ export function getUsersAtLevel(
     team: ['sales_manager', 'ops_manager'],
     branch: ['manager'],
     region: ['region_director'],
-    market: ['market_director'],
+    market: ['market_director', 'market_sales_director'],
     company: ['exec'],
   }
 
@@ -499,6 +509,7 @@ export function canViewSubordinate(viewerUserId: string, targetUserId: string): 
       return true
 
     case 'market_director':
+    case 'market_sales_director':
       return target.assignedMarkets.some(m => viewer.assignedMarkets.includes(m))
 
     case 'region_director':

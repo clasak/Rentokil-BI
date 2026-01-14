@@ -39,6 +39,13 @@ const ROLE_OPTIONS: RoleOption[] = [
     color: 'text-blue-600'
   },
   {
+    value: 'market_sales_director',
+    label: 'Market Sales Director',
+    description: 'Sales leadership for entire market, oversight of all sales teams',
+    icon: TrendingUp,
+    color: 'text-blue-500'
+  },
+  {
     value: 'region_director',
     label: 'Region Director',
     description: 'Manages branches within a region',

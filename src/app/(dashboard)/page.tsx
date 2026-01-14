@@ -44,8 +44,8 @@ export default function CommandCenterPage() {
   const role = mounted ? settings.role : 'exec'
 
   // Leadership roles see the executive dashboard
-  // exec, market_director, region_director, manager
-  const isLeadershipRole = ['exec', 'market_director', 'region_director', 'manager'].includes(role)
+  // exec, market_director, market_sales_director, region_director, manager
+  const isLeadershipRole = ['exec', 'market_director', 'market_sales_director', 'region_director', 'manager'].includes(role)
 
   if (isLeadershipRole) {
     return (

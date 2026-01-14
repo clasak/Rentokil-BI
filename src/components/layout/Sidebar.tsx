@@ -101,6 +101,7 @@ function getNavigationForRole(role: Role) {
       return { main: branchManagerNav, showGovernance: true }
     case 'sales_manager':
     case 'region_director':
+    case 'market_sales_director':
     case 'market_director':
     case 'exec':
       return { main: executiveNav, showGovernance: true }
@@ -116,6 +117,8 @@ function getRoleLabel(role: Role): string {
       return 'Executive'
     case 'market_director':
       return 'Market Director'
+    case 'market_sales_director':
+      return 'Market Sales Director'
     case 'region_director':
       return 'Region Director'
     case 'manager':

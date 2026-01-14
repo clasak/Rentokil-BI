@@ -83,6 +83,7 @@ export function createRTXServiceProvider(client: RTXClient): RTXServiceProvider 
         switch (role) {
           case 'exec':
           case 'market_director':
+          case 'market_sales_director':
             return accounts // Full visibility
           case 'region_director':
             // Would filter by region - need user's assigned regions
@@ -113,6 +114,7 @@ export function createRTXServiceProvider(client: RTXClient): RTXServiceProvider 
         switch (role) {
           case 'exec':
           case 'market_director':
+          case 'market_sales_director':
           case 'region_director':
           case 'sales_manager':
             return opportunities // Full visibility for sales leadership

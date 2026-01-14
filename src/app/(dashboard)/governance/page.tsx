@@ -82,7 +82,7 @@ export default function GovernancePage() {
   const criticalIssues = qualityMetrics.filter(m => m.status === 'critical')
   const warningIssues = qualityMetrics.filter(m => m.status === 'warning')
 
-  const roles: Role[] = ['exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+  const roles: Role[] = ['exec', 'market_director', 'market_sales_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
 
   return (
     <div className="space-y-6">

@@ -104,6 +104,7 @@ const AGING_BUCKET_MAP: Record<string, Invoice['agingBucket']> = {
 const JOB_FAMILY_TO_ROLE: Record<string, User['role']> = {
   'EXEC': 'exec',
   'MKT_DIR': 'market_director',
+  'MKT_SALES_DIR': 'market_sales_director',
   'REG_DIR': 'region_director',
   'BR_MGR': 'manager',
   'SALES_MGR': 'sales_manager',
@@ -247,7 +248,7 @@ export function transformUser(rtx: RTXUser): User {
     role,
     title: rtx.JOB_FAMILY_CD,
     // All assignment arrays are required, so provide empty arrays as default
-    assignedMarkets: role === 'market_director' ? [`MKT-${rtx.MARKET_ID}`] : [],
+    assignedMarkets: (role === 'market_director' || role === 'market_sales_director') ? [`MKT-${rtx.MARKET_ID}`] : [],
     assignedRegions: role === 'region_director' ? [`REG-${rtx.REGION_ID}`] : [],
     assignedBranches: ['manager', 'ops_manager', 'sales_manager'].includes(role)
       ? [`BR-${rtx.BRANCH_ID}`]

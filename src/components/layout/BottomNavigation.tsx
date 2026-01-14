@@ -44,6 +44,13 @@ const BOTTOM_NAV_CONFIG: Record<Role, NavItem[]> = {
     { name: 'Finance', href: '/finance', icon: DollarSign },
     { name: 'Profile', href: '/settings', icon: User },
   ],
+  market_sales_director: [
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Sales', href: '/sales', icon: TrendingUp },
+    { name: 'People', href: '/people', icon: Users },
+    { name: 'Forecast', href: '/forecast', icon: Target },
+    { name: 'Profile', href: '/settings', icon: User },
+  ],
   region_director: [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Sales', href: '/sales', icon: TrendingUp },
