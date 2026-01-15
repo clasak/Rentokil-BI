@@ -337,7 +337,7 @@ export const useAppStore = create<AppState>()(
 
       getCurrentUserScope: () => {
         const state = get()
-        const { role } = state.settings
+        const { role, userId } = state.settings
         const markets = getMarkets()
 
         if (role === 'exec') {
@@ -348,9 +348,27 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        const user = state.currentUser
+        // Try currentUser first, then look up by userId, then by role
+        let user = state.currentUser
         if (!user) {
-          return { markets: [], branches: [], scope: 'Unknown' }
+          const users = getUsers()
+          user = users.find(u => u.id === userId) ?? users.find(u => u.role === role) ?? null
+        }
+
+        if (!user) {
+          // Final fallback - return role-based default scope
+          const roleLabels: Record<string, string> = {
+            market_vp: 'Market View',
+            market_sales_director: 'Market Sales',
+            region_director: 'Region View',
+            region_sales_manager: 'Region Sales',
+            manager: 'Branch View',
+            sales_manager: 'Sales Team',
+            ops_manager: 'Operations',
+            rep: 'My Accounts',
+            technician: 'My Routes',
+          }
+          return { markets: [], branches: [], scope: roleLabels[role] || 'My View' }
         }
 
         const marketNames = markets
