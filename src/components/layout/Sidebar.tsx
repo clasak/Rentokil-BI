@@ -10,7 +10,7 @@ import {
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
   ClipboardList, Truck, Upload, Book, Shield, GitBranch,
-  ClipboardCheck, Workflow, Lock, X, Database, Settings2
+  ClipboardCheck, Workflow, Lock, X, Database
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { isAdminEmail } from '@/lib/admin'
@@ -315,10 +315,7 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
             <NavItem key={item.name} item={item} />
           ))}
           {isAdmin && (
-            <>
-              <NavItem item={{ name: 'Admin', href: '/admin', icon: Lock }} />
-              <NavItem item={{ name: 'Platform Admin', href: '/platform-admin', icon: Settings2 }} />
-            </>
+            <NavItem item={{ name: 'Admin', href: '/admin', icon: Lock }} />
           )}
         </nav>
       </ScrollArea>
