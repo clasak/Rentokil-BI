@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppStore, ROLE_PERMISSIONS } from '@/store'
 import { getAccounts, getOpportunities, getInvoices } from '@/lib/data'
+import { getAEData } from '@/lib/sales-tracker-data'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -151,6 +152,7 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
     const accounts = getAccounts()
     const opportunities = getOpportunities()
     const invoices = getInvoices()
+    const aeData = getAEData()
     const lowerQuery = query.toLowerCase()
 
     const results: SearchResult[] = []
@@ -190,6 +192,24 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
         subtitle: `$${i.amount.toLocaleString()} • ${i.status}`,
         href: `/finance/invoice/${i.id}`
       }))
+
+    // Search AE proposals (from sales tracker)
+    if (aeData) {
+      const allProposals = aeData.monthlyData.flatMap(m => m.proposals)
+      allProposals
+        .filter(p => p.companyName.toLowerCase().includes(lowerQuery) || p.id.toLowerCase().includes(lowerQuery))
+        .slice(0, 5)
+        .forEach(p => {
+          const total = p.jobWorkPrice + p.termitePrice + (p.contractPrice * 12)
+          results.push({
+            type: 'Opportunity',
+            id: p.id,
+            name: p.companyName,
+            subtitle: `${p.service} • $${total.toLocaleString()}${p.sold ? ' • Sold' : p.dead ? ' • Dead' : ' • Open'}`,
+            href: '/ae/tracker/proposals'
+          })
+        })
+    }
 
     setSearchResults(results)
   }
