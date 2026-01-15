@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Settings, Shield, User, Sun, Moon, Monitor, Bell, Mail, LogOut, Loader2 } from 'lucide-react'
+import { Settings, Shield, User, Sun, Moon, Monitor, Bell, Mail, LogOut, Loader2, Eye, Lock } from 'lucide-react'
 import { Scenario } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
@@ -32,6 +32,9 @@ export default function SettingsPage() {
     theme,
     setTheme,
     getCurrentUserScope,
+    isAdmin,
+    adminModeEnabled,
+    setAdminModeEnabled,
   } = useAppStore()
 
   const scope = getCurrentUserScope()
@@ -229,6 +232,50 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Admin Mode - Only shown to admin users */}
+      {isAdmin && (
+        <Card className="border-amber-200 dark:border-amber-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <Lock className="h-5 w-5" />
+              Admin Mode
+            </CardTitle>
+            <CardDescription>
+              Control your admin dashboard experience
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium dark:text-gray-100">Enable Admin Mode</div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  When enabled, you see the admin sidebar and can preview role dashboards
+                </p>
+              </div>
+              <Switch
+                checked={adminModeEnabled}
+                onCheckedChange={setAdminModeEnabled}
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+              <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <div className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  Role Preview Available
+                </div>
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Use the sidebar to preview how different roles see the dashboard
+                </p>
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">
+              Disable admin mode to see the regular user experience for your current role.
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notifications */}
       <Card>

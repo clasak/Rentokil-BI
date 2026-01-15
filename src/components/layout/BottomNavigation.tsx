@@ -19,6 +19,9 @@ import {
   DollarSign,
   Users,
   Zap,
+  Shield,
+  Activity,
+  Eye,
 } from 'lucide-react'
 
 interface NavItem {
@@ -27,6 +30,15 @@ interface NavItem {
   icon: React.ElementType
   badge?: number
 }
+
+// Admin-specific navigation
+const ADMIN_NAV: NavItem[] = [
+  { name: 'Admin', href: '/admin', icon: Shield },
+  { name: 'Health', href: '/admin?tab=overview', icon: Activity },
+  { name: 'Preview', href: '/admin', icon: Eye },
+  { name: 'Governance', href: '/governance', icon: Shield },
+  { name: 'Settings', href: '/settings', icon: User },
+]
 
 // Role-specific navigation configurations
 const BOTTOM_NAV_CONFIG: Record<Role, NavItem[]> = {
@@ -104,7 +116,7 @@ const BOTTOM_NAV_CONFIG: Record<Role, NavItem[]> = {
 export function BottomNavigation() {
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
-  const { settings } = useAppStore()
+  const { settings, isAdmin, adminModeEnabled, isPreviewingRole, previewedRole } = useAppStore()
 
   useEffect(() => {
     setMounted(true)
@@ -112,7 +124,21 @@ export function BottomNavigation() {
 
   // Get role from store or default to exec
   const role = mounted ? settings.role : 'exec'
-  const navItems = BOTTOM_NAV_CONFIG[role] || BOTTOM_NAV_CONFIG.exec
+
+  // Determine which nav items to show
+  let navItems: NavItem[]
+  if (mounted && isAdmin && adminModeEnabled) {
+    // Admin mode: show admin nav unless previewing a role
+    if (isPreviewingRole && previewedRole) {
+      // When previewing, show the role's nav items
+      navItems = BOTTOM_NAV_CONFIG[previewedRole] || BOTTOM_NAV_CONFIG.exec
+    } else {
+      navItems = ADMIN_NAV
+    }
+  } else {
+    // Normal user: show role-based nav
+    navItems = BOTTOM_NAV_CONFIG[role] || BOTTOM_NAV_CONFIG.exec
+  }
 
   // Don't render during SSR to prevent hydration mismatch
   if (!mounted) {

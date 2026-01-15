@@ -18,6 +18,16 @@ interface AppState {
   setDataQualityIssuesEnabled: (enabled: boolean) => void
   refreshData: () => void
 
+  // Admin Mode
+  isAdmin: boolean
+  setIsAdmin: (isAdmin: boolean) => void
+  adminModeEnabled: boolean  // Settings toggle for admin to see admin UI
+  setAdminModeEnabled: (enabled: boolean) => void
+  isPreviewingRole: boolean
+  previewedRole: Role | null
+  setPreviewingRole: (role: Role | null) => void
+  exitRolePreview: () => void
+
   // Filters
   filters: GlobalFilters
   setDateRange: (start: Date, end: Date) => void
@@ -243,6 +253,22 @@ export const useAppStore = create<AppState>()(
         }))
       },
 
+      // Admin Mode
+      isAdmin: false,
+      setIsAdmin: (isAdmin: boolean) => set({ isAdmin }),
+      adminModeEnabled: true,  // Defaults to true - admins see admin UI by default
+      setAdminModeEnabled: (enabled: boolean) => set({ adminModeEnabled: enabled }),
+      isPreviewingRole: false,
+      previewedRole: null,
+      setPreviewingRole: (role: Role | null) => {
+        if (role) {
+          set({ isPreviewingRole: true, previewedRole: role })
+        } else {
+          set({ isPreviewingRole: false, previewedRole: null })
+        }
+      },
+      exitRolePreview: () => set({ isPreviewingRole: false, previewedRole: null }),
+
       // Filters
       filters: defaultFilters,
 
@@ -423,6 +449,7 @@ export const useAppStore = create<AppState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
         showAllBranchTechnicians: state.showAllBranchTechnicians,
+        adminModeEnabled: state.adminModeEnabled,
       }),
       // Migrate persisted state to fix invalid roles
       onRehydrateStorage: () => (state) => {
