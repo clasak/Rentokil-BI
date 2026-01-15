@@ -580,7 +580,7 @@ export default function SalesTrackerPage() {
                       {formatDateDisplay(sale.date)}
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm font-medium">{sale.companyName}</span>
+                      <span className="text-sm font-medium block max-w-[160px] truncate" title={sale.companyName}>{sale.companyName}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">

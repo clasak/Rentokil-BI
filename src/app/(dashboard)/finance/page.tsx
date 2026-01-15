@@ -22,6 +22,7 @@ import {
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { DollarSign, Clock, ChevronRight, AlertTriangle, TrendingUp } from 'lucide-react'
 import { Invoice, KPIValue } from '@/types'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 
 export default function FinancePage() {
   const { settings } = useAppStore()
@@ -75,6 +76,12 @@ export default function FinancePage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Finance' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -259,7 +266,11 @@ export default function FinancePage() {
               {overdueInvoices.map(invoice => (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-mono text-sm">{invoice.id}</TableCell>
-                  <TableCell>{invoice.accountName}</TableCell>
+                  <TableCell>
+                    <span className="block max-w-[180px] truncate" title={invoice.accountName}>
+                      {invoice.accountName}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right font-medium">
                     {formatCurrency(invoice.amount)}
                   </TableCell>

@@ -23,6 +23,7 @@ import {
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { TrendingUp, Users, AlertTriangle, ChevronRight, Target } from 'lucide-react'
 import { Opportunity, KPIValue } from '@/types'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 
 export default function SalesPage() {
   const { settings } = useAppStore()
@@ -93,6 +94,12 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Sales' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -241,9 +248,9 @@ export default function SalesPage() {
               {atRiskOpps.map(opp => (
                 <TableRow key={opp.id}>
                   <TableCell>
-                    <div>
-                      <div className="font-medium">{opp.name}</div>
-                      <div className="text-xs text-gray-500">{opp.accountName}</div>
+                    <div className="max-w-[200px]">
+                      <div className="font-medium truncate" title={opp.name}>{opp.name}</div>
+                      <div className="text-xs text-gray-500 truncate" title={opp.accountName}>{opp.accountName}</div>
                     </div>
                   </TableCell>
                   <TableCell>

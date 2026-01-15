@@ -243,7 +243,12 @@ export function ActionList({
 
                 <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs">
                   <span className="font-medium text-blue-700 dark:text-blue-300">Next Best Action: </span>
-                  <span className="text-blue-600 dark:text-blue-400">{action.nextBestAction}</span>
+                  <span
+                    className="text-blue-600 dark:text-blue-400 line-clamp-2"
+                    title={action.nextBestAction}
+                  >
+                    {action.nextBestAction}
+                  </span>
                 </div>
               </div>
             </Link>

@@ -18,12 +18,13 @@ import {
 } from '@/components/ui/table'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell
+  ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 import { Wrench, AlertTriangle, Users, ChevronRight, MapPin, Clock } from 'lucide-react'
 import { Account, KPIValue, ServiceEvent, Complaint } from '@/types'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 
 // Technician display data
 interface TechnicianDisplay {
@@ -167,6 +168,12 @@ export default function OpsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Operations' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -220,11 +227,9 @@ export default function OpsPage() {
                   </defs>
                   <Pie
                     data={serviceStatusData}
-                    cx="50%"
+                    cx="40%"
                     cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={80}
+                    outerRadius={70}
                     dataKey="value"
                     activeShape={{ filter: 'url(#glow-ops-pie)' }}
                   >
@@ -233,6 +238,18 @@ export default function OpsPage() {
                     ))}
                   </Pie>
                   <Tooltip content={<ChartTooltip />} />
+                  <Legend
+                    layout="vertical"
+                    align="right"
+                    verticalAlign="middle"
+                    wrapperStyle={{ paddingLeft: '20px' }}
+                    formatter={(value, entry) => {
+                      const item = serviceStatusData.find(d => d.name === value)
+                      const total = serviceStatusData.reduce((sum, d) => sum + d.value, 0)
+                      const percent = item ? ((item.value / total) * 100).toFixed(0) : 0
+                      return <span className="text-gray-700 dark:text-gray-300">{value} ({percent}%)</span>
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>

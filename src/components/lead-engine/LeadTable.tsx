@@ -254,8 +254,10 @@ export function LeadTable({
                     {lead.id}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{lead.companyName}</div>
-                    <div className="text-xs text-gray-500">{lead.propertyType}</div>
+                    <div className="max-w-[180px]">
+                      <div className="font-medium truncate" title={lead.companyName}>{lead.companyName}</div>
+                      <div className="text-xs text-gray-500">{lead.propertyType}</div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">{lead.contactName}</div>

@@ -474,7 +474,10 @@ export default function ProposalsTrackerPage() {
                       {formatDateDisplay(proposal.date)}
                     </TableCell>
                     <TableCell>
-                      <span className={`text-sm font-medium ${proposal.dead ? 'line-through' : ''}`}>
+                      <span
+                        className={`text-sm font-medium block max-w-[160px] truncate ${proposal.dead ? 'line-through' : ''}`}
+                        title={proposal.companyName}
+                      >
                         {proposal.companyName}
                       </span>
                     </TableCell>

@@ -100,6 +100,7 @@ const techNav = [
 
 const governance = [
   { name: 'Governance', href: '/governance', icon: ShieldCheck },
+  { name: 'Platform Admin', href: '/platform-admin', icon: Shield },
   { name: 'Data Dictionary', href: '/governance/data-dictionary', icon: Book },
   { name: 'Data Standards', href: '/governance/data-standards', icon: ClipboardCheck },
   { name: 'Data Quality', href: '/governance/data-quality', icon: Shield },
