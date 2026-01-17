@@ -27,11 +27,11 @@ interface AdminSidebarProps {
 const adminNav = [
   { name: 'Admin Dashboard', href: '/admin', icon: Shield },
   { name: 'Platform Admin', href: '/platform-admin', icon: ShieldCheck },
-  { name: 'SALTI Dashboard', href: '/admin?tab=salti', icon: Target },
-  { name: 'Platform Health', href: '/admin?tab=overview', icon: Activity },
-  { name: 'User Adoption', href: '/admin?tab=adoption', icon: Users },
-  { name: 'Data Quality', href: '/admin?tab=quality', icon: ClipboardCheck },
-  { name: 'Anomalies', href: '/admin?tab=anomalies', icon: AlertTriangle },
+  { name: 'SALTI Dashboard', href: '/salti', icon: Target },
+  { name: 'Platform Health', href: '/platform-health', icon: Activity },
+  { name: 'User Adoption', href: '/user-adoption', icon: Users },
+  { name: 'Data Quality', href: '/data-quality', icon: ClipboardCheck },
+  { name: 'Anomalies', href: '/anomalies', icon: AlertTriangle },
 ]
 
 // Role preview navigation - allows admins to preview different role dashboards
