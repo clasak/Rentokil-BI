@@ -42,6 +42,14 @@ import { DataQualityScorecard } from './components/DataQualityScorecard'
 import { SchemaChangeAlerts } from './components/SchemaChangeAlerts'
 import { AnomalyDetection } from './components/AnomalyDetection'
 
+// SALTI Dashboard Components
+import { SALTILeadFunnel } from './components/SALTILeadFunnel'
+import { SALTITargetKPIGauge } from './components/SALTITargetKPIGauge'
+import { SALTIFiveTenTwo } from './components/SALTIFiveTenTwo'
+import { SALTISalesResults } from './components/SALTISalesResults'
+import { SALTIPortfolio } from './components/SALTIPortfolio'
+import { SALTIHRMetrics } from './components/SALTIHRMetrics'
+
 // Platform Admin Data
 import {
   getPlatformHealthMetrics,
@@ -51,6 +59,16 @@ import {
   getSchemaChangeAlerts,
   getAnomalyAlerts,
 } from '@/lib/platform-admin-data'
+
+// SALTI Dashboard Data
+import {
+  getLeadFunnelMetrics,
+  getTargetKPIs,
+  getFiveTenTwoMetrics,
+  getSalesResultsMetrics,
+  getPortfolioMetrics,
+  getHRMetrics,
+} from '@/lib/mock/saltiData'
 
 interface LoginEvent {
   id: string
@@ -305,6 +323,10 @@ export default function AdminPage() {
           <TabsTrigger value="activity" className="gap-1.5 text-xs px-3">
             <LogIn className="h-3.5 w-3.5" />
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="salti" className="gap-1.5 text-xs px-3">
+            <Target className="h-3.5 w-3.5" />
+            SALTI
           </TabsTrigger>
         </TabsList>
 
@@ -803,6 +825,37 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab 11: SALTI Dashboard - 47 KPIs */}
+        <TabsContent value="salti" className="space-y-6">
+          {/* Target KPIs Section */}
+          {getTargetKPIs(settings.role, settings.userId) && (
+            <SALTITargetKPIGauge data={getTargetKPIs(settings.role, settings.userId)!} />
+          )}
+
+          {/* Lead Funnel Section */}
+          <SALTILeadFunnel data={getLeadFunnelMetrics(settings.role, settings.userId)} />
+
+          {/* 5-10-2 Tracker Section */}
+          {getFiveTenTwoMetrics(settings.role, settings.userId) && (
+            <SALTIFiveTenTwo data={getFiveTenTwoMetrics(settings.role, settings.userId)!} />
+          )}
+
+          {/* Sales Results Section */}
+          {getSalesResultsMetrics(settings.role, settings.userId) && (
+            <SALTISalesResults data={getSalesResultsMetrics(settings.role, settings.userId)!} />
+          )}
+
+          {/* Portfolio Section - Leadership only */}
+          {getPortfolioMetrics(settings.role, settings.userId) && (
+            <SALTIPortfolio data={getPortfolioMetrics(settings.role, settings.userId)!} />
+          )}
+
+          {/* HR Metrics Section - Leadership only */}
+          {getHRMetrics(settings.role, settings.userId) && (
+            <SALTIHRMetrics data={getHRMetrics(settings.role, settings.userId)!} />
+          )}
         </TabsContent>
       </Tabs>
 

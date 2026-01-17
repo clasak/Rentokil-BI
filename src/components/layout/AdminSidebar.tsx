@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Shield, Users, Eye, Activity, Settings,
   ChevronLeft, ChevronRight, X, Database, Workflow, ClipboardCheck,
   AlertTriangle, BarChart3, UserCog, Gauge, FileText, GitBranch,
-  Book, Calendar, CalendarDays, ShieldCheck
+  Book, Calendar, CalendarDays, ShieldCheck, Target
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -27,6 +27,7 @@ interface AdminSidebarProps {
 const adminNav = [
   { name: 'Admin Dashboard', href: '/admin', icon: Shield },
   { name: 'Platform Admin', href: '/platform-admin', icon: ShieldCheck },
+  { name: 'SALTI Dashboard', href: '/admin?tab=salti', icon: Target },
   { name: 'Platform Health', href: '/admin?tab=overview', icon: Activity },
   { name: 'User Adoption', href: '/admin?tab=adoption', icon: Users },
   { name: 'Data Quality', href: '/admin?tab=quality', icon: ClipboardCheck },
