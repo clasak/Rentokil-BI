@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useAppStore, PRESENTER_MODE_CONFIG, ROLE_PERMISSIONS } from '@/store'
+import { useAppStore, PRESENTER_MODE_CONFIG, ROLE_PERMISSIONS, type TestScenario } from '@/store'
 import { getMarkets, getUsers } from '@/lib/data'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,7 +20,7 @@ import {
   Settings, Shield, Users, Target, Database, RefreshCw,
   AlertTriangle, Presentation, ExternalLink, Lock, Eye,
   Crown, Building2, Briefcase, TrendingUp, Truck, UserCheck, Wrench,
-  LogIn, UserPlus, Clock, Loader2, Activity, Brain
+  LogIn, UserPlus, Clock, Loader2, Activity, Brain, FlaskConical
 } from 'lucide-react'
 import {
   Tooltip,
@@ -70,6 +70,9 @@ import {
   getHRMetrics,
 } from '@/lib/mock/saltiData'
 
+// Test Mode Scenarios
+import { TEST_SCENARIOS } from '@/lib/mock/testScenarios'
+
 interface LoginEvent {
   id: string
   event_type: string
@@ -102,6 +105,10 @@ export default function AdminPage() {
     refreshData,
     setPresenterMode,
     getCurrentUserScope,
+    testModeEnabled,
+    testScenario,
+    setTestModeEnabled,
+    setTestScenario,
   } = useAppStore()
 
   const markets = getMarkets()
@@ -664,6 +671,95 @@ export default function AdminPage() {
               <div className="text-xs text-gray-400">
                 Current seed: {settings.refreshSeed}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Test Mode */}
+          <Card className={testModeEnabled ? 'border-2 border-amber-500 bg-amber-50/50 dark:bg-amber-900/20' : ''}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FlaskConical className="h-5 w-5" />
+                Test Mode
+                {testModeEnabled && (
+                  <Badge className="bg-amber-500 text-amber-950">Active</Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Inject test data scenarios to verify dashboard behavior with edge cases
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium flex items-center gap-2 dark:text-gray-100">
+                    <FlaskConical className="h-4 w-4 text-amber-500" />
+                    Enable Test Mode
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Override data with test scenarios to verify UI states
+                  </p>
+                </div>
+                <Switch
+                  checked={testModeEnabled}
+                  onCheckedChange={setTestModeEnabled}
+                />
+              </div>
+
+              {testModeEnabled && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 dark:text-gray-100">Select Scenario</label>
+                    <Select value={testScenario} onValueChange={(v) => setTestScenario(v as TestScenario)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select scenario" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(TEST_SCENARIOS) as TestScenario[]).map((scenario) => (
+                          <SelectItem key={scenario} value={scenario}>
+                            <div className="flex items-center gap-2">
+                              <span>{TEST_SCENARIOS[scenario].name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="p-4 bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">
+                      {TEST_SCENARIOS[testScenario].name}
+                    </div>
+                    <p className="text-sm text-amber-700 dark:text-amber-400">
+                      {TEST_SCENARIOS[testScenario].description}
+                    </p>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                      <div className="bg-amber-200/50 dark:bg-amber-800/30 rounded px-2 py-1">
+                        <span className="text-amber-600 dark:text-amber-400">Revenue:</span>
+                        <span className="ml-1 font-medium text-amber-800 dark:text-amber-300">
+                          {(TEST_SCENARIOS[testScenario].multipliers.revenue * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="bg-amber-200/50 dark:bg-amber-800/30 rounded px-2 py-1">
+                        <span className="text-amber-600 dark:text-amber-400">Counts:</span>
+                        <span className="ml-1 font-medium text-amber-800 dark:text-amber-300">
+                          {(TEST_SCENARIOS[testScenario].multipliers.counts * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="bg-amber-200/50 dark:bg-amber-800/30 rounded px-2 py-1">
+                        <span className="text-amber-600 dark:text-amber-400">Rates:</span>
+                        <span className="ml-1 font-medium text-amber-800 dark:text-amber-300">
+                          {(TEST_SCENARIOS[testScenario].multipliers.rates * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Test mode affects all dashboard data. A banner will appear at the top of all pages.
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

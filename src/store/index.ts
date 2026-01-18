@@ -7,6 +7,9 @@ import { getUsers, getMarkets, regenerateData, setDataQualityIssues } from '@/li
 
 type Theme = 'light' | 'dark' | 'system'
 
+// Test Mode Scenarios
+export type TestScenario = 'healthy' | 'critical' | 'warning' | 'empty' | 'max_values' | 'growth_spike'
+
 interface AppState {
   // Settings
   settings: AppSettings
@@ -73,6 +76,12 @@ interface AppState {
   // Ops Manager filter toggle
   showAllBranchTechnicians: boolean
   setShowAllBranchTechnicians: (show: boolean) => void
+
+  // Test Mode
+  testModeEnabled: boolean
+  testScenario: TestScenario
+  setTestModeEnabled: (enabled: boolean) => void
+  setTestScenario: (scenario: TestScenario) => void
 
   // Current user context
   currentUser: User | null
@@ -358,6 +367,12 @@ export const useAppStore = create<AppState>()(
       showAllBranchTechnicians: false,
       setShowAllBranchTechnicians: (show: boolean) => set({ showAllBranchTechnicians: show }),
 
+      // Test Mode
+      testModeEnabled: false,
+      testScenario: 'healthy' as TestScenario,
+      setTestModeEnabled: (enabled: boolean) => set({ testModeEnabled: enabled }),
+      setTestScenario: (scenario: TestScenario) => set({ testScenario: scenario }),
+
       // Current user
       currentUser: null,
 
@@ -450,6 +465,8 @@ export const useAppStore = create<AppState>()(
         theme: state.theme,
         showAllBranchTechnicians: state.showAllBranchTechnicians,
         adminModeEnabled: state.adminModeEnabled,
+        testModeEnabled: state.testModeEnabled,
+        testScenario: state.testScenario,
       }),
       // Migrate persisted state to fix invalid roles
       onRehydrateStorage: () => (state) => {

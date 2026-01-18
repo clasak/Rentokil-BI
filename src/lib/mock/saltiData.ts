@@ -5,6 +5,27 @@
 
 import { Role } from '@/types'
 import { filterByRole, getAccounts, getOpportunities, getUsers, getUserById } from '../data'
+import { TEST_SCENARIOS, applyMultiplier, shouldReturnEmpty, type TestScenario } from './testScenarios'
+
+// Helper to get test mode state without circular dependency
+function getTestModeState(): { enabled: boolean; scenario: TestScenario } {
+  // Import dynamically to avoid circular dependency
+  if (typeof window !== 'undefined') {
+    try {
+      const storeData = localStorage.getItem('rentokil-bi-store')
+      if (storeData) {
+        const parsed = JSON.parse(storeData)
+        return {
+          enabled: parsed.state?.testModeEnabled || false,
+          scenario: parsed.state?.testScenario || 'healthy'
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+  return { enabled: false, scenario: 'healthy' }
+}
 
 // =============================================================================
 // TYPES
@@ -266,13 +287,20 @@ export function getLeadFunnelMetrics(role?: Role, userId?: string): LeadFunnelMe
   }
 
   const scale = getScaleFactor(role, userId)
+  const testMode = getTestModeState()
 
-  const mql = Math.round(BASE_LEAD_FUNNEL.mql_count * scale)
-  const sql = Math.round(BASE_LEAD_FUNNEL.sql_count * scale)
-  const scheduled = Math.round(BASE_LEAD_FUNNEL.scheduled_count * scale)
-  const inspected = Math.round(BASE_LEAD_FUNNEL.inspected_count * scale)
-  const proposed = Math.round(BASE_LEAD_FUNNEL.proposed_count * scale)
-  const sold = Math.round(BASE_LEAD_FUNNEL.sold_count * scale)
+  // Apply test scenario multiplier if enabled
+  const testMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.counts : 1
+
+  const mql = Math.round(BASE_LEAD_FUNNEL.mql_count * scale * testMultiplier)
+  const sql = Math.round(BASE_LEAD_FUNNEL.sql_count * scale * testMultiplier)
+  const scheduled = Math.round(BASE_LEAD_FUNNEL.scheduled_count * scale * testMultiplier)
+  const inspected = Math.round(BASE_LEAD_FUNNEL.inspected_count * scale * testMultiplier)
+  const proposed = Math.round(BASE_LEAD_FUNNEL.proposed_count * scale * testMultiplier)
+  const sold = Math.round(BASE_LEAD_FUNNEL.sold_count * scale * testMultiplier)
+
+  // Apply rate multiplier for conversion rates in test mode
+  const rateMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.rates : 1
 
   return {
     mql_count: mql,
@@ -281,20 +309,36 @@ export function getLeadFunnelMetrics(role?: Role, userId?: string): LeadFunnelMe
     inspected_count: inspected,
     proposed_count: proposed,
     sold_count: sold,
-    unscheduled_count: Math.round(BASE_LEAD_FUNNEL.unscheduled_count * scale),
-    canceled_count: Math.round(BASE_LEAD_FUNNEL.canceled_count * scale),
-    // Conversion rates stay the same regardless of scale
-    mql_to_sql_rate: mql > 0 ? (sql / mql) * 100 : 0,
-    sql_to_scheduled_rate: sql > 0 ? (scheduled / sql) * 100 : 0,
-    scheduled_to_inspected_rate: scheduled > 0 ? (inspected / scheduled) * 100 : 0,
-    inspected_to_proposed_rate: inspected > 0 ? (proposed / inspected) * 100 : 0,
-    proposed_to_sold_rate: proposed > 0 ? (sold / proposed) * 100 : 0
+    unscheduled_count: Math.round(BASE_LEAD_FUNNEL.unscheduled_count * scale * testMultiplier),
+    canceled_count: Math.round(BASE_LEAD_FUNNEL.canceled_count * scale * testMultiplier),
+    // Conversion rates - apply rate multiplier in test mode
+    mql_to_sql_rate: mql > 0 ? Math.min((sql / mql) * 100 * rateMultiplier, 100) : 0,
+    sql_to_scheduled_rate: sql > 0 ? Math.min((scheduled / sql) * 100 * rateMultiplier, 100) : 0,
+    scheduled_to_inspected_rate: scheduled > 0 ? Math.min((inspected / scheduled) * 100 * rateMultiplier, 100) : 0,
+    inspected_to_proposed_rate: inspected > 0 ? Math.min((proposed / inspected) * 100 * rateMultiplier, 100) : 0,
+    proposed_to_sold_rate: proposed > 0 ? Math.min((sold / proposed) * 100 * rateMultiplier, 100) : 0
   }
 }
 
 export function getTargetKPIs(role?: Role, userId?: string): TargetKPIMetrics | null {
   if (role && !canAccessCategory(role, SALES_ROLES)) {
     return null
+  }
+
+  const testMode = getTestModeState()
+
+  // Check for empty scenario
+  if (testMode.enabled && shouldReturnEmpty(testMode.scenario)) {
+    return {
+      close_rate: 0,
+      close_rate_target: BASE_TARGET_KPIS.close_rate_target,
+      speed_to_lead: 0,
+      speed_to_lead_target: BASE_TARGET_KPIS.speed_to_lead_target,
+      bundle_rate: 0,
+      bundle_rate_target: BASE_TARGET_KPIS.bundle_rate_target,
+      avg_started_value: 0,
+      avg_started_value_target: BASE_TARGET_KPIS.avg_started_value_target
+    }
   }
 
   // Target KPIs are rates/averages, don't scale by role
@@ -304,14 +348,18 @@ export function getTargetKPIs(role?: Role, userId?: string): TargetKPIMetrics | 
   // Add slight variance for non-exec roles
   const variance = scale < 1 ? (Math.random() * 0.1 - 0.05) : 0
 
+  // Apply test scenario multiplier
+  const rateMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.rates : 1
+  const revenueMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.revenue : 1
+
   return {
-    close_rate: BASE_TARGET_KPIS.close_rate * (1 + variance),
+    close_rate: BASE_TARGET_KPIS.close_rate * (1 + variance) * rateMultiplier,
     close_rate_target: BASE_TARGET_KPIS.close_rate_target,
-    speed_to_lead: BASE_TARGET_KPIS.speed_to_lead * (1 + variance * 0.5),
+    speed_to_lead: BASE_TARGET_KPIS.speed_to_lead * (1 + variance * 0.5) * rateMultiplier,
     speed_to_lead_target: BASE_TARGET_KPIS.speed_to_lead_target,
-    bundle_rate: BASE_TARGET_KPIS.bundle_rate * (1 + variance * 0.5),
+    bundle_rate: BASE_TARGET_KPIS.bundle_rate * (1 + variance * 0.5) * rateMultiplier,
     bundle_rate_target: BASE_TARGET_KPIS.bundle_rate_target,
-    avg_started_value: Math.round(BASE_TARGET_KPIS.avg_started_value * (1 + variance)),
+    avg_started_value: Math.round(BASE_TARGET_KPIS.avg_started_value * (1 + variance) * revenueMultiplier),
     avg_started_value_target: BASE_TARGET_KPIS.avg_started_value_target
   }
 }
@@ -321,11 +369,37 @@ export function getProductivityRates(role?: Role, userId?: string): Productivity
     return null
   }
 
+  const testMode = getTestModeState()
+
+  // Check for empty scenario
+  if (testMode.enabled && shouldReturnEmpty(testMode.scenario)) {
+    return {
+      schedule_rate: 0,
+      fulfillment_rate: 0,
+      inspection_rate: 0,
+      offer_rate: 0,
+      proposal_rate: 0,
+      mql_cancel_rate: 0,
+      mql_to_sql_conversion: 0
+    }
+  }
+
   const funnel = getLeadFunnelMetrics(role, userId)
+
+  // Apply test scenario adjustments for fulfillment rate
+  let fulfillmentRate = funnel.inspected_count > 0 ? 92.5 : 0
+  if (testMode.enabled) {
+    const scenario = TEST_SCENARIOS[testMode.scenario]
+    if (scenario.trendDirection === 'down') {
+      fulfillmentRate = 75 // Lower fulfillment in critical
+    } else if (scenario.trendDirection === 'up' && scenario.multipliers.rates > 1.2) {
+      fulfillmentRate = 98 // Higher fulfillment in growth
+    }
+  }
 
   return {
     schedule_rate: funnel.sql_count > 0 ? (funnel.scheduled_count / funnel.sql_count) * 100 : 0,
-    fulfillment_rate: funnel.inspected_count > 0 ? 92.5 : 0, // Completed / Inspected
+    fulfillment_rate: fulfillmentRate,
     inspection_rate: funnel.sql_count > 0 ? (funnel.inspected_count / funnel.sql_count) * 100 : 0,
     offer_rate: funnel.sql_count > 0 ? (funnel.proposed_count / funnel.sql_count) * 100 : 0,
     proposal_rate: funnel.inspected_count > 0 ? (funnel.proposed_count / funnel.inspected_count) * 100 : 0,
@@ -339,35 +413,87 @@ export function getSalesResultsMetrics(role?: Role, userId?: string): SalesResul
     return null
   }
 
+  const testMode = getTestModeState()
+
+  // Check for empty scenario
+  if (testMode.enabled && shouldReturnEmpty(testMode.scenario)) {
+    return {
+      started_sales: 0,
+      net_sales: 0,
+      contracts_value: 0,
+      contracts_units: 0,
+      inis_value: 0,
+      inis_units: 0,
+      jobs_value: 0,
+      jobs_units: 0,
+      started_as_pct_of_net: 0,
+      cy_vs_lytd_pct: 0,
+      yoy_variance: 0,
+      yoy_variance_pct: 0
+    }
+  }
+
   const scale = getScaleFactor(role, userId)
 
-  const started = Math.round(BASE_SALES_RESULTS.started_sales * scale)
-  const net = Math.round(BASE_SALES_RESULTS.net_sales * scale)
-  const contracts = Math.round(BASE_SALES_RESULTS.contracts_value * scale)
-  const inis = Math.round(BASE_SALES_RESULTS.inis_value * scale)
-  const jobs = Math.round(BASE_SALES_RESULTS.jobs_value * scale)
+  // Apply test scenario multipliers
+  const revenueMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.revenue : 1
+  const countsMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.counts : 1
 
-  const lastYear = net / (1 + BASE_SALES_RESULTS.yoy_variance_pct / 100)
+  const started = Math.round(BASE_SALES_RESULTS.started_sales * scale * revenueMultiplier)
+  const net = Math.round(BASE_SALES_RESULTS.net_sales * scale * revenueMultiplier)
+  const contracts = Math.round(BASE_SALES_RESULTS.contracts_value * scale * revenueMultiplier)
+  const inis = Math.round(BASE_SALES_RESULTS.inis_value * scale * revenueMultiplier)
+  const jobs = Math.round(BASE_SALES_RESULTS.jobs_value * scale * revenueMultiplier)
+
+  // Adjust YoY variance based on scenario
+  let yoyVariance = BASE_SALES_RESULTS.yoy_variance_pct
+  if (testMode.enabled) {
+    const scenario = TEST_SCENARIOS[testMode.scenario]
+    if (scenario.trendDirection === 'down') {
+      yoyVariance = -15 // Negative growth in critical/down scenarios
+    } else if (scenario.trendDirection === 'up') {
+      yoyVariance = scenario.multipliers.revenue > 1.2 ? 25 : 8.2 // Strong or moderate growth
+    }
+  }
+
+  const lastYear = net / (1 + yoyVariance / 100)
 
   return {
     started_sales: started,
     net_sales: net,
     contracts_value: contracts,
-    contracts_units: Math.round(BASE_SALES_RESULTS.contracts_units * scale),
+    contracts_units: Math.round(BASE_SALES_RESULTS.contracts_units * scale * countsMultiplier),
     inis_value: inis,
-    inis_units: Math.round(BASE_SALES_RESULTS.inis_units * scale),
+    inis_units: Math.round(BASE_SALES_RESULTS.inis_units * scale * countsMultiplier),
     jobs_value: jobs,
-    jobs_units: Math.round(BASE_SALES_RESULTS.jobs_units * scale),
+    jobs_units: Math.round(BASE_SALES_RESULTS.jobs_units * scale * countsMultiplier),
     started_as_pct_of_net: net > 0 ? (started / net) * 100 : 0,
-    cy_vs_lytd_pct: BASE_SALES_RESULTS.yoy_variance_pct + 100, // e.g., 108.2%
+    cy_vs_lytd_pct: yoyVariance + 100, // e.g., 108.2%
     yoy_variance: net - lastYear,
-    yoy_variance_pct: BASE_SALES_RESULTS.yoy_variance_pct
+    yoy_variance_pct: yoyVariance
   }
 }
 
 export function getFiveTenTwoMetrics(role?: Role, userId?: string): FiveTenTwoMetrics | null {
   if (role && !canAccessCategory(role, ALL_ROLES_WITH_512)) {
     return null
+  }
+
+  const testMode = getTestModeState()
+
+  // Check for empty scenario
+  if (testMode.enabled && shouldReturnEmpty(testMode.scenario)) {
+    return {
+      inspections_per_day_per_rep: 0,
+      services_proposed_per_day_per_rep: 0,
+      sales_per_day_per_rep: 0,
+      reps_5_plus_inspections_pct: 0,
+      reps_10_plus_proposed_pct: 0,
+      reps_2_plus_sales_pct: 0,
+      inspections_target: 5,
+      proposed_target: 10,
+      sales_target: 2
+    }
   }
 
   // For ops_manager, show technician metrics
@@ -381,19 +507,40 @@ export function getFiveTenTwoMetrics(role?: Role, userId?: string): FiveTenTwoMe
   // But add variance for individual roles
   const variance = (role === 'rep' || role === 'technician') ? (Math.random() * 0.3 - 0.15) : 0
 
+  // Apply test scenario multiplier
+  const ratesMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.rates : 1
+
+  // For 5-10-2, adjust percentages based on scenario
+  let reps5Plus = BASE_512_METRICS.reps_5_plus_inspections_pct
+  let reps10Plus = BASE_512_METRICS.reps_10_plus_proposed_pct
+  let reps2Plus = BASE_512_METRICS.reps_2_plus_sales_pct
+
+  if (testMode.enabled) {
+    const scenario = TEST_SCENARIOS[testMode.scenario]
+    if (scenario.trendDirection === 'down') {
+      reps5Plus = 35 // Low performance
+      reps10Plus = 22
+      reps2Plus = 28
+    } else if (scenario.trendDirection === 'up' && scenario.multipliers.rates > 1.2) {
+      reps5Plus = 85 // High performance
+      reps10Plus = 72
+      reps2Plus = 80
+    }
+  }
+
   return {
     inspections_per_day_per_rep: isTech
-      ? BASE_512_METRICS.inspections_per_day_per_rep * (1 + variance)
-      : BASE_512_METRICS.inspections_per_day_per_rep,
+      ? BASE_512_METRICS.inspections_per_day_per_rep * (1 + variance) * ratesMultiplier
+      : BASE_512_METRICS.inspections_per_day_per_rep * ratesMultiplier,
     services_proposed_per_day_per_rep: isTech
-      ? BASE_512_METRICS.services_proposed_per_day_per_rep * (1 + variance)
-      : BASE_512_METRICS.services_proposed_per_day_per_rep,
+      ? BASE_512_METRICS.services_proposed_per_day_per_rep * (1 + variance) * ratesMultiplier
+      : BASE_512_METRICS.services_proposed_per_day_per_rep * ratesMultiplier,
     sales_per_day_per_rep: isTech
-      ? BASE_512_METRICS.sales_per_day_per_rep * (1 + variance)
-      : BASE_512_METRICS.sales_per_day_per_rep,
-    reps_5_plus_inspections_pct: BASE_512_METRICS.reps_5_plus_inspections_pct,
-    reps_10_plus_proposed_pct: BASE_512_METRICS.reps_10_plus_proposed_pct,
-    reps_2_plus_sales_pct: BASE_512_METRICS.reps_2_plus_sales_pct,
+      ? BASE_512_METRICS.sales_per_day_per_rep * (1 + variance) * ratesMultiplier
+      : BASE_512_METRICS.sales_per_day_per_rep * ratesMultiplier,
+    reps_5_plus_inspections_pct: reps5Plus,
+    reps_10_plus_proposed_pct: reps10Plus,
+    reps_2_plus_sales_pct: reps2Plus,
     inspections_target: 5,
     proposed_target: 10,
     sales_target: 2
@@ -405,14 +552,34 @@ export function getFinanceMetrics(role?: Role, userId?: string): FinanceMetrics 
     return null
   }
 
+  const testMode = getTestModeState()
+
+  // Check for empty scenario
+  if (testMode.enabled && shouldReturnEmpty(testMode.scenario)) {
+    return {
+      revenue_by_product: {
+        pest_job: 0,
+        pest_contract: 0,
+        termite_job: 0,
+        termite_contract: 0,
+        other: 0
+      },
+      cy_vs_ly_revenue: 0,
+      revenue_objective: 0
+    }
+  }
+
   const scale = getScaleFactor(role, userId)
 
+  // Apply test scenario multiplier
+  const revenueMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.revenue : 1
+
   const revenueByProduct = {
-    pest_job: Math.round(380000 * scale),
-    pest_contract: Math.round(520000 * scale),
-    termite_job: Math.round(290000 * scale),
-    termite_contract: Math.round(410000 * scale),
-    other: Math.round(150000 * scale)
+    pest_job: Math.round(380000 * scale * revenueMultiplier),
+    pest_contract: Math.round(520000 * scale * revenueMultiplier),
+    termite_job: Math.round(290000 * scale * revenueMultiplier),
+    termite_contract: Math.round(410000 * scale * revenueMultiplier),
+    other: Math.round(150000 * scale * revenueMultiplier)
   }
 
   const total = Object.values(revenueByProduct).reduce((a, b) => a + b, 0)
@@ -429,14 +596,30 @@ export function getPortfolioMetrics(role?: Role, userId?: string): PortfolioMetr
     return null
   }
 
+  const testMode = getTestModeState()
+
+  // Check for empty scenario
+  if (testMode.enabled && shouldReturnEmpty(testMode.scenario)) {
+    return {
+      gross_sales: 0,
+      net_price: 0,
+      gross_adjustments: 0,
+      gross_terminations: 0,
+      net_gain: 0
+    }
+  }
+
   const scale = getScaleFactor(role, userId)
 
+  // Apply test scenario multiplier
+  const revenueMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.revenue : 1
+
   return {
-    gross_sales: Math.round(BASE_PORTFOLIO.gross_sales * scale),
-    net_price: Math.round(BASE_PORTFOLIO.net_price * scale),
-    gross_adjustments: Math.round(BASE_PORTFOLIO.gross_adjustments * scale),
-    gross_terminations: Math.round(BASE_PORTFOLIO.gross_terminations * scale),
-    net_gain: Math.round(BASE_PORTFOLIO.net_gain * scale)
+    gross_sales: Math.round(BASE_PORTFOLIO.gross_sales * scale * revenueMultiplier),
+    net_price: Math.round(BASE_PORTFOLIO.net_price * scale * revenueMultiplier),
+    gross_adjustments: Math.round(BASE_PORTFOLIO.gross_adjustments * scale * revenueMultiplier),
+    gross_terminations: Math.round(BASE_PORTFOLIO.gross_terminations * scale * revenueMultiplier),
+    net_gain: Math.round(BASE_PORTFOLIO.net_gain * scale * revenueMultiplier)
   }
 }
 
@@ -445,15 +628,44 @@ export function getOperationalMetrics(role?: Role, userId?: string): Operational
     return null
   }
 
+  const testMode = getTestModeState()
+
+  // Check for empty scenario
+  if (testMode.enabled && shouldReturnEmpty(testMode.scenario)) {
+    return {
+      miss_rate: 0,
+      work_order_completion: 0,
+      overtime_pct: 0
+    }
+  }
+
   // Operational metrics are rates, don't scale
   // But add variance for technician viewing own
   const isTech = role === 'technician'
   const variance = isTech ? (Math.random() * 0.1 - 0.05) : 0
 
+  // Apply test scenario - for operational metrics, critical means worse rates
+  let missRate = 3.2 * (1 + variance)
+  let workOrderCompletion = 94.5 * (1 + variance * 0.02)
+  let overtimePct = 8.7 * (1 + variance)
+
+  if (testMode.enabled) {
+    const scenario = TEST_SCENARIOS[testMode.scenario]
+    if (scenario.trendDirection === 'down') {
+      missRate = 12.5 // Higher miss rate in critical
+      workOrderCompletion = 78 // Lower completion
+      overtimePct = 18 // Higher overtime
+    } else if (scenario.trendDirection === 'up' && scenario.multipliers.rates > 1.2) {
+      missRate = 1.5 // Lower miss rate in growth
+      workOrderCompletion = 98 // Higher completion
+      overtimePct = 5 // Lower overtime
+    }
+  }
+
   return {
-    miss_rate: 3.2 * (1 + variance), // Lower is better
-    work_order_completion: 94.5 * (1 + variance * 0.02),
-    overtime_pct: 8.7 * (1 + variance)
+    miss_rate: missRate,
+    work_order_completion: workOrderCompletion,
+    overtime_pct: overtimePct
   }
 }
 
@@ -462,14 +674,40 @@ export function getHRMetrics(role?: Role, userId?: string): HRMetrics | null {
     return null
   }
 
+  const testMode = getTestModeState()
+
+  // Check for empty scenario
+  if (testMode.enabled && shouldReturnEmpty(testMode.scenario)) {
+    return {
+      headcount: 0,
+      voluntary_terms: 0,
+      involuntary_terms: 0,
+      retention_rate: 0
+    }
+  }
+
   const scale = getScaleFactor(role, userId)
 
-  // Retention rate stays the same, counts scale
+  // Apply test scenario multiplier
+  const countsMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.counts : 1
+  const ratesMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.rates : 1
+
+  // Adjust retention rate based on scenario (inverse for critical scenarios)
+  let retentionRate = BASE_HR.retention_rate
+  if (testMode.enabled) {
+    const scenario = TEST_SCENARIOS[testMode.scenario]
+    if (scenario.trendDirection === 'down') {
+      retentionRate = 85 // Lower retention in critical scenarios
+    } else if (scenario.trendDirection === 'up' && scenario.multipliers.rates > 1.2) {
+      retentionRate = 98 // Higher retention in growth scenarios
+    }
+  }
+
   return {
-    headcount: Math.round(BASE_HR.headcount * scale),
-    voluntary_terms: Math.round(BASE_HR.voluntary_terms * scale),
-    involuntary_terms: Math.round(BASE_HR.involuntary_terms * scale),
-    retention_rate: BASE_HR.retention_rate // Rate doesn't scale
+    headcount: Math.round(BASE_HR.headcount * scale * countsMultiplier),
+    voluntary_terms: Math.round(BASE_HR.voluntary_terms * scale * countsMultiplier),
+    involuntary_terms: Math.round(BASE_HR.involuntary_terms * scale * countsMultiplier),
+    retention_rate: retentionRate
   }
 }
 
