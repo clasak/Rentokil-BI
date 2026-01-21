@@ -54,19 +54,19 @@ function createAccountService(client: BigQueryClient): BigQueryAccountService {
       throw createNotImplementedError('accounts', 'getAll')
     },
 
-    async getById(id: string): Promise<Account | null> {
+    async getById(_id: string): Promise<Account | null> {
       throw createNotImplementedError('accounts', 'getById')
     },
 
-    async getByBranch(branchId: string): Promise<Account[]> {
+    async getByBranch(_branchId: string): Promise<Account[]> {
       throw createNotImplementedError('accounts', 'getByBranch')
     },
 
-    async getByMarket(marketId: string): Promise<Account[]> {
+    async getByMarket(_marketId: string): Promise<Account[]> {
       throw createNotImplementedError('accounts', 'getByMarket')
     },
 
-    async getByOwner(ownerId: string): Promise<Account[]> {
+    async getByOwner(_ownerId: string): Promise<Account[]> {
       throw createNotImplementedError('accounts', 'getByOwner')
     },
 
@@ -111,15 +111,15 @@ function createOpportunityService(client: BigQueryClient): BigQueryOpportunitySe
       throw createNotImplementedError('opportunities', 'getAll')
     },
 
-    async getById(id: string): Promise<Opportunity | null> {
+    async getById(_id: string): Promise<Opportunity | null> {
       throw createNotImplementedError('opportunities', 'getById')
     },
 
-    async getByAccount(accountId: string): Promise<Opportunity[]> {
+    async getByAccount(_accountId: string): Promise<Opportunity[]> {
       throw createNotImplementedError('opportunities', 'getByAccount')
     },
 
-    async getByOwner(ownerId: string): Promise<Opportunity[]> {
+    async getByOwner(_ownerId: string): Promise<Opportunity[]> {
       throw createNotImplementedError('opportunities', 'getByOwner')
     },
 
@@ -166,23 +166,23 @@ function createServiceEventService(client: BigQueryClient): BigQueryServiceEvent
       throw createNotImplementedError('serviceEvents', 'getAll')
     },
 
-    async getById(id: string): Promise<ServiceEvent | null> {
+    async getById(_id: string): Promise<ServiceEvent | null> {
       throw createNotImplementedError('serviceEvents', 'getById')
     },
 
-    async getByAccount(accountId: string): Promise<ServiceEvent[]> {
+    async getByAccount(_accountId: string): Promise<ServiceEvent[]> {
       throw createNotImplementedError('serviceEvents', 'getByAccount')
     },
 
-    async getByTechnician(technicianId: string): Promise<ServiceEvent[]> {
+    async getByTechnician(_technicianId: string): Promise<ServiceEvent[]> {
       throw createNotImplementedError('serviceEvents', 'getByTechnician')
     },
 
-    async getByRoute(routeId: string): Promise<ServiceEvent[]> {
+    async getByRoute(_routeId: string): Promise<ServiceEvent[]> {
       throw createNotImplementedError('serviceEvents', 'getByRoute')
     },
 
-    async getScheduled(startDate: Date, endDate: Date): Promise<ServiceEvent[]> {
+    async getScheduled(_startDate: Date, _endDate: Date): Promise<ServiceEvent[]> {
       throw createNotImplementedError('serviceEvents', 'getScheduled')
     },
 
@@ -206,11 +206,11 @@ function createInvoiceService(client: BigQueryClient): BigQueryInvoiceService {
       throw createNotImplementedError('invoices', 'getAll')
     },
 
-    async getById(id: string): Promise<Invoice | null> {
+    async getById(_id: string): Promise<Invoice | null> {
       throw createNotImplementedError('invoices', 'getById')
     },
 
-    async getByAccount(accountId: string): Promise<Invoice[]> {
+    async getByAccount(_accountId: string): Promise<Invoice[]> {
       throw createNotImplementedError('invoices', 'getByAccount')
     },
 
@@ -218,7 +218,7 @@ function createInvoiceService(client: BigQueryClient): BigQueryInvoiceService {
       throw createNotImplementedError('invoices', 'getOverdue')
     },
 
-    async getByAgingBucket(bucket: string): Promise<Invoice[]> {
+    async getByAgingBucket(_bucket: string): Promise<Invoice[]> {
       throw createNotImplementedError('invoices', 'getByAgingBucket')
     },
 

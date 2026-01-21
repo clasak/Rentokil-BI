@@ -420,6 +420,24 @@ export class BigQueryClient {
   // ===========================================================================
 
   /**
+   * Validate a BigQuery identifier (dataset or table name)
+   * BigQuery identifiers must contain only letters, numbers, and underscores
+   */
+  private validateIdentifier(identifier: string, type: 'dataset' | 'table'): void {
+    if (!identifier || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier)) {
+      throw new BigQueryApiError(
+        `Invalid ${type} identifier: "${identifier}". Must start with a letter or underscore and contain only letters, numbers, and underscores.`
+      )
+    }
+    // Also check for reasonable length (BigQuery limit is 1024 chars)
+    if (identifier.length > 1024) {
+      throw new BigQueryApiError(
+        `${type} identifier too long: max 1024 characters`
+      )
+    }
+  }
+
+  /**
    * Get a sample of rows from a table
    */
   async sampleTable<T = Record<string, unknown>>(
@@ -427,7 +445,14 @@ export class BigQueryClient {
     tableId: string,
     limit = 10
   ): Promise<T[]> {
-    const sql = `SELECT * FROM \`${this.config.projectId}.${datasetId}.${tableId}\` LIMIT ${limit}`
+    // Validate identifiers to prevent SQL injection
+    this.validateIdentifier(datasetId, 'dataset')
+    this.validateIdentifier(tableId, 'table')
+
+    // Ensure limit is a safe integer
+    const safeLimit = Math.max(1, Math.min(Math.floor(limit), 1000))
+
+    const sql = `SELECT * FROM \`${this.config.projectId}.${datasetId}.${tableId}\` LIMIT ${safeLimit}`
     const result = await this.query<T>(sql)
     return result.rows
   }
@@ -436,6 +461,10 @@ export class BigQueryClient {
    * Get row count for a table
    */
   async getRowCount(datasetId: string, tableId: string): Promise<number> {
+    // Validate identifiers to prevent SQL injection
+    this.validateIdentifier(datasetId, 'dataset')
+    this.validateIdentifier(tableId, 'table')
+
     const sql = `SELECT COUNT(*) as count FROM \`${this.config.projectId}.${datasetId}.${tableId}\``
     const result = await this.query<{ count: number }>(sql)
     return result.rows[0]?.count || 0

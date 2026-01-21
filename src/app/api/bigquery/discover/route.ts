@@ -53,12 +53,42 @@ interface TableSchemaResponse {
  * - GET /api/bigquery/discover?dataset=rtx_data&table=accounts - Get accounts table schema
  * - GET /api/bigquery/discover?dataset=rtx_data&table=accounts&sample=true - Include sample rows
  */
+/**
+ * Validate a BigQuery identifier to prevent injection attacks
+ */
+function isValidIdentifier(identifier: string | null): boolean {
+  if (!identifier) return false
+  // BigQuery identifiers: letters, numbers, underscores, must start with letter or underscore
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier) && identifier.length <= 1024
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url)
   const datasetId = searchParams.get('dataset')
   const tableId = searchParams.get('table')
   const includeSample = searchParams.get('sample') === 'true'
   const sampleLimit = parseInt(searchParams.get('limit') || '5', 10)
+
+  // Validate identifiers if provided
+  if (datasetId && !isValidIdentifier(datasetId)) {
+    return NextResponse.json(
+      {
+        error: 'Invalid dataset identifier',
+        details: 'Dataset name must start with a letter or underscore and contain only letters, numbers, and underscores',
+      },
+      { status: 400 }
+    )
+  }
+
+  if (tableId && !isValidIdentifier(tableId)) {
+    return NextResponse.json(
+      {
+        error: 'Invalid table identifier',
+        details: 'Table name must start with a letter or underscore and contain only letters, numbers, and underscores',
+      },
+      { status: 400 }
+    )
+  }
 
   try {
     // If table is specified, return table schema
