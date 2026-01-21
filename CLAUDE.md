@@ -70,10 +70,24 @@ Zustand store with persistence. Key state:
 
 ### Types (`/src/types/`)
 
-- `index.ts` - Core: Role, User, Account, Opportunity, KPIDefinition, Invoice, ServiceEvent
-- `sales-tracker.ts` - AE proposal/sale tracking (mirrors Google Sheets CSV)
+**Core types** (`index.ts`):
+- Role, User, Account, Opportunity, KPIDefinition, Invoice, ServiceEvent
+
+**Field operations** (mirror Google Sheets CSV structures):
+- `sales-tracker.ts` - AE proposal/sale tracking
 - `new-start-log.ts` - Sales→Ops handoff types
 - `daily-sales-cadence.ts` - Branch Manager daily metrics
+- `salesforce-quote.ts` - Salesforce quote import
+
+**RTX Power BI domain types**:
+- `filters.ts` - Period selection, hierarchy filters, view modes
+- `leads.ts` - Lead tracking, sources, funnel analysis
+- `salti-extended.ts` - SALTI pipeline, opportunity stages
+- `sales-extended.ts` - Sales transactions, quotas, leaderboards
+- `finance-extended.ts` - AR aging, collections, DSO tracking
+- `hr.ts` - Headcount, turnover, hiring metrics
+- `termite.ts` - Termite services, contracts, seasonality
+- `workforce.ts` - Scheduling, attendance, capacity
 
 ### Key Routes
 
@@ -129,6 +143,32 @@ All synthetic data uses `seedrandom` for determinism:
 - Refresh button changes seed
 - Volumes: ~1,500 accounts, ~2,500 opportunities, ~12,000 service events
 
+**Core data** (`/src/lib/data.ts`):
+- Accounts, opportunities, invoices, service events
+
+**RTX mock data** (`/src/lib/mock/`):
+- Each file has `initializeSeed()` for determinism
+- `leadsData.ts`, `saltiExtendedData.ts`, `salesExtendedData.ts`
+- `financeExtendedData.ts`, `hrData.ts`, `termiteData.ts`, `workforceData.ts`
+
+### RTX UI Components (`/src/components/rtx/`)
+
+Reusable components for RTX Power BI dashboards:
+- `FilterBar.tsx` - Hierarchy and service line filter popovers
+- `PeriodSelector.tsx` - MTD/YTD/Custom date range with calendar
+- `ViewToggle.tsx` - Summary/Detailed/Trending view modes
+- `ExportButton.tsx` - Excel, CSV, PDF export dropdown
+- `DataFreshness.tsx` - Data source freshness indicator
+- `GlossaryLink.tsx` - Inline term definitions with glossary links
+
+### Sidebar Collapsible Navigation
+
+The Sidebar (`/src/components/layout/Sidebar.tsx`) supports collapsible navigation groups:
+- RTX Analytics section with expandable groups (Sales Intelligence, Operations, Finance, People)
+- `rtxNavGroups` array defines group structure with icons and nested items
+- `expandedGroups` state tracks which groups are open
+- Only shown for executive/manager roles (`showRtxGroups` flag)
+
 ---
 
 ## Alpha Testing Environment (Current State)
@@ -171,16 +211,16 @@ const ADMIN_EMAILS = [
 
 ### Role-Based Navigation
 
-| Role | Main Navigation | Governance Section |
-|------|----------------|-------------------|
-| `exec` | Command Center, Sales, Ops, Finance, People, Forecast, Lead Service Engine | Yes |
-| `market_director` | Same as exec | Yes |
-| `region_director` | Same as exec | Yes |
-| `sales_manager` | Same as exec | Yes |
-| `manager` | Command Center, Daily Cadence, WIG Scorecard, Sales, Ops, Forecast, Lead Service Engine | Yes |
-| `ops_manager` | Command Center, Ops, New Starts, Sales, Finance, Forecast, Lead Service Engine | Yes |
-| `rep` | My Dashboard, Import Quote, Sales Tracker, Proposals, Sales, New Starts | **No** |
-| `technician` | My Schedule, Service Tickets, Route | **No** |
+| Role | Main Navigation | Governance | RTX Analytics |
+|------|----------------|------------|---------------|
+| `exec` | Command Center, Sales, Ops, Finance, People, Forecast, Lead Service Engine | Yes | Yes |
+| `market_director` | Same as exec | Yes | Yes |
+| `region_director` | Same as exec | Yes | Yes |
+| `sales_manager` | Same as exec | Yes | Yes |
+| `manager` | Command Center, Daily Cadence, WIG Scorecard, Sales, Ops, Forecast, Lead Service Engine | Yes | Yes |
+| `ops_manager` | Command Center, Ops, New Starts, Sales, Finance, Forecast, Lead Service Engine | Yes | Yes |
+| `rep` | My Dashboard, Import Quote, Sales Tracker, Proposals, Sales, New Starts | **No** | **No** |
+| `technician` | My Schedule, Service Tickets, Route | **No** | **No** |
 
 ### Settings Page
 
@@ -252,11 +292,3 @@ export function MyComponent() {
 - **Branch**: `alpha-test`
 - **Platform**: Vercel
 - **Build trigger file**: `vercel-build.txt` (change to force rebuild)
-
-### Recent Changes (This Session)
-
-1. **Fixed hydration errors** in DataQualityBanner, RoleTutorial, PresenterMode
-2. **Fixed ESLint errors** - escaped quotes in login page and Tutorial.tsx
-3. **Fixed tutorial text** - Changed "PestPac" to "Salesforce" for quote import description
-4. **Verified role-based sidebar** - Techs and AEs don't see Governance section
-5. **Verified settings page** - Clean user-focused page, no demo controls for regular users
