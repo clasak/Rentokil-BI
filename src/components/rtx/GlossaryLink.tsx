@@ -15,14 +15,6 @@ import {
 } from '@/components/ui/popover'
 import { HelpCircle, ExternalLink, BookOpen } from 'lucide-react'
 
-interface GlossaryTerm {
-  term: string
-  definition: string
-  formula?: string
-  source?: string
-  seeAlso?: string[]
-}
-
 interface GlossaryLinkProps {
   term: string
   definition: string

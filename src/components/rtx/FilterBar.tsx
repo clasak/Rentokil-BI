@@ -17,13 +17,12 @@ import {
 } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Filter, X, ChevronDown, RotateCcw } from 'lucide-react'
+import { Filter, ChevronDown, RotateCcw } from 'lucide-react'
 import type {
   RTXFilters,
   HierarchyFilter,
   ServiceLineFilter,
   GranularityLevel,
-  createDefaultFilters
 } from '@/types/filters'
 
 interface FilterBarProps {
