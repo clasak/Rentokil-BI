@@ -10,13 +10,21 @@ import {
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
   ClipboardList, Truck, Upload, Book, Shield, GitBranch,
-  ClipboardCheck, Workflow, Lock, X
+  ClipboardCheck, Workflow, Lock, X, ChevronDown,
+  Bug, Zap, BarChart3, UserCheck, Briefcase
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface SidebarProps {
   onNavigate?: () => void
   isMobile?: boolean
+}
+
+interface NavGroup {
+  name: string
+  icon: typeof LayoutDashboard
+  items: { name: string; href: string; icon: typeof LayoutDashboard }[]
+  defaultOpen?: boolean
 }
 
 // Admin emails that can see the admin link
@@ -38,6 +46,47 @@ const executiveNav = [
   { name: 'People', href: '/people', icon: Users },
   { name: 'Forecast', href: '/forecast', icon: Target },
   { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
+]
+
+// RTX Power BI Collapsible Navigation Groups
+const rtxNavGroups: NavGroup[] = [
+  {
+    name: 'Sales Intelligence',
+    icon: TrendingUp,
+    defaultOpen: false,
+    items: [
+      { name: 'Leads Dashboard', href: '/rtx/leads', icon: Zap },
+      { name: 'SALTI Pipeline', href: '/rtx/salti', icon: BarChart3 },
+      { name: 'Sales Performance', href: '/rtx/sales-performance', icon: Target },
+    ]
+  },
+  {
+    name: 'Operations',
+    icon: Wrench,
+    defaultOpen: false,
+    items: [
+      { name: 'Termite Services', href: '/rtx/termite', icon: Bug },
+      { name: 'Workforce', href: '/rtx/workforce', icon: UserCheck },
+    ]
+  },
+  {
+    name: 'Finance',
+    icon: DollarSign,
+    defaultOpen: false,
+    items: [
+      { name: 'Revenue & AR', href: '/rtx/finance', icon: DollarSign },
+      { name: 'Collections', href: '/rtx/collections', icon: Briefcase },
+    ]
+  },
+  {
+    name: 'People',
+    icon: Users,
+    defaultOpen: false,
+    items: [
+      { name: 'HR Dashboard', href: '/rtx/hr', icon: Users },
+      { name: 'Headcount', href: '/rtx/headcount', icon: UserCheck },
+    ]
+  },
 ]
 
 // Operations Manager specific navigation
@@ -97,20 +146,20 @@ const settings = [
 function getNavigationForRole(role: Role) {
   switch (role) {
     case 'rep':
-      return { main: aeNav, showGovernance: false }
+      return { main: aeNav, showGovernance: false, showRtxGroups: false }
     case 'technician':
-      return { main: techNav, showGovernance: false }
+      return { main: techNav, showGovernance: false, showRtxGroups: false }
     case 'ops_manager':
-      return { main: opsManagerNav, showGovernance: true }
+      return { main: opsManagerNav, showGovernance: true, showRtxGroups: true }
     case 'manager':
-      return { main: branchManagerNav, showGovernance: true }
+      return { main: branchManagerNav, showGovernance: true, showRtxGroups: true }
     case 'sales_manager':
     case 'region_director':
     case 'market_director':
     case 'exec':
-      return { main: executiveNav, showGovernance: true }
+      return { main: executiveNav, showGovernance: true, showRtxGroups: true }
     default:
-      return { main: executiveNav, showGovernance: true }
+      return { main: executiveNav, showGovernance: true, showRtxGroups: true }
   }
 }
 
@@ -174,7 +223,22 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
   // Use default values during SSR to avoid hydration mismatch
   const currentRole = isClient ? appSettings.role : 'exec'
   const currentDemoMode = isClient ? appSettings.demoMode : 'bi_leadership'
-  const { main: navigation, showGovernance } = getNavigationForRole(currentRole)
+  const { main: navigation, showGovernance, showRtxGroups } = getNavigationForRole(currentRole)
+
+  // Track which RTX groups are expanded
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
+    return rtxNavGroups.reduce((acc, group) => {
+      acc[group.name] = group.defaultOpen ?? false
+      return acc
+    }, {} as Record<string, boolean>)
+  })
+
+  const toggleGroup = (groupName: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }))
+  }
 
   // On mobile, never collapse - always show full width
   const isCollapsed = isMobile ? false : sidebarCollapsed
@@ -268,6 +332,47 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
             <NavItem key={item.name} item={item} />
           ))}
         </nav>
+
+        {/* RTX Power BI Collapsible Groups */}
+        {showRtxGroups && !isCollapsed && (
+          <>
+            <Separator className="my-4 mx-2" />
+            <div className="px-2 space-y-1">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-3 py-2">
+                RTX Analytics
+              </p>
+              {rtxNavGroups.map((group) => (
+                <div key={group.name} className="space-y-1">
+                  <button
+                    onClick={() => toggleGroup(group.name)}
+                    className={cn(
+                      'w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                      'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <group.icon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                      <span>{group.name}</span>
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-gray-500 transition-transform duration-200',
+                        expandedGroups[group.name] && 'rotate-180'
+                      )}
+                    />
+                  </button>
+                  {expandedGroups[group.name] && (
+                    <div className="pl-6 space-y-1">
+                      {group.items.map((item) => (
+                        <NavItem key={item.name} item={item} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {showGovernance && (
           <>
