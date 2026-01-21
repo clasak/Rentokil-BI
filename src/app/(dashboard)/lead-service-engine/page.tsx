@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table'
 import {
   Users, Clock, AlertTriangle, TrendingUp, Workflow, ArrowRight,
-  Info, Mail, CheckCircle, XCircle, DollarSign
+  Info, Mail, CheckCircle, XCircle, DollarSign, GitBranch
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
@@ -307,7 +307,16 @@ export default function LeadServiceEnginePage() {
       </Card>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Link href="/lead-service-engine/flows">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-rentokil-red/30">
+            <CardContent className="pt-6 text-center">
+              <GitBranch className="h-8 w-8 mx-auto mb-2 text-rentokil-red" />
+              <div className="font-medium">Lead Journey Flows</div>
+              <div className="text-sm text-gray-500">15 flows, 7 systems</div>
+            </CardContent>
+          </Card>
+        </Link>
         <Link href="/lead-service-engine/handoffs">
           <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
             <CardContent className="pt-6 text-center">
