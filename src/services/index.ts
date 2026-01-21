@@ -46,6 +46,13 @@ import { mockServiceProvider } from './mock'
 import { supabaseServiceProvider } from './supabase'
 import { rtxServiceProvider, rtxClient } from './rtx-hub'
 
+// NOTE: BigQuery uses Node.js-only APIs (fs, net, child_process) and cannot be
+// imported in client-side code. Use the API routes instead:
+//   - GET /api/bigquery/health - Test connection
+//   - GET /api/bigquery/discover - Discover schema
+// For server-only code (API routes, server components), import directly:
+//   import { bigQueryClient } from '@/lib/bigquery'
+
 // =============================================================================
 // Configuration
 // =============================================================================
@@ -53,7 +60,7 @@ import { rtxServiceProvider, rtxClient } from './rtx-hub'
 /**
  * Available data sources
  */
-export type DataSourceType = 'mock' | 'rtx' | 'salesforce' | 'hybrid'
+export type DataSourceType = 'mock' | 'rtx' | 'salesforce' | 'bigquery' | 'hybrid'
 
 /**
  * Current data source configuration
@@ -84,6 +91,17 @@ export function isDemoMode(): boolean {
  */
 export function isRTXConfigured(): boolean {
   return rtxClient.isConfigured()
+}
+
+/**
+ * Check if BigQuery is configured
+ * Note: This checks environment variables only since BigQuery client is server-only
+ */
+export function isBigQueryConfigured(): boolean {
+  // Check for environment or project ID
+  const hasEnvironment = !!process.env.BIGQUERY_ENVIRONMENT
+  const hasProject = !!process.env.GOOGLE_CLOUD_PROJECT
+  return hasEnvironment || hasProject
 }
 
 // =============================================================================
@@ -118,6 +136,18 @@ function getServiceProvider(): ServiceProvider {
       // RTX provider doesn't implement full ServiceProvider interface yet
       // For now, return mock provider
       console.log('[Services] RTX mode: RTX provider not fully implemented, using mock')
+      return mockServiceProvider
+
+    case 'bigquery':
+      if (!isBigQueryConfigured()) {
+        console.warn('[Services] BigQuery not configured. Falling back to mock data.')
+        return mockServiceProvider
+      }
+      // BigQuery provider doesn't implement full ServiceProvider interface yet
+      // Domain-specific queries will throw helpful errors directing to /api/bigquery/discover
+      // For now, return mock provider for the ServiceProvider interface
+      console.log('[Services] BigQuery mode: Domain queries not implemented, using mock for ServiceProvider interface')
+      console.log('[Services] Use bigQueryServiceProvider directly for discovery and raw queries')
       return mockServiceProvider
 
     case 'salesforce':
@@ -230,6 +260,8 @@ export function getDataSourceName(): string {
   switch (DATA_SOURCE) {
     case 'rtx':
       return 'RTX Data Hub'
+    case 'bigquery':
+      return 'BigQuery (RTX Data Hub)'
     case 'salesforce':
       return 'Salesforce'
     case 'hybrid':
@@ -260,8 +292,14 @@ export function getDataSourceStatus(): {
     case 'rtx':
       status.configured = isRTXConfigured()
       status.description = status.configured
-        ? 'Connected to RTX Data Hub enterprise warehouse'
+        ? 'Connected to RTX Data Hub REST API'
         : 'RTX API credentials not configured'
+      break
+    case 'bigquery':
+      status.configured = isBigQueryConfigured()
+      status.description = status.configured
+        ? `BigQuery configured (${process.env.BIGQUERY_ENVIRONMENT || 'dev'})`
+        : 'BigQuery not configured - run: gcloud auth application-default login'
       break
     case 'salesforce':
       status.configured = false // TODO: Check Salesforce config
@@ -283,3 +321,8 @@ export function getDataSourceStatus(): {
 // Re-export RTX client for direct access
 export { rtxClient, rtxServiceProvider } from './rtx-hub'
 export type { RTXConnectionStatus } from './rtx-hub'
+
+// NOTE: BigQuery exports are NOT available here because the BigQuery SDK
+// uses Node.js-only APIs. For server-side code, import directly:
+//   import { bigQueryClient, bigQueryServiceProvider } from '@/services/bigquery'
+//   import type { BigQueryServiceProvider } from '@/services/bigquery'
