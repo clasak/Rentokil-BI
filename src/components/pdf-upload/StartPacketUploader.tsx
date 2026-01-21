@@ -403,8 +403,8 @@ function CustomerSection({ data }: { data: ParsedStartPacket }) {
 // Equipment Section
 function EquipmentSection({ data }: { data: ParsedStartPacket }) {
   const equipment = [
-    { label: 'Road Stations', value: data.equipment.roadStations, icon: '🚧' },
-    { label: 'Bay Stations', value: data.equipment.bayStations, icon: '🏭' },
+    { label: 'Exterior RBS', value: data.equipment.exteriorRBS, icon: '🪤' },
+    { label: 'Interior RBS', value: data.equipment.interiorRBS, icon: '🏠' },
     { label: 'Fly Lights', value: data.equipment.flyLights, icon: '💡' },
     { label: 'Bait Boxes', value: data.equipment.baitBoxes, icon: '📦' },
     { label: 'Glue Boards', value: data.equipment.glueBoards, icon: '📋' },

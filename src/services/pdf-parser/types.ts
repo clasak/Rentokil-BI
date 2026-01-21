@@ -26,8 +26,8 @@ export interface ParsedStartPacket {
 
   // Equipment Details
   equipment: {
-    roadStations: number
-    bayStations: number
+    exteriorRBS: number
+    interiorRBS: number
     flyLights: number
     baitBoxes: number
     glueBoards: number

@@ -96,8 +96,8 @@ export function parseStartPacketText(
   }
 
   // Extract equipment counts
-  const roadStations = extractNumberWithConfidence(text, EQUIPMENT_PATTERNS.roadStations, 'equipment.roadStations', fieldConfidences)
-  const bayStations = extractNumberWithConfidence(text, EQUIPMENT_PATTERNS.bayStations, 'equipment.bayStations', fieldConfidences)
+  const exteriorRBS = extractNumberWithConfidence(text, EQUIPMENT_PATTERNS.exteriorRBS, 'equipment.exteriorRBS', fieldConfidences)
+  const interiorRBS = extractNumberWithConfidence(text, EQUIPMENT_PATTERNS.interiorRBS, 'equipment.interiorRBS', fieldConfidences)
   const flyLights = extractNumberWithConfidence(text, EQUIPMENT_PATTERNS.flyLights, 'equipment.flyLights', fieldConfidences)
   const baitBoxes = extractNumberWithConfidence(text, EQUIPMENT_PATTERNS.baitBoxes, 'equipment.baitBoxes', fieldConfidences)
   const glueBoards = extractNumberWithConfidence(text, EQUIPMENT_PATTERNS.glueBoards, 'equipment.glueBoards', fieldConfidences)
@@ -157,8 +157,8 @@ export function parseStartPacketText(
       vertical: vertical as ParsedStartPacket['customer']['vertical'] || undefined,
     },
     equipment: {
-      roadStations,
-      bayStations,
+      exteriorRBS,
+      interiorRBS,
       flyLights,
       baitBoxes,
       glueBoards,
@@ -272,10 +272,10 @@ export function validateParsedData(data: ParsedStartPacket): ValidationResult {
 
   // Equipment validation for commercial accounts
   if (data.customer.vertical === 'Commercial' || data.customer.vertical === 'Food Service') {
-    if (data.equipment.roadStations === 0 && data.equipment.bayStations === 0) {
+    if (data.equipment.exteriorRBS === 0 && data.equipment.interiorRBS === 0) {
       warnings.push({
         field: 'equipment',
-        message: 'Commercial account with no stations detected - verify equipment list',
+        message: 'Commercial account with no RBS detected - verify equipment list',
         severity: 'warning',
       })
     }
@@ -476,11 +476,11 @@ export function mapToNewStart(data: ParsedStartPacket): NewStartMapping {
 function buildSpecialNotes(data: ParsedStartPacket): string {
   const parts: string[] = []
 
-  if (data.equipment.roadStations > 0) {
-    parts.push(`Road Stations: ${data.equipment.roadStations}`)
+  if (data.equipment.exteriorRBS > 0) {
+    parts.push(`Exterior RBS: ${data.equipment.exteriorRBS}`)
   }
-  if (data.equipment.bayStations > 0) {
-    parts.push(`Bay Stations: ${data.equipment.bayStations}`)
+  if (data.equipment.interiorRBS > 0) {
+    parts.push(`Interior RBS: ${data.equipment.interiorRBS}`)
   }
   if (data.equipment.flyLights > 0) {
     parts.push(`Fly Lights: ${data.equipment.flyLights}`)
@@ -557,8 +557,8 @@ export function parseMockStartPacket(scenario: 'commercial' | 'residential' | 't
         vertical: 'Commercial',
       },
       equipment: {
-        roadStations: 24,
-        bayStations: 8,
+        exteriorRBS: 24,
+        interiorRBS: 8,
         flyLights: 6,
         baitBoxes: 12,
         glueBoards: 20,
@@ -606,8 +606,8 @@ export function parseMockStartPacket(scenario: 'commercial' | 'residential' | 't
         vertical: 'Residential',
       },
       equipment: {
-        roadStations: 0,
-        bayStations: 0,
+        exteriorRBS: 0,
+        interiorRBS: 0,
         flyLights: 0,
         baitBoxes: 4,
         glueBoards: 0,
@@ -656,8 +656,8 @@ export function parseMockStartPacket(scenario: 'commercial' | 'residential' | 't
         vertical: 'Commercial',
       },
       equipment: {
-        roadStations: 0,
-        bayStations: 0,
+        exteriorRBS: 0,
+        interiorRBS: 0,
         flyLights: 0,
         baitBoxes: 0,
         glueBoards: 0,

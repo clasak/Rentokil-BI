@@ -39,17 +39,19 @@ export const ADDRESS_PATTERNS = {
 
 // Equipment count patterns
 export const EQUIPMENT_PATTERNS = {
-  roadStations: [
-    /Road\s+Stations?[:\s]*(\d+)/i,
-    /Exterior\s+Stations?[:\s]*(\d+)/i,
-    /Perimeter\s+Stations?[:\s]*(\d+)/i,
-    /RS[:\s]*(\d+)/i
+  exteriorRBS: [
+    /Exterior\s+RBS[:\s]*(\d+)/i,
+    /Exterior\s+(?:Rodent\s+)?(?:Bait\s+)?Stations?[:\s]*(\d+)/i,
+    /Perimeter\s+(?:Rodent\s+)?(?:Bait\s+)?Stations?[:\s]*(\d+)/i,
+    /Outdoor\s+RBS[:\s]*(\d+)/i,
+    /(?:Ext|Exterior)\s*[:\s]*(\d+)\s*RBS/i
   ],
-  bayStations: [
-    /Bay\s+Stations?[:\s]*(\d+)/i,
-    /Interior\s+Stations?[:\s]*(\d+)/i,
-    /Loading\s+(?:Dock\s+)?Stations?[:\s]*(\d+)/i,
-    /BS[:\s]*(\d+)/i
+  interiorRBS: [
+    /Interior\s+RBS[:\s]*(\d+)/i,
+    /Interior\s+(?:Rodent\s+)?(?:Bait\s+)?Stations?[:\s]*(\d+)/i,
+    /Indoor\s+(?:Rodent\s+)?(?:Bait\s+)?Stations?[:\s]*(\d+)/i,
+    /Inside\s+RBS[:\s]*(\d+)/i,
+    /(?:Int|Interior)\s*[:\s]*(\d+)\s*RBS/i
   ],
   flyLights: [
     /Fly\s+Lights?[:\s]*(\d+)/i,

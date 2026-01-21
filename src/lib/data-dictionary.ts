@@ -1946,23 +1946,23 @@ const contractFields: FieldDefinition[] = [
     tags: ['contract', 'start-packet', 'pdf']
   },
   {
-    fieldId: 'SP_ROAD_STATIONS',
-    fieldName: 'road_stations',
-    displayName: 'Road Stations Count',
+    fieldId: 'SP_EXTERIOR_RBS',
+    fieldName: 'exterior_rbs',
+    displayName: 'Exterior RBS Count',
     domain: 'equipment',
     category: 'attribute',
     dataType: 'number',
     nullable: false,
     defaultValue: 0,
-    definition: 'Number of rodent bait stations to be placed along roadways/perimeter.',
-    businessContext: 'Equipment specification from start packet. Determines materials to order and service duration estimates.',
+    definition: 'Number of exterior Rodent Bait Stations (RBS) to be placed around the building perimeter.',
+    businessContext: 'Equipment specification from start packet. Exterior RBS are tamper-resistant stations placed outside the structure to intercept rodents before entry.',
     valueRanges: { min: 0, max: 200, typical: '10-50 for commercial accounts' },
     primarySource: 'start_packet_pdf',
-    sourceFieldName: 'Equipment Section - Road Stations',
+    sourceFieldName: 'Equipment Section - Exterior RBS',
     transformations: [
       {
         sourceSystem: 'start_packet_pdf',
-        sourceField: 'Equipment Section - Road Stations',
+        sourceField: 'Equipment Section - Exterior RBS',
         transformationType: 'parsed',
         transformationLogic: 'Parse numeric value from equipment table, validate is integer >= 0',
         exampleInput: '25 stations',
@@ -1975,16 +1975,16 @@ const contractFields: FieldDefinition[] = [
     lastReviewedDate: '2024-09-01',
     nextReviewDate: '2025-03-01',
     kpisUsing: [],
-    relatedFields: ['SP_BAY_STATIONS', 'SP_SERVICE_TYPE'],
+    relatedFields: ['SP_INTERIOR_RBS', 'SP_SERVICE_TYPE'],
     dataQualityRules: [
       {
-        ruleId: 'SP_RS_001',
-        ruleName: 'Road Stations Non-Negative',
+        ruleId: 'SP_ERBS_001',
+        ruleName: 'Exterior RBS Non-Negative',
         ruleType: 'range',
         severity: 'critical',
-        description: 'Road stations count cannot be negative',
-        validationLogic: 'road_stations >= 0',
-        failureMessage: 'Negative road stations count',
+        description: 'Exterior RBS count cannot be negative',
+        validationLogic: 'exterior_rbs >= 0',
+        failureMessage: 'Negative exterior RBS count',
         remediation: 'Correct to valid non-negative integer'
       }
     ],
@@ -1992,26 +1992,26 @@ const contractFields: FieldDefinition[] = [
     createdAt: '2024-01-01',
     updatedAt: '2024-09-01',
     version: '1.0',
-    tags: ['equipment', 'start-packet', 'pdf', 'materials']
+    tags: ['equipment', 'start-packet', 'pdf', 'materials', 'rbs', 'rodent']
   },
   {
-    fieldId: 'SP_BAY_STATIONS',
-    fieldName: 'bay_stations',
-    displayName: 'Bay Stations Count',
+    fieldId: 'SP_INTERIOR_RBS',
+    fieldName: 'interior_rbs',
+    displayName: 'Interior RBS Count',
     domain: 'equipment',
     category: 'attribute',
     dataType: 'number',
     nullable: false,
     defaultValue: 0,
-    definition: 'Number of rodent bait stations to be placed in loading bays/interior areas.',
-    businessContext: 'Equipment specification from start packet. Bay stations typically require different mounting hardware.',
+    definition: 'Number of interior Rodent Bait Stations (RBS) to be placed inside the facility.',
+    businessContext: 'Equipment specification from start packet. Interior RBS are placed in mechanical rooms, storage areas, and other interior locations.',
     valueRanges: { min: 0, max: 100, typical: '5-20 for commercial accounts' },
     primarySource: 'start_packet_pdf',
-    sourceFieldName: 'Equipment Section - Bay Stations',
+    sourceFieldName: 'Equipment Section - Interior RBS',
     transformations: [
       {
         sourceSystem: 'start_packet_pdf',
-        sourceField: 'Equipment Section - Bay Stations',
+        sourceField: 'Equipment Section - Interior RBS',
         transformationType: 'parsed',
         transformationLogic: 'Parse numeric value from equipment table, validate is integer >= 0',
         exampleInput: '12 stations',
@@ -2024,16 +2024,16 @@ const contractFields: FieldDefinition[] = [
     lastReviewedDate: '2024-09-01',
     nextReviewDate: '2025-03-01',
     kpisUsing: [],
-    relatedFields: ['SP_ROAD_STATIONS', 'SP_SERVICE_TYPE'],
+    relatedFields: ['SP_EXTERIOR_RBS', 'SP_SERVICE_TYPE'],
     dataQualityRules: [
       {
-        ruleId: 'SP_BS_001',
-        ruleName: 'Bay Stations Non-Negative',
+        ruleId: 'SP_IRBS_001',
+        ruleName: 'Interior RBS Non-Negative',
         ruleType: 'range',
         severity: 'critical',
-        description: 'Bay stations count cannot be negative',
-        validationLogic: 'bay_stations >= 0',
-        failureMessage: 'Negative bay stations count',
+        description: 'Interior RBS count cannot be negative',
+        validationLogic: 'interior_rbs >= 0',
+        failureMessage: 'Negative interior RBS count',
         remediation: 'Correct to valid non-negative integer'
       }
     ],
@@ -2041,7 +2041,7 @@ const contractFields: FieldDefinition[] = [
     createdAt: '2024-01-01',
     updatedAt: '2024-09-01',
     version: '1.0',
-    tags: ['equipment', 'start-packet', 'pdf', 'materials']
+    tags: ['equipment', 'start-packet', 'pdf', 'materials', 'rbs', 'rodent']
   },
   {
     fieldId: 'SP_MONTHLY_PRICE',
