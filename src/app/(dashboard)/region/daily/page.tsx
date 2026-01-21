@@ -46,8 +46,9 @@ import {
   getRegionSummary,
   getAllRegions,
   DEFAULT_DAILY_GOALS,
+  REGION_NAMES,
 } from '@/lib/daily-sales-data'
-import { RegionCode, DailySalesEntry, Branch } from '@/types/daily-sales-cadence'
+import { RegionCode, DailySalesEntry } from '@/types/daily-sales-cadence'
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -60,15 +61,6 @@ function formatCurrency(value: number): string {
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-}
-
-const REGION_NAMES: Record<RegionCode, string> = {
-  R16: 'Region 16 - Arkansas/Kansas',
-  R23: 'Region 23 - Oklahoma/Kansas',
-  R24: 'Region 24 - Illinois/Indiana',
-  R52: 'Region 52 - Texas East',
-  R54: 'Region 54 - Texas Central/West',
-  R75: 'Region 75 - Texas (Combined)',
 }
 
 export default function RegionDailyPage() {
@@ -135,8 +127,8 @@ export default function RegionDailyPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Regional Daily Rollup</h1>
-          <p className="text-gray-500">Area Manager view - Branch performance summary</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Regional Daily Rollup</h1>
+          <p className="text-gray-500 dark:text-gray-400">Region Director view - Branch performance summary</p>
         </div>
         <div className="flex items-center gap-4">
           <Select value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as RegionCode)}>
@@ -155,7 +147,7 @@ export default function RegionDailyPage() {
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2 border rounded-md"
+            className="px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700"
           />
         </div>
       </div>
@@ -241,7 +233,7 @@ export default function RegionDailyPage() {
             <CardDescription>Daily inspection performance for reporting branches</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[300px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} layout="vertical">
                   <defs>
@@ -262,7 +254,7 @@ export default function RegionDailyPage() {
                       if (!active || !payload?.length) return null
                       const data = payload[0].payload
                       return (
-                        <div className="bg-white p-3 border rounded shadow-lg">
+                        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
                           <p className="font-medium">{data.fullName}</p>
                           <p className="text-sm">Inspections: {data.inspPrp}</p>
                           <p className="text-sm">Goal: {data.goal}</p>
@@ -359,7 +351,7 @@ export default function RegionDailyPage() {
                     <TableCell className="text-center">
                       {entry ? (
                         onTrack ? (
-                          <Badge className="bg-green-100 text-green-800">On Track</Badge>
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">On Track</Badge>
                         ) : (
                           <Badge variant="destructive">Behind</Badge>
                         )

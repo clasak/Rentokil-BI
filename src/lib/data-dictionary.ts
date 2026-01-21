@@ -1833,8 +1833,10 @@ const userFields: FieldDefinition[] = [
     businessContext: 'Determines system access, dashboard visibility, and data scope. Used for role-based access control (RBAC).',
     validValues: [
       { value: 'exec', label: 'Executive', description: 'C-suite and VP level, enterprise view' },
-      { value: 'market_director', label: 'Market Director', description: 'Regional P&L ownership' },
+      { value: 'market_vp', label: 'Market VP', description: 'Market P&L ownership' },
+      { value: 'market_sales_director', label: 'Market Sales Director', description: 'Market-level sales leadership' },
       { value: 'region_director', label: 'Region Director', description: 'Multi-branch oversight' },
+      { value: 'region_sales_manager', label: 'Region Sales Manager', description: 'Region-level sales leadership' },
       { value: 'manager', label: 'Branch Manager', description: 'Single branch P&L' },
       { value: 'sales_manager', label: 'Sales Manager', description: 'Sales team leadership' },
       { value: 'ops_manager', label: 'Operations Manager', description: 'Service operations leadership' },
@@ -1867,7 +1869,7 @@ const userFields: FieldDefinition[] = [
         ruleType: 'enum',
         severity: 'critical',
         description: 'Role must be one of the defined values',
-        validationLogic: "role IN ('exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician')",
+        validationLogic: "role IN ('exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician')",
         failureMessage: 'Invalid user role',
         remediation: 'Update role to valid value based on job family'
       }
@@ -2166,7 +2168,7 @@ const geographyFields: FieldDefinition[] = [
     format: 'REG-XXX',
     nullable: false,
     definition: 'Unique identifier for each region within a market.',
-    businessContext: 'Middle level of geographic hierarchy. Regions contain multiple branches and report to a Market Director.',
+    businessContext: 'Middle level of geographic hierarchy. Regions contain multiple branches and report to a Market VP.',
     primarySource: 'rtx_data_hub',
     sourceFieldName: 'REGION_CD',
     transformations: [

@@ -94,11 +94,11 @@ export default function QBRPage() {
 
   // Strategic initiatives tracking (mock data)
   const initiatives = [
-    { name: 'CRM Data Quality Initiative', status: 'on_track', progress: 75, owner: 'Sales Ops', target: 'Q4 2024' },
-    { name: 'Route Optimization Rollout', status: 'at_risk', progress: 45, owner: 'Operations', target: 'Q1 2025' },
-    { name: 'Customer Success Program', status: 'on_track', progress: 60, owner: 'Customer Experience', target: 'Q4 2024' },
-    { name: 'Collections Process Improvement', status: 'complete', progress: 100, owner: 'Finance', target: 'Q3 2024' },
-    { name: 'Technician Training Program', status: 'on_track', progress: 85, owner: 'HR/Operations', target: 'Q4 2024' },
+    { name: 'CRM Data Quality Initiative', status: 'on_track', progress: 75, owner: 'Sales Ops', target: 'Q1 2026' },
+    { name: 'Route Optimization Rollout', status: 'at_risk', progress: 45, owner: 'Operations', target: 'Q2 2026' },
+    { name: 'Customer Success Program', status: 'on_track', progress: 60, owner: 'Customer Experience', target: 'Q1 2026' },
+    { name: 'Collections Process Improvement', status: 'complete', progress: 100, owner: 'Finance', target: 'Q4 2025' },
+    { name: 'Technician Training Program', status: 'on_track', progress: 85, owner: 'HR/Operations', target: 'Q1 2026' },
   ]
 
   // KPI scorecard with targets
@@ -196,42 +196,56 @@ export default function QBRPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Revenue</TableCell>
-                  {qoqTrends.map((q, i) => (
-                    <TableCell key={i} className="text-right">{formatCurrency(q.revenue)}</TableCell>
-                  ))}
-                  <TableCell className="text-right text-green-600">
-                    +{(((qoqTrends[3].revenue - qoqTrends[2].revenue) / qoqTrends[2].revenue) * 100).toFixed(1)}%
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Pipeline</TableCell>
-                  {qoqTrends.map((q, i) => (
-                    <TableCell key={i} className="text-right">{formatCurrency(q.pipeline)}</TableCell>
-                  ))}
-                  <TableCell className="text-right text-green-600">
-                    +{(((qoqTrends[3].pipeline - qoqTrends[2].pipeline) / qoqTrends[2].pipeline) * 100).toFixed(1)}%
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Win Rate</TableCell>
-                  {qoqTrends.map((q, i) => (
-                    <TableCell key={i} className="text-right">{formatPercent(q.winRate)}</TableCell>
-                  ))}
-                  <TableCell className="text-right text-green-600">
-                    +{((qoqTrends[3].winRate - qoqTrends[2].winRate) * 100).toFixed(1)}pp
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Service Risk Index</TableCell>
-                  {qoqTrends.map((q, i) => (
-                    <TableCell key={i} className="text-right">{q.serviceRisk.toFixed(0)}</TableCell>
-                  ))}
-                  <TableCell className="text-right text-green-600">
-                    +{(qoqTrends[3].serviceRisk - qoqTrends[2].serviceRisk).toFixed(1)}
-                  </TableCell>
-                </TableRow>
+                {(() => {
+                  // Helper to format QoQ change with proper sign and color
+                  const formatQoQChange = (current: number, previous: number, isPercent: boolean = true, unit: string = '%', higherIsBetter: boolean = true) => {
+                    const change = isPercent
+                      ? ((current - previous) / previous) * 100
+                      : current - previous
+                    const isPositive = change > 0
+                    const isGood = higherIsBetter ? isPositive : !isPositive
+                    const sign = isPositive ? '+' : ''
+                    const colorClass = isGood ? 'text-green-600' : 'text-red-600'
+                    return (
+                      <TableCell className={`text-right ${colorClass}`}>
+                        {sign}{change.toFixed(1)}{unit}
+                      </TableCell>
+                    )
+                  }
+
+                  return (
+                    <>
+                      <TableRow>
+                        <TableCell className="font-medium">Revenue</TableCell>
+                        {qoqTrends.map((q, i) => (
+                          <TableCell key={i} className="text-right">{formatCurrency(q.revenue)}</TableCell>
+                        ))}
+                        {formatQoQChange(qoqTrends[3].revenue, qoqTrends[2].revenue, true, '%', true)}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Pipeline</TableCell>
+                        {qoqTrends.map((q, i) => (
+                          <TableCell key={i} className="text-right">{formatCurrency(q.pipeline)}</TableCell>
+                        ))}
+                        {formatQoQChange(qoqTrends[3].pipeline, qoqTrends[2].pipeline, true, '%', true)}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Win Rate</TableCell>
+                        {qoqTrends.map((q, i) => (
+                          <TableCell key={i} className="text-right">{formatPercent(q.winRate)}</TableCell>
+                        ))}
+                        {formatQoQChange(qoqTrends[3].winRate * 100, qoqTrends[2].winRate * 100, false, 'pp', true)}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Service Risk Index</TableCell>
+                        {qoqTrends.map((q, i) => (
+                          <TableCell key={i} className="text-right">{q.serviceRisk.toFixed(0)} pts</TableCell>
+                        ))}
+                        {formatQoQChange(qoqTrends[3].serviceRisk, qoqTrends[2].serviceRisk, false, ' pts', true)}
+                      </TableRow>
+                    </>
+                  )
+                })()}
               </TableBody>
             </Table>
           </CardContent>

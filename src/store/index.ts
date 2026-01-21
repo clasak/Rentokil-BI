@@ -7,6 +7,9 @@ import { getUsers, getMarkets, regenerateData, setDataQualityIssues } from '@/li
 
 type Theme = 'light' | 'dark' | 'system'
 
+// Test Mode Scenarios
+export type TestScenario = 'healthy' | 'critical' | 'warning' | 'empty' | 'max_values' | 'growth_spike'
+
 interface AppState {
   // Settings
   settings: AppSettings
@@ -17,6 +20,16 @@ interface AppState {
   setScenario: (scenario: Scenario) => void
   setDataQualityIssuesEnabled: (enabled: boolean) => void
   refreshData: () => void
+
+  // Admin Mode
+  isAdmin: boolean
+  setIsAdmin: (isAdmin: boolean) => void
+  adminModeEnabled: boolean  // Settings toggle for admin to see admin UI
+  setAdminModeEnabled: (enabled: boolean) => void
+  isPreviewingRole: boolean
+  previewedRole: Role | null
+  setPreviewingRole: (role: Role | null) => void
+  exitRolePreview: () => void
 
   // Filters
   filters: GlobalFilters
@@ -63,6 +76,12 @@ interface AppState {
   // Ops Manager filter toggle
   showAllBranchTechnicians: boolean
   setShowAllBranchTechnicians: (show: boolean) => void
+
+  // Test Mode
+  testModeEnabled: boolean
+  testScenario: TestScenario
+  setTestModeEnabled: (enabled: boolean) => void
+  setTestScenario: (scenario: TestScenario) => void
 
   // Current user context
   currentUser: User | null
@@ -243,6 +262,22 @@ export const useAppStore = create<AppState>()(
         }))
       },
 
+      // Admin Mode
+      isAdmin: false,
+      setIsAdmin: (isAdmin: boolean) => set({ isAdmin }),
+      adminModeEnabled: true,  // Defaults to true - admins see admin UI by default
+      setAdminModeEnabled: (enabled: boolean) => set({ adminModeEnabled: enabled }),
+      isPreviewingRole: false,
+      previewedRole: null,
+      setPreviewingRole: (role: Role | null) => {
+        if (role) {
+          set({ isPreviewingRole: true, previewedRole: role })
+        } else {
+          set({ isPreviewingRole: false, previewedRole: null })
+        }
+      },
+      exitRolePreview: () => set({ isPreviewingRole: false, previewedRole: null }),
+
       // Filters
       filters: defaultFilters,
 
@@ -332,12 +367,18 @@ export const useAppStore = create<AppState>()(
       showAllBranchTechnicians: false,
       setShowAllBranchTechnicians: (show: boolean) => set({ showAllBranchTechnicians: show }),
 
+      // Test Mode
+      testModeEnabled: false,
+      testScenario: 'healthy' as TestScenario,
+      setTestModeEnabled: (enabled: boolean) => set({ testModeEnabled: enabled }),
+      setTestScenario: (scenario: TestScenario) => set({ testScenario: scenario }),
+
       // Current user
       currentUser: null,
 
       getCurrentUserScope: () => {
         const state = get()
-        const { role } = state.settings
+        const { role, userId } = state.settings
         const markets = getMarkets()
 
         if (role === 'exec') {
@@ -348,9 +389,27 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        const user = state.currentUser
+        // Try currentUser first, then look up by userId, then by role
+        let user = state.currentUser
         if (!user) {
-          return { markets: [], branches: [], scope: 'Unknown' }
+          const users = getUsers()
+          user = users.find(u => u.id === userId) ?? users.find(u => u.role === role) ?? null
+        }
+
+        if (!user) {
+          // Final fallback - return role-based default scope
+          const roleLabels: Record<string, string> = {
+            market_vp: 'Market View',
+            market_sales_director: 'Market Sales',
+            region_director: 'Region View',
+            region_sales_manager: 'Region Sales',
+            manager: 'Branch View',
+            sales_manager: 'Sales Team',
+            ops_manager: 'Operations',
+            rep: 'My Accounts',
+            technician: 'My Routes',
+          }
+          return { markets: [], branches: [], scope: roleLabels[role] || 'My View' }
         }
 
         const marketNames = markets
@@ -378,7 +437,13 @@ export const useAppStore = create<AppState>()(
           case 'region_director':
             scopeLabel = `${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
             break
-          case 'market_director':
+          case 'region_sales_manager':
+            scopeLabel = `Sales: ${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
+            break
+          case 'market_sales_director':
+            scopeLabel = `Sales: ${marketNames.join(', ')}`
+            break
+          case 'market_vp':
             scopeLabel = marketNames.join(', ')
             break
           default:
@@ -399,11 +464,18 @@ export const useAppStore = create<AppState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
         showAllBranchTechnicians: state.showAllBranchTechnicians,
+        adminModeEnabled: state.adminModeEnabled,
+        testModeEnabled: state.testModeEnabled,
+        testScenario: state.testScenario,
       }),
       // Migrate persisted state to fix invalid roles
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const validRoles: Role[] = ['exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+          const validRoles: Role[] = ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+          // Migrate old market_director to market_vp
+          if ((state.settings.role as string) === 'market_director') {
+            state.settings.role = 'market_vp'
+          }
           if (!validRoles.includes(state.settings.role)) {
             state.settings.role = 'exec'
           }
@@ -454,12 +526,19 @@ export const ROLE_PERMISSIONS: Record<Role, {
     canEdit: ['settings', 'targets'],
     canExport: ['all'],
   },
-  market_director: {
-    label: 'Market Director',
+  market_vp: {
+    label: 'Market VP',
     description: 'Access to all regions and branches within assigned market',
     canView: ['market_data', 'all_regions', 'all_branches'],
     canEdit: ['market_targets'],
     canExport: ['market_data'],
+  },
+  market_sales_director: {
+    label: 'Market Sales Director',
+    description: 'Sales leadership for entire market, oversight of all region directors and sales teams',
+    canView: ['market_data', 'all_regions', 'all_branches', 'sales_pipeline', 'rep_performance'],
+    canEdit: ['sales_targets', 'sales_forecasts'],
+    canExport: ['sales_data', 'market_data'],
   },
   region_director: {
     label: 'Region Director',
@@ -467,6 +546,13 @@ export const ROLE_PERMISSIONS: Record<Role, {
     canView: ['region_data', 'all_region_branches'],
     canEdit: ['region_targets'],
     canExport: ['region_data'],
+  },
+  region_sales_manager: {
+    label: 'Region Sales Manager',
+    description: 'Sales leadership for region, oversight of all branch sales teams',
+    canView: ['region_data', 'all_region_branches', 'sales_pipeline', 'rep_performance'],
+    canEdit: ['sales_targets', 'sales_forecasts'],
+    canExport: ['sales_data', 'region_data'],
   },
   manager: {
     label: 'Branch Manager',

@@ -253,10 +253,14 @@ export default function NationalSalesPage() {
               {topOpportunities.map(opp => (
                 <TableRow key={opp.id}>
                   <TableCell>
-                    <div className="font-medium">{opp.name}</div>
-                    <div className="text-xs text-gray-500">{opp.id}</div>
+                    <div className="max-w-[180px]">
+                      <div className="font-medium truncate" title={opp.name}>{opp.name}</div>
+                      <div className="text-xs text-gray-500">{opp.id}</div>
+                    </div>
                   </TableCell>
-                  <TableCell>{opp.accountName}</TableCell>
+                  <TableCell>
+                    <span className="block max-w-[150px] truncate" title={opp.accountName}>{opp.accountName}</span>
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"

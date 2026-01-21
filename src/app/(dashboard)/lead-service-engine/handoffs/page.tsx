@@ -21,8 +21,15 @@ import {
 } from '@/components/ui/table'
 import {
   Mail, AlertTriangle, Clock, ArrowLeft, TrendingUp, TrendingDown, CheckCircle,
-  FileText, User
+  FileText, User, Info
 } from 'lucide-react'
+import {
+  Tooltip as TooltipComponent,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine
@@ -63,6 +70,13 @@ export default function HandoffsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Lead Service Engine', href: '/lead-service-engine' },
+        { label: 'Handoffs' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/lead-service-engine">
@@ -94,46 +108,88 @@ export default function HandoffsPage() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-orange-600">
-              {(bdMetrics?.pending || 0) + (opsMetrics?.pending || 0)}
-            </div>
-            <div className="text-sm text-gray-500">Total Pending</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-yellow-600">
-              {(bdMetrics?.delayedCount || 0) + (opsMetrics?.delayedCount || 0)}
-            </div>
-            <div className="text-sm text-gray-500">Delayed ({'>'}24h)</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold">
-              {Math.round(((bdMetrics?.avgWaitHours || 0) + (opsMetrics?.avgWaitHours || 0)) / 2)}h
-            </div>
-            <div className="text-sm text-gray-500">Avg Wait Time</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className={`text-3xl font-bold ${
-              Math.min(bdMetrics?.slaCompliance || 100, opsMetrics?.slaCompliance || 100) >= 90
-                ? 'text-green-600'
-                : Math.min(bdMetrics?.slaCompliance || 100, opsMetrics?.slaCompliance || 100) >= 70
-                ? 'text-yellow-600'
-                : 'text-red-600'
-            }`}>
-              {Math.round(((bdMetrics?.slaCompliance ?? 100) + (opsMetrics?.slaCompliance ?? 100)) / 2)}%
-            </div>
-            <div className="text-sm text-gray-500">Avg SLA Compliance</div>
-          </CardContent>
-        </Card>
-      </div>
+      <TooltipProvider delayDuration={200}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <div className="text-3xl font-bold text-orange-600">
+                {(bdMetrics?.pending || 0) + (opsMetrics?.pending || 0)}
+              </div>
+              <TooltipComponent>
+                <TooltipTrigger asChild>
+                  <div className="text-sm text-gray-500 cursor-help inline-flex items-center gap-1">
+                    Total Pending
+                    <Info className="h-3 w-3" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Leads currently awaiting handoff across both BD→Sales and Sales→Ops stages</p>
+                </TooltipContent>
+              </TooltipComponent>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <div className="text-3xl font-bold text-yellow-600">
+                {(bdMetrics?.delayedCount || 0) + (opsMetrics?.delayedCount || 0)}
+              </div>
+              <TooltipComponent>
+                <TooltipTrigger asChild>
+                  <div className="text-sm text-gray-500 cursor-help inline-flex items-center gap-1">
+                    Delayed (&gt;24h)
+                    <Info className="h-3 w-3" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Leads that have exceeded the 24-hour SLA target for handoff completion</p>
+                </TooltipContent>
+              </TooltipComponent>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <div className="text-3xl font-bold">
+                {Math.round(((bdMetrics?.avgWaitHours || 0) + (opsMetrics?.avgWaitHours || 0)) / 2)}h
+              </div>
+              <TooltipComponent>
+                <TooltipTrigger asChild>
+                  <div className="text-sm text-gray-500 cursor-help inline-flex items-center gap-1">
+                    Avg Wait Time
+                    <Info className="h-3 w-3" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Average hours a lead waits in handoff stages before being processed</p>
+                </TooltipContent>
+              </TooltipComponent>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <div className={`text-3xl font-bold ${
+                Math.min(bdMetrics?.slaCompliance || 100, opsMetrics?.slaCompliance || 100) >= 90
+                  ? 'text-green-600'
+                  : Math.min(bdMetrics?.slaCompliance || 100, opsMetrics?.slaCompliance || 100) >= 70
+                  ? 'text-yellow-600'
+                  : 'text-red-600'
+              }`}>
+                {Math.round(((bdMetrics?.slaCompliance ?? 100) + (opsMetrics?.slaCompliance ?? 100)) / 2)}%
+              </div>
+              <TooltipComponent>
+                <TooltipTrigger asChild>
+                  <div className="text-sm text-gray-500 cursor-help inline-flex items-center gap-1">
+                    Avg SLA Compliance
+                    <Info className="h-3 w-3" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Percentage of leads processed within the 24-hour SLA target. Green &ge;90%, Yellow &ge;70%, Red &lt;70%</p>
+                </TooltipContent>
+              </TooltipComponent>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
 
       {/* Tabbed View for Each Handoff */}
       <Tabs defaultValue="bd_to_sales" className="space-y-6">
@@ -163,17 +219,18 @@ export default function HandoffsPage() {
               <CardDescription>Average handoff wait time with 24-hour SLA target</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[250px]">
+              <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={bdMetrics?.trend || []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={(v) => `${v}h`} />
                     <Tooltip
+                      cursor={false}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border text-sm">
+                            <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-200 dark:border-gray-700 text-sm">
                               <div className="font-medium">{payload[0].payload.day}</div>
                               <div className="text-orange-600">{payload[0].value} hours</div>
                               <div className="text-gray-500">{payload[0].payload.count} leads</div>
@@ -229,8 +286,10 @@ export default function HandoffsPage() {
                     >
                       <TableCell className="font-mono text-sm">{lead.id}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{lead.companyName}</div>
-                        <div className="text-xs text-gray-500">{lead.contactName}</div>
+                        <div className="max-w-[160px]">
+                          <div className="font-medium truncate" title={lead.companyName}>{lead.companyName}</div>
+                          <div className="text-xs text-gray-500 truncate" title={lead.contactName}>{lead.contactName}</div>
+                        </div>
                       </TableCell>
                       <TableCell>{lead.assignedBD || '-'}</TableCell>
                       <TableCell>{lead.assignedAE || <span className="text-gray-400">Unassigned</span>}</TableCell>
@@ -272,17 +331,18 @@ export default function HandoffsPage() {
               <CardDescription>Average handoff wait time with 24-hour SLA target</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[250px]">
+              <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={opsMetrics?.trend || []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={(v) => `${v}h`} />
                     <Tooltip
+                      cursor={false}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border text-sm">
+                            <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-200 dark:border-gray-700 text-sm">
                               <div className="font-medium">{payload[0].payload.day}</div>
                               <div className="text-orange-600">{payload[0].value} hours</div>
                               <div className="text-gray-500">{payload[0].payload.count} leads</div>
@@ -338,8 +398,10 @@ export default function HandoffsPage() {
                     >
                       <TableCell className="font-mono text-sm">{lead.id}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{lead.companyName}</div>
-                        <div className="text-xs text-gray-500">{lead.contactName}</div>
+                        <div className="max-w-[160px]">
+                          <div className="font-medium truncate" title={lead.companyName}>{lead.companyName}</div>
+                          <div className="text-xs text-gray-500 truncate" title={lead.contactName}>{lead.contactName}</div>
+                        </div>
                       </TableCell>
                       <TableCell>{lead.assignedAE || '-'}</TableCell>
                       <TableCell>

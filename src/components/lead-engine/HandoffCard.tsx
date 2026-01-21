@@ -154,10 +154,10 @@ export function HandoffCard({ metrics, showChart = true, className }: HandoffCar
             <div className="text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">
               Avg Wait Time (Last 14 Days)
             </div>
-            <div className="h-[120px]">
+            <div className="h-[120px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={metrics.trend.slice(-14)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="day"
                     tick={{ fontSize: 10 }}
@@ -171,10 +171,11 @@ export function HandoffCard({ metrics, showChart = true, className }: HandoffCar
                     tickFormatter={(value) => `${value}h`}
                   />
                   <Tooltip
+                    cursor={false}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         return (
-                          <div className="bg-white dark:bg-gray-800 p-2 rounded shadow border dark:border-gray-700 text-sm">
+                          <div className="bg-white dark:bg-gray-800 p-2 rounded shadow border border-gray-200 dark:border-gray-700 text-sm">
                             <div className="font-medium">{payload[0].payload.day}</div>
                             <div className="text-gray-600 dark:text-gray-400">
                               {payload[0].value} hours avg

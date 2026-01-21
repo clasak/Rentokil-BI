@@ -233,8 +233,8 @@ export function getAEDashboardStats(ae: AccountExecutive): AEDashboardStats {
   const mtdProposals = currentMonthData.proposalSummary.totalProposals
   const mtdSales = currentMonthData.salesSummary.totalSales
   const mtdRevenue = currentMonthData.salesSummary.grandTotal
-  // Use ISQ (Individual Sales Quota) as the revenue goal, not the proposal count goal
-  const monthlyGoal = currentMonthData.salesSummary.monthISQ
+  // Use the consistent monthly goal from proposal summary (the actual revenue target)
+  const monthlyGoal = currentMonthData.proposalSummary.proposalGoal
 
   // Pipeline = unsold, non-dead proposals
   const pipeline = currentMonthData.proposals.filter(p => !p.sold && !p.dead)

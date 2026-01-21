@@ -3,12 +3,16 @@ import seedrandom from 'seedrandom'
 import {
   Branch,
   RegionCode,
+  MarketCode,
   DailySalesEntry,
   DailySalesMetrics,
   WeeklyRollup,
   RegionSummary,
+  MarketSummary,
   BranchDashboardStats,
   DEFAULT_DAILY_GOALS,
+  MARKET_REGIONS,
+  MARKET_NAMES,
 } from '@/types/daily-sales-cadence'
 
 // Re-export for convenience
@@ -365,3 +369,80 @@ export function getWeeklyRollup(branchCode: string, weekStartDate: string): Week
 export function getAllRegions(): RegionCode[] {
   return ['R16', 'R23', 'R24', 'R52', 'R54']
 }
+
+export function getAllMarkets(): MarketCode[] {
+  return ['MIDWEST', 'TEXAS']
+}
+
+export function getRegionsForMarket(market: MarketCode): RegionCode[] {
+  return MARKET_REGIONS[market] || []
+}
+
+export function getBranchesByMarket(market: MarketCode): Branch[] {
+  const regionCodes = getRegionsForMarket(market)
+  return MASTER_BRANCH_LIST.filter(b => regionCodes.includes(b.region))
+}
+
+export function getEntriesForMarket(market: MarketCode): DailySalesEntry[] {
+  const branchCodes = getBranchesByMarket(market).map(b => b.code)
+  return getDailyEntries().filter(e => branchCodes.includes(e.branchCode))
+}
+
+export function getMarketSummary(market: MarketCode, date?: string): MarketSummary {
+  const targetDate = date || new Date().toISOString().split('T')[0]
+  const regions = getRegionsForMarket(market)
+  const allBranches = getBranchesByMarket(market)
+
+  // Get region summaries
+  const regionBreakdown = regions.map(region => getRegionSummary(region, targetDate))
+
+  // Aggregate totals
+  const totals = regionBreakdown.reduce((acc, r) => ({
+    pccInField: acc.pccInField + r.totalPccInField,
+    inspPrp: acc.inspPrp + r.totalInspPrp,
+    lobsPrp: acc.lobsPrp + r.totalLobsPrp,
+    lobsSold: acc.lobsSold + r.totalLobsSold,
+    dollarsSold: acc.dollarsSold + r.totalDollarsSold,
+    branchesOnTrack: acc.branchesOnTrack + r.branchesOnTrack,
+    branchesOffTrack: acc.branchesOffTrack + r.branchesOffTrack,
+  }), { pccInField: 0, inspPrp: 0, lobsPrp: 0, lobsSold: 0, dollarsSold: 0, branchesOnTrack: 0, branchesOffTrack: 0 })
+
+  // Calculate average goal attainment across regions
+  const avgGoalAttainment = regionBreakdown.length > 0
+    ? regionBreakdown.reduce((sum, r) => sum + r.avgGoalAttainment, 0) / regionBreakdown.length
+    : 0
+
+  // Count regions on/off track (average goal attainment >= 80%)
+  const regionsOnTrack = regionBreakdown.filter(r => r.avgGoalAttainment >= 80).length
+  const regionsOffTrack = regionBreakdown.filter(r => r.avgGoalAttainment < 80).length
+
+  return {
+    market,
+    regionCount: regions.length,
+    branchCount: allBranches.length,
+    totalPccInField: totals.pccInField,
+    totalInspPrp: totals.inspPrp,
+    totalLobsPrp: totals.lobsPrp,
+    totalLobsSold: totals.lobsSold,
+    totalDollarsSold: totals.dollarsSold,
+    avgGoalAttainment,
+    regionsOnTrack,
+    regionsOffTrack,
+    branchesOnTrack: totals.branchesOnTrack,
+    branchesOffTrack: totals.branchesOffTrack,
+    regionBreakdown,
+  }
+}
+
+// Region display names
+export const REGION_NAMES: Record<RegionCode, string> = {
+  R16: 'Region 16 - Arkansas/Kansas',
+  R23: 'Region 23 - Oklahoma/Kansas',
+  R24: 'Region 24 - Illinois/Indiana',
+  R52: 'Region 52 - Texas East',
+  R54: 'Region 54 - Texas Central/West',
+  R75: 'Region 75 - Texas (Combined)',
+}
+
+// Re-export market names for convenience
+export { MARKET_NAMES }

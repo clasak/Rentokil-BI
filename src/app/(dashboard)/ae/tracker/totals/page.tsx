@@ -14,7 +14,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  ArrowLeft,
   Target,
   DollarSign,
   TrendingUp,
@@ -25,6 +24,7 @@ import {
   CheckCircle,
 } from 'lucide-react'
 import Link from 'next/link'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   initializeAEData,
   getAEData,
@@ -129,21 +129,21 @@ export default function TotalsDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: 'My Dashboard', href: '/ae' },
+          { label: 'Sales Tracker' }
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/ae">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{totals.year} Totals Dashboard</h1>
-            <p className="text-gray-500 dark:text-gray-400">
-              Annual performance summary and goal tracking
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{totals.year} Totals Dashboard</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Annual performance summary and goal tracking
+          </p>
         </div>
       </div>
 

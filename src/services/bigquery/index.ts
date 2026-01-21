@@ -78,9 +78,11 @@ function createAccountService(client: BigQueryClient): BigQueryAccountService {
       // Role-based filtering - same logic as RTX provider
       switch (role) {
         case 'exec':
-        case 'market_director':
+        case 'market_vp':
+        case 'market_sales_director':
           return accounts
         case 'region_director':
+        case 'region_sales_manager':
           return accounts
         case 'manager':
         case 'ops_manager':
@@ -134,8 +136,10 @@ function createOpportunityService(client: BigQueryClient): BigQueryOpportunitySe
     filterByRole(opportunities: Opportunity[], role: Role, userId: string): Opportunity[] {
       switch (role) {
         case 'exec':
-        case 'market_director':
+        case 'market_vp':
+        case 'market_sales_director':
         case 'region_director':
+        case 'region_sales_manager':
         case 'sales_manager':
           return opportunities
         case 'manager':

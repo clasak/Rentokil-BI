@@ -59,9 +59,18 @@ export function FunnelChart({ metrics, title = 'Pipeline Funnel', className, sho
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[250px]">
+        <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} layout="vertical">
+              <defs>
+                <filter id="glow-funnel" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="3" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
               <XAxis type="number" />
               <YAxis
@@ -71,11 +80,12 @@ export function FunnelChart({ metrics, title = 'Pipeline Funnel', className, sho
                 tick={{ fontSize: 12 }}
               />
               <Tooltip
+                cursor={false}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload
                     return (
-                      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border dark:border-gray-700">
+                      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
                         <div className="font-medium mb-2">{data.fullName}</div>
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between gap-4">
@@ -122,7 +132,7 @@ export function FunnelChart({ metrics, title = 'Pipeline Funnel', className, sho
                   return null
                 }}
               />
-              <Bar dataKey="total" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="total" radius={[0, 4, 4, 0]} activeBar={{ filter: 'url(#glow-funnel)' }}>
                 {data.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
@@ -177,18 +187,28 @@ export function StackedFunnelChart({ metrics, title = 'Pipeline Health', classNa
         <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[250px]">
+        <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
+              <defs>
+                <filter id="glow-stacked-funnel" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="3" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis />
               <Tooltip
+                cursor={false}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload
                     return (
-                      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border dark:border-gray-700">
+                      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
                         <div className="font-medium mb-2">{data.fullName}</div>
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between gap-4">
@@ -210,9 +230,9 @@ export function StackedFunnelChart({ metrics, title = 'Pipeline Health', classNa
                   return null
                 }}
               />
-              <Bar dataKey="healthy" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="atRisk" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="critical" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="healthy" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} activeBar={{ filter: 'url(#glow-stacked-funnel)' }} />
+              <Bar dataKey="atRisk" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} activeBar={{ filter: 'url(#glow-stacked-funnel)' }} />
+              <Bar dataKey="critical" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} activeBar={{ filter: 'url(#glow-stacked-funnel)' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>

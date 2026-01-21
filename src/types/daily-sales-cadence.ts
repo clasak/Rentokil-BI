@@ -3,6 +3,31 @@
 
 export type RegionCode = 'R16' | 'R23' | 'R24' | 'R52' | 'R54' | 'R75'
 
+// Market codes for higher-level aggregation
+export type MarketCode = 'MIDWEST' | 'TEXAS'
+
+// Market to Region mapping
+export const MARKET_REGIONS: Record<MarketCode, RegionCode[]> = {
+  'MIDWEST': ['R16', 'R23', 'R24'],
+  'TEXAS': ['R52', 'R54'],
+}
+
+// Region to Market mapping (reverse lookup)
+export const REGION_TO_MARKET: Record<RegionCode, MarketCode> = {
+  'R16': 'MIDWEST',
+  'R23': 'MIDWEST',
+  'R24': 'MIDWEST',
+  'R52': 'TEXAS',
+  'R54': 'TEXAS',
+  'R75': 'TEXAS', // Combined Texas region
+}
+
+// Market display names
+export const MARKET_NAMES: Record<MarketCode, string> = {
+  'MIDWEST': 'Midwest Market',
+  'TEXAS': 'Texas Market',
+}
+
 export interface Branch {
   region: RegionCode
   code: string
@@ -65,7 +90,7 @@ export interface WeeklyRollup {
   }
 }
 
-// Region summary for Area Manager view
+// Region summary for Region Director view
 export interface RegionSummary {
   region: RegionCode
   branchCount: number
@@ -77,6 +102,24 @@ export interface RegionSummary {
   avgGoalAttainment: number
   branchesOnTrack: number
   branchesOffTrack: number
+}
+
+// Market summary for Market VP / Market Sales Director view
+export interface MarketSummary {
+  market: MarketCode
+  regionCount: number
+  branchCount: number
+  totalPccInField: number
+  totalInspPrp: number
+  totalLobsPrp: number
+  totalLobsSold: number
+  totalDollarsSold: number
+  avgGoalAttainment: number
+  regionsOnTrack: number
+  regionsOffTrack: number
+  branchesOnTrack: number
+  branchesOffTrack: number
+  regionBreakdown: RegionSummary[]
 }
 
 // Form input for Branch Manager

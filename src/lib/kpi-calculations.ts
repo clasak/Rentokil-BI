@@ -39,7 +39,17 @@ function filterDataByRole(
 
   const user = getUserById(userId)
   if (!user) {
-    return { accounts, opportunities, invoices, serviceEvents, complaints, capacity, activities }
+    // Security: Return empty data instead of all data when user not found
+    // This prevents data leakage through invalid user IDs
+    return {
+      accounts: [],
+      opportunities: [],
+      invoices: [],
+      serviceEvents: [],
+      complaints: [],
+      capacity: [],
+      activities: [],
+    }
   }
 
   // Filter accounts first (they have direct branchId/marketId)
@@ -975,4 +985,489 @@ export function getARAgingBreakdown(role?: Role, userId?: string): { bucket: str
       count: bucketInvoices.length,
     }
   })
+}
+
+// ============================================================================
+// HIERARCHICAL KPI AGGREGATION
+// ============================================================================
+// Functions for cascading KPI data upward through the role hierarchy:
+// Rep/Technician → Sales/Ops Manager → Branch Manager → Region Director → Market VP → Exec
+
+import {
+  HierarchicalKPIResult,
+  HierarchicalKPIValue,
+  SubordinateKPIResult,
+  AggregationLevel,
+  HierarchyLevel,
+  ROLE_TO_HIERARCHY_LEVEL,
+} from '@/types/hierarchy'
+import { AggregationType, WeightField } from '@/types'
+import { KPI_DICTIONARY } from './kpis'
+import {
+  getDirectSubordinates,
+  getAggregationPath,
+  getSubordinateUserIds,
+} from './hierarchy'
+import { getUsers, getBranches, getRegions, getMarkets } from './data'
+
+/**
+ * Get weight value for a KPI's weighted average calculation
+ */
+function getWeightForKPI(
+  weightField: WeightField | undefined,
+  data: {
+    accounts: Account[],
+    opportunities: Opportunity[],
+    invoices: Invoice[],
+    serviceEvents: ServiceEvent[],
+  }
+): number {
+  if (!weightField) return 1
+
+  switch (weightField) {
+    case 'deal_count':
+      return data.opportunities.filter(o => ['closed_won', 'closed_lost'].includes(o.stage)).length || 1
+    case 'account_count':
+      return data.accounts.length || 1
+    case 'service_count':
+      return data.serviceEvents.length || 1
+    case 'ar_balance':
+      return data.invoices.filter(i => ['open', 'overdue'].includes(i.status)).reduce((sum, i) => sum + i.amount, 0) || 1
+    case 'revenue':
+      return data.invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0) || 1
+    case 'opportunity_value':
+      return data.opportunities.reduce((sum, o) => sum + o.amount, 0) || 1
+    default:
+      return 1
+  }
+}
+
+/**
+ * Aggregate KPI values from subordinates based on aggregation type
+ */
+function aggregateKPIValue(
+  kpiSlug: string,
+  subordinateValues: { value: number; weight: number }[],
+  aggregationType: AggregationType
+): number {
+  if (subordinateValues.length === 0) return 0
+
+  switch (aggregationType) {
+    case 'sum':
+      return subordinateValues.reduce((sum, sv) => sum + sv.value, 0)
+
+    case 'average':
+      return subordinateValues.reduce((sum, sv) => sum + sv.value, 0) / subordinateValues.length
+
+    case 'weighted_average':
+      const totalWeight = subordinateValues.reduce((sum, sv) => sum + sv.weight, 0)
+      if (totalWeight === 0) return 0
+      return subordinateValues.reduce((sum, sv) => sum + sv.value * sv.weight, 0) / totalWeight
+
+    case 'min':
+      return Math.min(...subordinateValues.map(sv => sv.value))
+
+    case 'max':
+      return Math.max(...subordinateValues.map(sv => sv.value))
+
+    case 'count':
+      return subordinateValues.length
+
+    case 'latest':
+      return subordinateValues[subordinateValues.length - 1]?.value || 0
+
+    default:
+      return subordinateValues.reduce((sum, sv) => sum + sv.value, 0)
+  }
+}
+
+/**
+ * Calculate hierarchical KPI values for a user, including subordinate breakdown
+ */
+export function calculateHierarchicalKPIValues(
+  role: Role,
+  userId: string,
+  options: {
+    includeSubordinates?: boolean
+    kpiSlugs?: string[]
+    subordinateDepth?: number
+  } = {}
+): HierarchicalKPIResult {
+  const { includeSubordinates = true, kpiSlugs, subordinateDepth = 1 } = options
+
+  // Get user's aggregation path (their position in hierarchy)
+  const aggregationPath = getAggregationPath(userId, role)
+  const currentLevel: AggregationLevel = aggregationPath[0] || {
+    level: ROLE_TO_HIERARCHY_LEVEL[role],
+    id: userId,
+    name: 'Unknown',
+    entityType: 'user',
+  }
+
+  // Calculate base KPIs for this user's scope
+  const baseKPIs = calculateKPIValues(role, userId)
+
+  // Get raw data for weight calculations
+  const rawAccounts = getAccounts()
+  const rawOpportunities = getOpportunities()
+  const rawInvoices = getInvoices()
+  const rawServiceEvents = getServiceEvents()
+
+  // Filter data for this user's scope
+  const { accounts, opportunities, invoices, serviceEvents } = filterDataByRole(
+    role,
+    userId,
+    rawAccounts,
+    rawOpportunities,
+    rawInvoices,
+    rawServiceEvents,
+    getComplaints(),
+    getTechnicianCapacity(),
+    getActivities()
+  )
+
+  // Convert base KPIs to hierarchical format with aggregation metadata
+  const hierarchicalKPIs: HierarchicalKPIValue[] = []
+  const kpis = kpiSlugs
+    ? KPI_DICTIONARY.filter(k => kpiSlugs.includes(k.slug))
+    : KPI_DICTIONARY
+
+  for (const kpiDef of kpis) {
+    const baseValue = baseKPIs.get(kpiDef.slug)
+    if (!baseValue) continue
+
+    const weight = getWeightForKPI(kpiDef.weightField, { accounts, opportunities, invoices, serviceEvents })
+
+    hierarchicalKPIs.push({
+      ...baseValue,
+      aggregationType: kpiDef.aggregationType || 'sum',
+      weightField: kpiDef.weightField,
+      totalWeight: weight,
+    })
+  }
+
+  // Build result
+  const result: HierarchicalKPIResult = {
+    level: currentLevel,
+    kpis: hierarchicalKPIs,
+  }
+
+  // Get subordinate breakdown if requested and user has subordinates
+  if (includeSubordinates && subordinateDepth > 0) {
+    const subordinates = getDirectSubordinates(userId, role)
+
+    if (subordinates.entities.length > 0) {
+      // First pass: collect all subordinate data without percentages
+      const tempSubordinates: (Omit<SubordinateKPIResult, 'contributionPercent'> & { revenueValue: number })[] = []
+
+      for (const entity of subordinates.entities) {
+        if (subordinates.type === 'user') {
+          // User entity (reps, technicians)
+          const user = entity as import('@/types').User
+          const userKPIs = calculateKPIValues(user.role, user.id)
+
+          const subKPIs: HierarchicalKPIValue[] = []
+          for (const kpiDef of kpis) {
+            const kpiValue = userKPIs.get(kpiDef.slug)
+            if (!kpiValue) continue
+
+            // Get weight for this subordinate
+            const subData = filterDataByRole(
+              user.role,
+              user.id,
+              rawAccounts,
+              rawOpportunities,
+              rawInvoices,
+              rawServiceEvents,
+              getComplaints(),
+              getTechnicianCapacity(),
+              getActivities()
+            )
+            const weight = getWeightForKPI(kpiDef.weightField, {
+              accounts: subData.accounts,
+              opportunities: subData.opportunities,
+              invoices: subData.invoices,
+              serviceEvents: subData.serviceEvents,
+            })
+
+            subKPIs.push({
+              ...kpiValue,
+              aggregationType: kpiDef.aggregationType || 'sum',
+              weightField: kpiDef.weightField,
+              totalWeight: weight,
+            })
+          }
+
+          const mainKPI = subKPIs.find(k => k.slug === 'revenue_mtd')
+          tempSubordinates.push({
+            subordinateId: user.id,
+            subordinateName: user.name,
+            subordinateType: 'user',
+            subordinateRole: user.role,
+            kpis: subKPIs,
+            hasSubordinates: false,
+            revenueValue: mainKPI?.value || 0,
+          })
+        } else if (subordinates.type === 'branch') {
+          // Branch entity
+          const branch = entity as import('@/types').Branch
+          const branchUsers = getUsers().filter(u =>
+            u.assignedBranches.includes(branch.id) &&
+            ['rep', 'technician', 'sales_manager', 'ops_manager', 'manager'].includes(u.role)
+          )
+
+          // Aggregate KPIs from all users in this branch
+          const branchKPIs: HierarchicalKPIValue[] = []
+          for (const kpiDef of kpis) {
+            const subordinateValues: { value: number; weight: number }[] = []
+
+            for (const user of branchUsers) {
+              const userKPIs = calculateKPIValues(user.role, user.id)
+              const kpiValue = userKPIs.get(kpiDef.slug)
+              if (!kpiValue) continue
+
+              const subData = filterDataByRole(
+                user.role,
+                user.id,
+                rawAccounts,
+                rawOpportunities,
+                rawInvoices,
+                rawServiceEvents,
+                getComplaints(),
+                getTechnicianCapacity(),
+                getActivities()
+              )
+              const weight = getWeightForKPI(kpiDef.weightField, {
+                accounts: subData.accounts,
+                opportunities: subData.opportunities,
+                invoices: subData.invoices,
+                serviceEvents: subData.serviceEvents,
+              })
+
+              subordinateValues.push({ value: kpiValue.value, weight })
+            }
+
+            const aggregatedValue = aggregateKPIValue(
+              kpiDef.slug,
+              subordinateValues,
+              kpiDef.aggregationType || 'sum'
+            )
+
+            const baseValue = baseKPIs.get(kpiDef.slug)
+            if (baseValue) {
+              branchKPIs.push({
+                ...baseValue,
+                value: aggregatedValue,
+                aggregationType: kpiDef.aggregationType || 'sum',
+                weightField: kpiDef.weightField,
+                subordinateCount: branchUsers.length,
+              })
+            }
+          }
+
+          const mainKPI = branchKPIs.find(k => k.slug === 'revenue_mtd')
+          tempSubordinates.push({
+            subordinateId: branch.id,
+            subordinateName: branch.name,
+            subordinateType: 'branch',
+            kpis: branchKPIs,
+            hasSubordinates: branchUsers.length > 0,
+            subordinateCount: branchUsers.length,
+            revenueValue: mainKPI?.value || 0,
+          })
+        } else if (subordinates.type === 'region') {
+          // Region entity
+          const region = entity as import('@/types').Region
+          const regionBranches = getBranches().filter(b => b.regionId === region.id)
+
+          const regionKPIs: HierarchicalKPIValue[] = []
+          for (const kpiDef of kpis) {
+            const branchValues: { value: number; weight: number }[] = []
+
+            for (const branch of regionBranches) {
+              // Get branch manager's KPIs as proxy for branch
+              const branchManager = getUsers().find(u =>
+                u.role === 'manager' && u.assignedBranches.includes(branch.id)
+              )
+              if (!branchManager) continue
+
+              const branchKPIs = calculateKPIValues('manager', branchManager.id)
+              const kpiValue = branchKPIs.get(kpiDef.slug)
+              if (!kpiValue) continue
+
+              const subData = filterDataByRole(
+                'manager',
+                branchManager.id,
+                rawAccounts,
+                rawOpportunities,
+                rawInvoices,
+                rawServiceEvents,
+                getComplaints(),
+                getTechnicianCapacity(),
+                getActivities()
+              )
+              const weight = getWeightForKPI(kpiDef.weightField, {
+                accounts: subData.accounts,
+                opportunities: subData.opportunities,
+                invoices: subData.invoices,
+                serviceEvents: subData.serviceEvents,
+              })
+
+              branchValues.push({ value: kpiValue.value, weight })
+            }
+
+            const aggregatedValue = aggregateKPIValue(
+              kpiDef.slug,
+              branchValues,
+              kpiDef.aggregationType || 'sum'
+            )
+
+            const baseValue = baseKPIs.get(kpiDef.slug)
+            if (baseValue) {
+              regionKPIs.push({
+                ...baseValue,
+                value: aggregatedValue,
+                aggregationType: kpiDef.aggregationType || 'sum',
+                weightField: kpiDef.weightField,
+                subordinateCount: regionBranches.length,
+              })
+            }
+          }
+
+          const mainKPI = regionKPIs.find(k => k.slug === 'revenue_mtd')
+          tempSubordinates.push({
+            subordinateId: region.id,
+            subordinateName: region.name,
+            subordinateType: 'region',
+            kpis: regionKPIs,
+            hasSubordinates: regionBranches.length > 0,
+            subordinateCount: regionBranches.length,
+            revenueValue: mainKPI?.value || 0,
+          })
+        } else if (subordinates.type === 'market') {
+          // Market entity
+          const market = entity as import('@/types').Market
+          const marketRegions = getRegions().filter(r => r.marketId === market.id)
+
+          const marketKPIs: HierarchicalKPIValue[] = []
+          for (const kpiDef of kpis) {
+            const regionValues: { value: number; weight: number }[] = []
+
+            for (const region of marketRegions) {
+              // Get region director's KPIs as proxy for region
+              const regionDirector = getUsers().find(u =>
+                u.role === 'region_director' && u.assignedRegions.includes(region.id)
+              )
+              if (!regionDirector) continue
+
+              const regionKPIs = calculateKPIValues('region_director', regionDirector.id)
+              const kpiValue = regionKPIs.get(kpiDef.slug)
+              if (!kpiValue) continue
+
+              const subData = filterDataByRole(
+                'region_director',
+                regionDirector.id,
+                rawAccounts,
+                rawOpportunities,
+                rawInvoices,
+                rawServiceEvents,
+                getComplaints(),
+                getTechnicianCapacity(),
+                getActivities()
+              )
+              const weight = getWeightForKPI(kpiDef.weightField, {
+                accounts: subData.accounts,
+                opportunities: subData.opportunities,
+                invoices: subData.invoices,
+                serviceEvents: subData.serviceEvents,
+              })
+
+              regionValues.push({ value: kpiValue.value, weight })
+            }
+
+            const aggregatedValue = aggregateKPIValue(
+              kpiDef.slug,
+              regionValues,
+              kpiDef.aggregationType || 'sum'
+            )
+
+            const baseValue = baseKPIs.get(kpiDef.slug)
+            if (baseValue) {
+              marketKPIs.push({
+                ...baseValue,
+                value: aggregatedValue,
+                aggregationType: kpiDef.aggregationType || 'sum',
+                weightField: kpiDef.weightField,
+                subordinateCount: marketRegions.length,
+              })
+            }
+          }
+
+          const mainKPI = marketKPIs.find(k => k.slug === 'revenue_mtd')
+          tempSubordinates.push({
+            subordinateId: market.id,
+            subordinateName: market.name,
+            subordinateType: 'market',
+            kpis: marketKPIs,
+            hasSubordinates: marketRegions.length > 0,
+            subordinateCount: marketRegions.length,
+            revenueValue: mainKPI?.value || 0,
+          })
+        }
+      }
+
+      // Second pass: calculate contribution percentages based on sum of all subordinate revenues
+      const totalSubordinateRevenue = tempSubordinates.reduce((sum, s) => sum + s.revenueValue, 0)
+      result.subordinates = tempSubordinates.map(sub => ({
+        subordinateId: sub.subordinateId,
+        subordinateName: sub.subordinateName,
+        subordinateType: sub.subordinateType,
+        subordinateRole: sub.subordinateRole,
+        kpis: sub.kpis,
+        contributionPercent: totalSubordinateRevenue > 0
+          ? (sub.revenueValue / totalSubordinateRevenue) * 100
+          : 0,
+        hasSubordinates: sub.hasSubordinates,
+        subordinateCount: sub.subordinateCount,
+      }))
+
+      // Sort subordinates by contribution (highest first)
+      result.subordinates.sort((a, b) => b.contributionPercent - a.contributionPercent)
+    }
+  }
+
+  return result
+}
+
+/**
+ * Get KPI contribution breakdown for a specific KPI across subordinates
+ */
+export function getKPIContributionBreakdown(
+  kpiSlug: string,
+  role: Role,
+  userId: string
+): {
+  total: number
+  subordinates: { id: string; name: string; value: number; percent: number }[]
+} {
+  const hierarchicalResult = calculateHierarchicalKPIValues(role, userId, {
+    includeSubordinates: true,
+    kpiSlugs: [kpiSlug],
+  })
+
+  const totalKPI = hierarchicalResult.kpis.find(k => k.slug === kpiSlug)
+  const total = totalKPI?.value || 0
+
+  const subordinates = (hierarchicalResult.subordinates || []).map(sub => {
+    const subKPI = sub.kpis.find(k => k.slug === kpiSlug)
+    const value = subKPI?.value || 0
+    return {
+      id: sub.subordinateId,
+      name: sub.subordinateName,
+      value,
+      percent: total > 0 ? (value / total) * 100 : 0,
+    }
+  })
+
+  return { total, subordinates }
 }

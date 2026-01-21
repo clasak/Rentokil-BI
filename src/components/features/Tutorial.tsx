@@ -96,9 +96,9 @@ export const ROLE_TUTORIALS: Record<Role, { name: string; welcome: string; steps
       }
     ]
   },
-  market_director: {
-    name: 'Market Director Dashboard',
-    welcome: 'Welcome! As a Market Director, you oversee multiple regions. This tutorial will help you monitor performance across your market.',
+  market_vp: {
+    name: 'Market VP Dashboard',
+    welcome: 'Welcome! As a Market VP, you oversee multiple regions. This tutorial will help you monitor performance across your market.',
     steps: [
       {
         elementId: 'kpi-grid',
@@ -122,6 +122,36 @@ export const ROLE_TUTORIALS: Record<Role, { name: string; welcome: string; steps
         description: 'View revenue projections for your market. Use scenarios to plan for different outcomes.',
         route: '/forecast',
         position: 'top',
+        highlight: true
+      }
+    ]
+  },
+  market_sales_director: {
+    name: 'Market Sales Director Dashboard',
+    welcome: 'Welcome! As a Market Sales Director, you lead sales strategy across your entire market. This tutorial will show you how to monitor and drive sales performance.',
+    steps: [
+      {
+        elementId: 'kpi-grid',
+        title: 'Market Sales Overview',
+        description: 'Your command center shows sales KPIs across all regions. Focus on pipeline health and revenue attainment.',
+        route: '/',
+        position: 'center',
+        highlight: true
+      },
+      {
+        elementId: 'sales-kpi-cards',
+        title: 'Pipeline Dashboard',
+        description: 'Monitor pipeline by region, identify stalled opportunities, and track win rates across your market.',
+        route: '/sales',
+        position: 'bottom',
+        highlight: true
+      },
+      {
+        elementId: 'lead-engine-nav',
+        title: 'Lead Service Engine',
+        description: 'Track lead conversion across all regions. Identify which sources and teams perform best.',
+        route: '/lead-service-engine',
+        position: 'center',
         highlight: true
       }
     ]
@@ -152,6 +182,36 @@ export const ROLE_TUTORIALS: Record<Role, { name: string; welcome: string; steps
         description: 'Monitor service quality, technician utilization, and customer satisfaction for your region.',
         route: '/ops',
         position: 'bottom',
+        highlight: true
+      }
+    ]
+  },
+  region_sales_manager: {
+    name: 'Region Sales Manager Dashboard',
+    welcome: 'Welcome! As a Region Sales Manager, you lead sales strategy within your region. This tutorial will show you how to monitor and drive sales performance.',
+    steps: [
+      {
+        elementId: 'kpi-grid',
+        title: 'Region Sales Overview',
+        description: 'Your command center shows sales KPIs across all branches. Focus on pipeline health and revenue attainment.',
+        route: '/',
+        position: 'center',
+        highlight: true
+      },
+      {
+        elementId: 'sales-kpi-cards',
+        title: 'Pipeline Dashboard',
+        description: 'Monitor pipeline by branch, identify stalled opportunities, and track win rates across your region.',
+        route: '/sales',
+        position: 'bottom',
+        highlight: true
+      },
+      {
+        elementId: 'lead-engine-nav',
+        title: 'Lead Service Engine',
+        description: 'Track lead conversion across all branches. Identify which sources and teams perform best.',
+        route: '/lead-service-engine',
+        position: 'center',
         highlight: true
       }
     ]

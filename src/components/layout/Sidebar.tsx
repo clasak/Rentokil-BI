@@ -10,28 +10,48 @@ import {
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
   ClipboardList, Truck, Upload, Book, Shield, GitBranch,
-  ClipboardCheck, Workflow, Lock, X
+  ClipboardCheck, Workflow, Lock, X, Database
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { isAdminEmail } from '@/lib/admin'
+import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
+import { Role } from '@/types'
 
 interface SidebarProps {
   onNavigate?: () => void
   isMobile?: boolean
 }
 
-// Admin emails that can see the admin link
-const ADMIN_EMAILS = [
-  'cody.lytle@rentokil.com',
-  'cody.lytle@prestox.com',
-]
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { Role } from '@/types'
-
-// Executive / Manager navigation
+// Executive navigation (no daily cadence - they don't need branch-level detail)
 const executiveNav = [
   { name: 'Command Center', href: '/', icon: LayoutDashboard },
+  { name: 'Sales', href: '/sales', icon: TrendingUp },
+  { name: 'Operations', href: '/ops', icon: Wrench },
+  { name: 'Finance', href: '/finance', icon: DollarSign },
+  { name: 'People', href: '/people', icon: Users },
+  { name: 'Forecast', href: '/forecast', icon: Target },
+  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
+]
+
+// Market VP / Market Sales Director navigation (includes market-level daily rollup)
+const marketVPNav = [
+  { name: 'Command Center', href: '/', icon: LayoutDashboard },
+  { name: 'Daily Rollup', href: '/market/daily', icon: CalendarDays },
+  { name: 'Sales', href: '/sales', icon: TrendingUp },
+  { name: 'Operations', href: '/ops', icon: Wrench },
+  { name: 'Finance', href: '/finance', icon: DollarSign },
+  { name: 'People', href: '/people', icon: Users },
+  { name: 'Forecast', href: '/forecast', icon: Target },
+  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
+]
+
+// Region Director / Region Sales Manager navigation (includes region-level daily rollup)
+const regionDirectorNav = [
+  { name: 'Command Center', href: '/', icon: LayoutDashboard },
+  { name: 'Daily Rollup', href: '/region/daily', icon: CalendarDays },
+  { name: 'Weekly WIG', href: '/region/weekly-wig', icon: ClipboardCheck },
   { name: 'Sales', href: '/sales', icon: TrendingUp },
   { name: 'Operations', href: '/ops', icon: Wrench },
   { name: 'Finance', href: '/finance', icon: DollarSign },
@@ -52,12 +72,11 @@ const opsManagerNav = [
 ]
 
 // Account Executive navigation
+// Note: Proposals and Sales are sub-tabs within Sales Tracker, not separate nav items
 const aeNav = [
   { name: 'My Dashboard', href: '/ae', icon: LayoutDashboard },
   { name: 'Import Quote', href: '/ae/import', icon: Upload },
   { name: 'Sales Tracker', href: '/ae/tracker/totals', icon: Target },
-  { name: 'Proposals', href: '/ae/tracker/proposals', icon: FileText },
-  { name: 'Sales', href: '/ae/tracker/sales', icon: ClipboardList },
   { name: 'New Starts', href: '/ae/new-starts', icon: Truck },
 ]
 
@@ -81,9 +100,11 @@ const techNav = [
 
 const governance = [
   { name: 'Governance', href: '/governance', icon: ShieldCheck },
+  { name: 'Platform Admin', href: '/platform-admin', icon: Shield },
   { name: 'Data Dictionary', href: '/governance/data-dictionary', icon: Book },
   { name: 'Data Standards', href: '/governance/data-standards', icon: ClipboardCheck },
   { name: 'Data Quality', href: '/governance/data-quality', icon: Shield },
+  { name: 'RTX Discovery', href: '/governance/rtx-discovery', icon: Database },
   { name: 'Field Lineage', href: '/governance/field-lineage', icon: GitBranch },
   { name: 'WBR', href: '/wbr', icon: Calendar },
   { name: 'QBR', href: '/qbr', icon: CalendarDays },
@@ -105,8 +126,13 @@ function getNavigationForRole(role: Role) {
     case 'manager':
       return { main: branchManagerNav, showGovernance: true }
     case 'sales_manager':
+      return { main: executiveNav, showGovernance: true }
+    case 'region_sales_manager':
     case 'region_director':
-    case 'market_director':
+      return { main: regionDirectorNav, showGovernance: true }
+    case 'market_sales_director':
+    case 'market_vp':
+      return { main: marketVPNav, showGovernance: true }
     case 'exec':
       return { main: executiveNav, showGovernance: true }
     default:
@@ -119,10 +145,14 @@ function getRoleLabel(role: Role): string {
   switch (role) {
     case 'exec':
       return 'Executive'
-    case 'market_director':
-      return 'Market Director'
+    case 'market_vp':
+      return 'Market VP'
+    case 'market_sales_director':
+      return 'Market Sales Director'
     case 'region_director':
       return 'Region Director'
+    case 'region_sales_manager':
+      return 'Region Sales Manager'
     case 'manager':
       return 'Branch Manager'
     case 'sales_manager':
@@ -157,9 +187,8 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
           return
         }
         if (user?.email) {
-          const email = user.email.toLowerCase()
-          const isUserAdmin = ADMIN_EMAILS.includes(email)
-          console.log('Sidebar: Admin check -', { email, isUserAdmin, adminEmails: ADMIN_EMAILS })
+          const isUserAdmin = isAdminEmail(user.email)
+          console.log('Sidebar: Admin check -', { email: user.email, isUserAdmin })
           setIsAdmin(isUserAdmin)
         } else {
           console.log('Sidebar: No user email found')

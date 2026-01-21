@@ -5,6 +5,7 @@ import { useAppStore, ROLE_PERMISSIONS } from '@/store'
 import { KPI_DICTIONARY, DATA_SOURCES } from '@/lib/kpis'
 import { getDataSources, getDataQualityMetrics } from '@/lib/data'
 import { LineageModal } from '@/components/features/LineageModal'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -82,10 +83,16 @@ export default function GovernancePage() {
   const criticalIssues = qualityMetrics.filter(m => m.status === 'critical')
   const warningIssues = qualityMetrics.filter(m => m.status === 'warning')
 
-  const roles: Role[] = ['exec', 'market_director', 'region_director', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
+  const roles: Role[] = ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager', 'rep', 'technician']
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Governance' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -179,7 +186,10 @@ export default function GovernancePage() {
                         <TableCell>
                           <Badge variant="outline" className="capitalize">{kpi.category}</Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-600 max-w-xs truncate">
+                        <TableCell
+                          className="text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate"
+                          title={kpi.definition}
+                        >
                           {kpi.definition}
                         </TableCell>
                         <TableCell className="text-sm">{kpi.primarySource}</TableCell>

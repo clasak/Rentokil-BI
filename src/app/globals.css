@@ -2,6 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===========================================
+   SAFE AREA HANDLING FOR iOS NOTCH/HOME INDICATOR
+   =========================================== */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+/* Safe area utility classes */
+.pt-safe { padding-top: var(--safe-area-inset-top); }
+.pb-safe { padding-bottom: var(--safe-area-inset-bottom); }
+.pl-safe { padding-left: var(--safe-area-inset-left); }
+.pr-safe { padding-right: var(--safe-area-inset-right); }
+.p-safe {
+  padding-top: var(--safe-area-inset-top);
+  padding-right: var(--safe-area-inset-right);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+}
+.mt-safe { margin-top: var(--safe-area-inset-top); }
+.mb-safe { margin-bottom: var(--safe-area-inset-bottom); }
+
+/* Touch-friendly minimum sizes */
+.min-touch {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* PWA standalone mode specific styles */
+@media (display-mode: standalone) {
+  /* Additional padding for PWA mode */
+  .standalone\:pt-safe { padding-top: var(--safe-area-inset-top); }
+  .standalone\:pb-safe { padding-bottom: var(--safe-area-inset-bottom); }
+}
+
+/* Prevent pull-to-refresh on mobile when not at top */
+html {
+  overscroll-behavior-y: contain;
+}
+
+/* Disable text selection on interactive elements for native feel */
+button, [role="button"], .touch-manipulation {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

@@ -1,0 +1,737 @@
+{
+  "name": "OPS-RTX-INTAKE-001 Data Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/health",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "check-rtx-health",
+      "name": "Check RTX Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "rtx-healthy",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "healthy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "is-rtx-healthy",
+      "name": "Is RTX Healthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if schema discovery is needed\n// Run daily or on first connect\nconst now = new Date();\nconst hour = now.getUTCHours();\nconst minute = now.getMinutes();\n\n// Run schema discovery at midnight UTC or if explicitly requested\nconst shouldDiscoverSchema = (hour === 0 && minute < 15);\n\nreturn [{\n  json: {\n    shouldDiscoverSchema,\n    rtxHealth: $input.first().json,\n    timestamp: now.toISOString()\n  }\n}];"
+      },
+      "id": "check-schema-discovery",
+      "name": "Check Schema Discovery Need",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "should-discover",
+              "leftValue": "={{ $json.shouldDiscoverSchema }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "needs-discovery",
+      "name": "Needs Discovery?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/discover",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"force\": false\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "run-discovery",
+      "name": "Run Schema Discovery",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, -200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_RTX_API_CREDENTIAL_ID",
+          "name": "RTX-API-Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-changes",
+              "leftValue": "={{ $json.changes.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-schema-changes",
+      "name": "Has Schema Changes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1320, -200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#2196F3\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"ℹ️ RTX Schema Changes Detected\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Changes Detected:*\\n{{ $json.changes.length }}\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Fields Registered:*\\n{{ $json.registered }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*Changes:*\\n{{ $json.changes.slice(0, 10).map(c => '• ' + c.entity + '.' + c.field + ': ' + c.change + (c.previous_type ? ' (' + c.previous_type + ' → ' + c.current_type + ')' : '')).join('\\n') }}{{ $json.changes.length > 10 ? '\\n... and ' + ($json.changes.length - 10) + ' more' : '' }}\"\n          }\n        },\n        {\n          \"type\": \"context\",\n          \"elements\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"Agent: RTX Intake | {{ $now.toISO() }}\"\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-schema-changes",
+      "name": "Slack Schema Changes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, -300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/sync",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"type\": \"incremental\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "run-sync",
+      "name": "Run Data Sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_RTX_API_CREDENTIAL_ID",
+          "name": "RTX-API-Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "sync-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sync-succeeded",
+      "name": "Sync Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1320, 100]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/integrity",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "run-integrity-check",
+      "name": "Run Integrity Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "integrity-ok",
+              "leftValue": "={{ $json.overall_status }}",
+              "rightValue": "healthy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "integrity-healthy",
+      "name": "Integrity Healthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1760, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "rtx_sync",
+            "severity": "info",
+            "source": "rtx",
+            "route": "/api/rtx/sync",
+            "message": "={{ 'RTX sync completed: ' + ($json.summary.total_fetched || 0) + ' fetched, ' + ($json.summary.total_created || 0) + ' created, ' + ($json.summary.total_updated || 0) + ' updated' }}",
+            "metadata": "={{ JSON.stringify($json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-sync-success",
+      "name": "Log Sync Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1980, -100],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "rtx_integrity",
+            "severity": "warning",
+            "source": "rtx",
+            "route": "/api/rtx/integrity",
+            "message": "={{ 'Data integrity issues detected: ' + ($json.checks || []).filter(c => c.status !== 'ok').map(c => c.entity + ': ' + c.status).join(', ') }}",
+            "metadata": "={{ JSON.stringify($json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-integrity-warning",
+      "name": "Log Integrity Warning",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1980, 100],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FFA500\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"⚠️ RTX Data Integrity Issues\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*Overall Status:* {{ $json.overall_status }}\"\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*Issues:*\\n{{ ($json.checks || []).filter(c => c.status !== 'ok').map(c => '• ' + c.entity + ': ' + c.status + ' (' + (c.issues || []).slice(0, 2).join(', ') + ')').join('\\n') }}\"\n          }\n        },\n        {\n          \"type\": \"context\",\n          \"elements\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"Agent: RTX Intake | {{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"actions\",\n          \"elements\": [\n            {\n              \"type\": \"button\",\n              \"text\": {\n                \"type\": \"plain_text\",\n                \"text\": \"View Data Sources\"\n              },\n              \"url\": \"https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/settings/data-sources\"\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-integrity-warning",
+      "name": "Slack Integrity Warning",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 100]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "rtx_sync",
+            "severity": "critical",
+            "source": "rtx",
+            "route": "/api/rtx/sync",
+            "message": "={{ 'RTX sync failed: ' + ($json.message || 'Unknown error') }}",
+            "metadata": "={{ JSON.stringify($json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-sync-failure",
+      "name": "Log Sync Failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1540, 200],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 RTX Data Sync Failed\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*Error:* {{ $json.message || 'Unknown error' }}\"\n          }\n        },\n        {\n          \"type\": \"context\",\n          \"elements\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"Agent: RTX Intake | {{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"actions\",\n          \"elements\": [\n            {\n              \"type\": \"button\",\n              \"text\": {\n                \"type\": \"plain_text\",\n                \"text\": \"View Status\"\n              },\n              \"url\": \"https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/settings/data-sources\",\n              \"style\": \"danger\"\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-sync-failure",
+      "name": "Slack Sync Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1760, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/rtx/failover",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"event\": \"failover\",\n  \"reason\": \"RTX health check failed\",\n  \"rtx_health\": \"{{ $('Check RTX Health').item.json.status || 'unreachable' }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "trigger-failover",
+      "name": "Trigger Failover",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_RTX_API_CREDENTIAL_ID",
+          "name": "RTX-API-Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "rtx_failover",
+            "severity": "critical",
+            "source": "rtx",
+            "route": "/api/rtx/health",
+            "message": "={{ 'RTX health check failed: ' + ($('Check RTX Health').item.json.status || 'unreachable') + '. Failover to mock data activated.' }}",
+            "metadata": "={{ JSON.stringify($('Check RTX Health').item.json) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-failover",
+      "name": "Log Failover Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 100],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "output": "all"
+      },
+      "id": "merge-after-discovery",
+      "name": "Merge After Discovery",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1760, -200]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "output": "all"
+      },
+      "id": "merge-skip-discovery",
+      "name": "Merge Skip Discovery",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [880, 0]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Check RTX Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check RTX Health": {
+      "main": [
+        [
+          {
+            "node": "Is RTX Healthy?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger Failover",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is RTX Healthy?": {
+      "main": [
+        [
+          {
+            "node": "Check Schema Discovery Need",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger Failover",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Schema Discovery Need": {
+      "main": [
+        [
+          {
+            "node": "Needs Discovery?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Discovery?": {
+      "main": [
+        [
+          {
+            "node": "Run Schema Discovery",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Data Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Schema Discovery": {
+      "main": [
+        [
+          {
+            "node": "Has Schema Changes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Schema Changes?": {
+      "main": [
+        [
+          {
+            "node": "Slack Schema Changes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Data Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Schema Changes": {
+      "main": [
+        [
+          {
+            "node": "Run Data Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Data Sync": {
+      "main": [
+        [
+          {
+            "node": "Sync Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Run Integrity Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Sync Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Integrity Check": {
+      "main": [
+        [
+          {
+            "node": "Integrity Healthy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Integrity Healthy?": {
+      "main": [
+        [
+          {
+            "node": "Log Sync Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Integrity Warning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Integrity Warning": {
+      "main": [
+        [
+          {
+            "node": "Slack Integrity Warning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Sync Failure": {
+      "main": [
+        [
+          {
+            "node": "Slack Sync Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Failover": {
+      "main": [
+        [
+          {
+            "node": "Log Failover Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "rtx"
+    },
+    {
+      "name": "data-intake"
+    },
+    {
+      "name": "15min"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-14T00:00:00.000Z",
+  "versionId": "1"
+}

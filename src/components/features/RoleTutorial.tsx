@@ -78,7 +78,7 @@ const ROLE_TUTORIALS: Record<Role, TutorialStep[]> = {
       ]
     }
   ],
-  market_director: [
+  market_vp: [
     {
       title: 'Market Overview',
       description: 'See all regions within your market with aggregated KPIs and drill-down to regional details.',
@@ -113,6 +113,41 @@ const ROLE_TUTORIALS: Record<Role, TutorialStep[]> = {
       ]
     }
   ],
+  market_sales_director: [
+    {
+      title: 'Market Sales Overview',
+      description: 'See sales performance across all regions within your market with pipeline visibility.',
+      route: '/',
+      icon: TrendingUp,
+      tips: [
+        'Monitor sales pipeline health across all regions',
+        'Identify top and bottom performing sales teams',
+        'Track revenue attainment vs quota by region'
+      ]
+    },
+    {
+      title: 'Sales Pipeline',
+      description: 'Market-wide pipeline with weighted revenue projections and stalled opportunity alerts.',
+      route: '/sales',
+      icon: TrendingUp,
+      tips: [
+        'Review stalled opportunities for escalation',
+        'Pipeline coverage should be 3x quota minimum',
+        'Win rate trends indicate competitive positioning'
+      ]
+    },
+    {
+      title: 'Lead Service Engine',
+      description: 'Track leads from source through conversion across all market regions.',
+      route: '/lead-service-engine',
+      icon: Target,
+      tips: [
+        'Compare lead source effectiveness by region',
+        'Identify conversion bottlenecks',
+        'Optimize sales team resource allocation'
+      ]
+    }
+  ],
   region_director: [
     {
       title: 'Region Dashboard',
@@ -134,6 +169,41 @@ const ROLE_TUTORIALS: Record<Role, TutorialStep[]> = {
         'Sort by any metric to find outliers',
         'Best-performing branches can mentor others',
         'Use for territory balancing decisions'
+      ]
+    }
+  ],
+  region_sales_manager: [
+    {
+      title: 'Region Sales Overview',
+      description: 'See sales performance across all branches within your region with pipeline visibility.',
+      route: '/',
+      icon: TrendingUp,
+      tips: [
+        'Monitor sales pipeline health across all branches',
+        'Identify top and bottom performing sales teams',
+        'Track revenue attainment vs quota by branch'
+      ]
+    },
+    {
+      title: 'Sales Pipeline',
+      description: 'Region-wide pipeline with weighted revenue projections and stalled opportunity alerts.',
+      route: '/sales',
+      icon: TrendingUp,
+      tips: [
+        'Review stalled opportunities for escalation',
+        'Pipeline coverage should be 3x quota minimum',
+        'Win rate trends indicate competitive positioning'
+      ]
+    },
+    {
+      title: 'Lead Service Engine',
+      description: 'Track leads from source through conversion across all region branches.',
+      route: '/lead-service-engine',
+      icon: Target,
+      tips: [
+        'Compare lead source effectiveness by branch',
+        'Identify conversion bottlenecks',
+        'Optimize sales team resource allocation'
       ]
     }
   ],

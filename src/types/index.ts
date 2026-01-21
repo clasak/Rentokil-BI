@@ -2,8 +2,10 @@
 
 export type Role =
   | 'exec'
-  | 'market_director'
+  | 'market_vp'
+  | 'market_sales_director'
   | 'region_director'
+  | 'region_sales_manager'
   | 'manager'
   | 'sales_manager'
   | 'ops_manager'
@@ -164,6 +166,36 @@ export interface TechnicianCapacity {
 // KPI Types
 export type KPICategory = 'revenue' | 'sales' | 'operations' | 'finance' | 'workforce' | 'quality'
 
+// Aggregation types for hierarchical KPI rollups
+export type AggregationType = 'sum' | 'average' | 'weighted_average' | 'min' | 'max' | 'count' | 'latest'
+export type WeightField =
+  | 'deal_count'
+  | 'account_count'
+  | 'service_count'
+  | 'ar_balance'
+  | 'revenue'
+  | 'opportunity_value'
+  // SALTI funnel weight fields
+  | 'mql_count'
+  | 'sql_count'
+  | 'scheduled_count'
+  | 'inspected_count'
+  | 'proposed_count'
+  | 'sold_count'
+  // SALTI sales weight fields
+  | 'rep_count'
+  | 'headcount'
+  | 'contracts_units'
+  | 'inis_units'
+  | 'jobs_units'
+  | 'gross_sales'
+  | 'net_sales'
+  // Additional weight fields
+  | 'customer_count'
+  | 'ly_sales'
+  | 'units_sold'
+  | 'starting_headcount'
+
 export interface KPIDefinition {
   slug: string
   name: string
@@ -193,6 +225,9 @@ export interface KPIDefinition {
   usedBy?: string[] // KPIs that depend on this one
   businessContext?: string // Why this KPI matters for pest control industry
   benchmarks?: KPIBenchmark[] // Industry benchmarks for comparison
+  // Hierarchical aggregation configuration
+  aggregationType?: AggregationType // How to roll up this KPI in hierarchy (default: sum)
+  weightField?: WeightField // For weighted_average, what field to weight by
 }
 
 export interface KPILineage {

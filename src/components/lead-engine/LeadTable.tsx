@@ -224,7 +224,7 @@ export function LeadTable({
                 Owner <SortIcon field="owner" />
               </TableHead>
               <TableHead
-                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-right"
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-right min-w-[90px]"
                 onClick={() => handleSort('estimatedValue')}
               >
                 Value <SortIcon field="estimatedValue" />
@@ -254,8 +254,10 @@ export function LeadTable({
                     {lead.id}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{lead.companyName}</div>
-                    <div className="text-xs text-gray-500">{lead.propertyType}</div>
+                    <div className="max-w-[180px]">
+                      <div className="font-medium truncate" title={lead.companyName}>{lead.companyName}</div>
+                      <div className="text-xs text-gray-500">{lead.propertyType}</div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">{lead.contactName}</div>
@@ -311,7 +313,7 @@ export function LeadTable({
                     <div className="text-sm">{lead.owner}</div>
                     <div className="text-xs text-gray-500">{lead.ownerRole}</div>
                   </TableCell>
-                  <TableCell className="text-right font-medium">
+                  <TableCell className="text-right font-medium whitespace-nowrap">
                     {formatCurrency(lead.estimatedValue)}
                   </TableCell>
                 </TableRow>

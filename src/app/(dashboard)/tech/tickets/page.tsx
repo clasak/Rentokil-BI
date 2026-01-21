@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ClipboardList, Clock, AlertTriangle, CheckCircle, FileText } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 
 interface Ticket {
   id: string
@@ -23,10 +24,10 @@ export default function TechTicketsPage() {
 
   useEffect(() => {
     const mockTickets: Ticket[] = [
-      { id: 'TKT-001', accountName: 'ABC Manufacturing', type: 'callback', priority: 'high', description: 'Customer reported rodent activity after last service', createdAt: '2024-01-15', dueDate: '2024-01-17', status: 'open' },
-      { id: 'TKT-002', accountName: 'Downtown Cafe', type: 'follow_up', priority: 'medium', description: 'Follow up on bait station placement', createdAt: '2024-01-14', dueDate: '2024-01-20', status: 'in_progress' },
-      { id: 'TKT-003', accountName: 'City Hospital', type: 'complaint', priority: 'urgent', description: 'Pest sighting in cafeteria area', createdAt: '2024-01-16', dueDate: '2024-01-16', status: 'open' },
-      { id: 'TKT-004', accountName: 'Tech Solutions', type: 'new_service', priority: 'low', description: 'Initial service setup for new contract', createdAt: '2024-01-10', dueDate: '2024-01-25', status: 'completed' },
+      { id: 'TKT-001', accountName: 'ABC Manufacturing', type: 'callback', priority: 'high', description: 'Customer reported rodent activity after last service', createdAt: '2026-01-13', dueDate: '2026-01-15', status: 'open' },
+      { id: 'TKT-002', accountName: 'Downtown Cafe', type: 'follow_up', priority: 'medium', description: 'Follow up on bait station placement', createdAt: '2026-01-12', dueDate: '2026-01-18', status: 'in_progress' },
+      { id: 'TKT-003', accountName: 'City Hospital', type: 'complaint', priority: 'urgent', description: 'Pest sighting in cafeteria area', createdAt: '2026-01-14', dueDate: '2026-01-15', status: 'open' },
+      { id: 'TKT-004', accountName: 'Tech Solutions', type: 'new_service', priority: 'low', description: 'Initial service setup for new contract', createdAt: '2026-01-08', dueDate: '2026-01-22', status: 'completed' },
     ]
 
     setTimeout(() => {
@@ -134,7 +135,7 @@ export default function TechTicketsPage() {
                     </div>
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-1">{ticket.accountName}</div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{ticket.description}</div>
-                    <div className="text-xs text-gray-400 mt-2">Due: {ticket.dueDate}</div>
+                    <div className="text-xs text-gray-400 mt-2">Due: {format(parseISO(ticket.dueDate), 'MMM d, yyyy')}</div>
                   </div>
                   {ticket.status !== 'completed' && (
                     <Button size="sm" variant="outline">

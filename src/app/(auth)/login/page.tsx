@@ -6,19 +6,46 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Mail, Lock, AlertCircle, Loader2, BarChart3, Shield, Users, ArrowLeft, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { logLoginSuccess, logLoginFailure, logPasswordReset } from '@/lib/security-logger'
 
-type ViewMode = 'login' | 'forgot-password' | 'reset-sent'
+type ViewMode = 'login' | 'signup' | 'forgot-password' | 'reset-sent'
+
+// Log login events to ops_events table for tracking (legacy function, kept for backwards compatibility)
+async function logLoginEvent(
+  supabase: SupabaseClient,
+  email: string,
+  eventType: 'login' | 'signup'
+) {
+  try {
+    await supabase.from('ops_events').insert({
+      source: 'auth',
+      event_type: eventType,
+      severity: 'info',
+      message: `User ${eventType}: ${email}`,
+      metadata: {
+        email,
+        timestamp: new Date().toISOString(),
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      },
+    })
+  } catch (err) {
+    // Don't block login if logging fails
+    console.log('Failed to log login event:', err)
+  }
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('login')
   const router = useRouter()
   const supabase = createClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
@@ -37,36 +64,78 @@ export default function LoginPage() {
     }
 
     try {
-      // First, try to sign in
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (signInError) {
-        // If invalid credentials, could be new user OR existing magic link user
-        if (signInError.message.includes('Invalid login credentials')) {
-          // Try to sign up - this will set password for existing users or create new ones
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-          })
+        // Log failed login attempt to security events (for Sam agent)
+        await logLoginFailure(email, signInError.message, {
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        })
 
-          if (signUpError) {
-            // If user already exists with different auth method
-            if (signUpError.message.includes('User already registered')) {
-              setError('Account exists with a different password. Use "Forgot Password" to reset.')
-            } else {
-              setError(signUpError.message)
-            }
-          } else if (signUpData.user) {
-            // New account created successfully
-            router.push('/onboarding')
-          }
+        if (signInError.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password. Need an account? Click "Create Account" above.')
         } else {
           setError(signInError.message)
         }
       } else {
+        // Log successful login (both to ops_events and security_events)
+        await logLoginEvent(supabase, email, 'login')
+        await logLoginSuccess(email, undefined, {
+          action: 'login',
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        })
+        router.push('/onboarding')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    // Basic validation
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address')
+      setLoading(false)
+      return
+    }
+
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+
+      if (signUpError) {
+        if (signUpError.message.includes('User already registered')) {
+          setError('An account with this email already exists. Try signing in instead.')
+          await logLoginFailure(email, 'User already registered')
+        } else {
+          setError(signUpError.message)
+          await logLoginFailure(email, signUpError.message)
+        }
+      } else if (signUpData.user) {
+        // Log new user signup (both to ops_events and security_events)
+        await logLoginEvent(supabase, email, 'signup')
+        await logLoginSuccess(email, signUpData.user.id, {
+          action: 'signup',
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        })
+        // New account created successfully
         router.push('/onboarding')
       }
     } catch (err) {
@@ -95,6 +164,10 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else {
+        // Log password reset request to security events (for Sam agent)
+        await logPasswordReset(email, 'requested', {
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        })
         setViewMode('reset-sent')
       }
     } catch (err) {
@@ -206,19 +279,50 @@ export default function LoginPage() {
       )
     }
 
-    // Default: login view
+    // Login or Signup view with tabs
+    const isSignUp = viewMode === 'signup'
+
     return (
       <>
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Welcome to Rentokil BI
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">
-            Sign in or create your account
-          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Tabs for Sign In / Create Account */}
+        <div className="flex mb-6 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('login')
+              setError(null)
+            }}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all ${
+              !isSignUp
+                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('signup')
+              setError(null)
+            }}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all ${
+              isSignUp
+                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Create Account
+          </button>
+        </div>
+
+        <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-5">
           <div>
             <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
               Email Address
@@ -242,16 +346,18 @@ export default function LoginPage() {
               <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Password
               </label>
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('forgot-password')
-                  setError(null)
-                }}
-                className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-              >
-                Forgot password?
-              </button>
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('forgot-password')
+                    setError(null)
+                  }}
+                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  Forgot password?
+                </button>
+              )}
             </div>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -260,12 +366,29 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder={isSignUp ? 'Create a password (min 6 characters)' : 'Enter your password'}
                 className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
                 disabled={loading}
               />
             </div>
           </div>
+
+          {/* Remember Me - only show on sign in */}
+          {!isSignUp && (
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded cursor-pointer"
+                disabled={loading}
+              />
+              <label htmlFor="remember-me" className="ml-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                Remember me
+              </label>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
@@ -282,21 +405,23 @@ export default function LoginPage() {
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Signing in...
+                {isSignUp ? 'Creating account...' : 'Signing in...'}
               </>
             ) : (
-              'Sign In'
+              isSignUp ? 'Create Account' : 'Sign In'
             )}
           </Button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-            New users will be automatically registered.
-            <br />
-            Use at least 6 characters for your password.
-          </p>
-        </div>
+        {isSignUp && (
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+              By creating an account, you agree to the terms of service.
+              <br />
+              Password must be at least 6 characters.
+            </p>
+          </div>
+        )}
       </>
     )
   }

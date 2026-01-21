@@ -38,6 +38,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from 'recharts'
 import Link from 'next/link'
 
@@ -321,17 +322,22 @@ export default function AccountExecutiveDashboard() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
+                        innerRadius={35}
+                        outerRadius={60}
                         activeShape={{ filter: 'url(#glow-ae-pie1)' }}
                       >
                         {leadSourceData.map((_, index) => (
                           <Cell key={index} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(value: number, name: string) => [`${value} leads`, name]} />
+                      <Legend
+                        layout="vertical"
+                        align="right"
+                        verticalAlign="middle"
+                        wrapperStyle={{ fontSize: '11px', paddingLeft: '10px' }}
+                        formatter={(value) => <span className="text-gray-700 dark:text-gray-300">{value}</span>}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -361,17 +367,22 @@ export default function AccountExecutiveDashboard() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
-                        label={({ name }) => name}
-                        labelLine={false}
+                        innerRadius={35}
+                        outerRadius={60}
                         activeShape={{ filter: 'url(#glow-ae-pie2)' }}
                       >
                         {serviceBreakdown.map((_, index) => (
                           <Cell key={index} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Tooltip formatter={(value: number) => [formatCurrency(value), 'Revenue']} />
+                      <Legend
+                        layout="vertical"
+                        align="right"
+                        verticalAlign="middle"
+                        wrapperStyle={{ fontSize: '11px', paddingLeft: '10px' }}
+                        formatter={(value) => <span className="text-gray-700 dark:text-gray-300">{value}</span>}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -401,7 +412,7 @@ export default function AccountExecutiveDashboard() {
                       className="flex items-center justify-between p-2 rounded-lg bg-muted hover:bg-muted/80 cursor-pointer"
                     >
                       <div>
-                        <p className="font-medium text-sm truncate max-w-[150px]">{p.companyName}</p>
+                        <p className="font-medium text-sm truncate max-w-[150px]" title={p.companyName}>{p.companyName}</p>
                         <p className="text-xs text-muted-foreground">{p.service} • {p.leadType}</p>
                       </div>
                       <div className="text-right">
@@ -445,7 +456,7 @@ export default function AccountExecutiveDashboard() {
                             p.sold ? 'bg-green-500' : p.dead ? 'bg-red-500' : 'bg-amber-500'
                           }`} />
                           <div>
-                            <p className="text-sm font-medium truncate max-w-[120px]">{p.companyName}</p>
+                            <p className="text-sm font-medium truncate max-w-[120px]" title={p.companyName}>{p.companyName}</p>
                             <p className="text-xs text-gray-500">{formatDate(p.date)}</p>
                           </div>
                         </div>
@@ -464,7 +475,7 @@ export default function AccountExecutiveDashboard() {
                         className="flex items-center justify-between p-2 rounded border"
                       >
                         <div>
-                          <p className="text-sm font-medium truncate max-w-[120px]">{s.companyName}</p>
+                          <p className="text-sm font-medium truncate max-w-[120px]" title={s.companyName}>{s.companyName}</p>
                           <p className="text-xs text-gray-500">{formatDate(s.date)} • {s.service}</p>
                         </div>
                         <div className="text-right">

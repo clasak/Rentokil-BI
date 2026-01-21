@@ -1,0 +1,365 @@
+{
+  "name": "OPS-SAM-001 Security Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/api/security/threats",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-threats",
+      "name": "Detect Threats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process security threats\nconst input = $input.first().json;\nconst threats = input.threats || [];\nconst summary = input.summary || { total: 0, critical: 0, high: 0, medium: 0 };\n\nconst criticalThreats = threats.filter(t => t.severity === 'critical');\nconst highThreats = threats.filter(t => t.severity === 'high');\n\n// Format threats for Slack\nconst formatThreat = (threat) => {\n  return `• *${threat.type.replace('_', ' ').toUpperCase()}*\\n  User: ${threat.user_email || threat.ip_address || 'Unknown'}\\n  Evidence: ${threat.evidence[0] || 'N/A'}\\n  Action: ${threat.recommended_action}`;\n};\n\nconst criticalMessages = criticalThreats.map(formatThreat).join('\\n\\n');\nconst highMessages = highThreats.map(formatThreat).join('\\n\\n');\n\nreturn [{\n  json: {\n    hasThreats: threats.length > 0,\n    hasCritical: criticalThreats.length > 0,\n    hasHigh: highThreats.length > 0,\n    summary,\n    criticalThreats,\n    highThreats,\n    criticalMessages: criticalMessages || 'None',\n    highMessages: highMessages || 'None',\n    allThreats: threats,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-threats",
+      "name": "Process Threats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-threats",
+              "leftValue": "={{ $json.hasThreats }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "has-threats",
+      "name": "Has Threats?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-critical",
+              "leftValue": "={{ $json.hasCritical }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "is-critical",
+      "name": "Is Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, -100]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "security_threat",
+            "severity": "critical",
+            "source": "sam",
+            "route": "/api/security/threats",
+            "message": "={{ 'CRITICAL Security Threats: ' + $json.summary.critical + ' critical, ' + $json.summary.high + ' high severity threats detected' }}",
+            "metadata": "={{ JSON.stringify({ summary: $json.summary, criticalThreats: $json.criticalThreats, timestamp: $json.timestamp }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-critical",
+      "name": "Log Critical Threat",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1100, -200],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FF0000\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"🚨 CRITICAL Security Alert\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*Critical Security Threats Detected:*\\n\\n{{ $json.criticalMessages }}\"\n          }\n        },\n        {\n          \"type\": \"divider\"\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Threat Summary:*\\n🔴 {{ $json.summary.critical }} Critical\\n🟠 {{ $json.summary.high }} High\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nSam (Security Monitor)\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Time:*\\n{{ $now.toISO() }}\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*IMMEDIATE ACTION REQUIRED*\\n\\n<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/admin|🔒 Security Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-critical",
+      "name": "Slack Critical Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, -200]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "security_threat",
+            "severity": "high",
+            "source": "sam",
+            "route": "/api/security/threats",
+            "message": "={{ 'Security Threats: ' + $json.summary.high + ' high severity threats detected (no critical)' }}",
+            "metadata": "={{ JSON.stringify({ summary: $json.summary, highThreats: $json.highThreats, timestamp: $json.timestamp }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-high",
+      "name": "Log High Threat",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1100, 0],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attachments\": [\n    {\n      \"color\": \"#FFA500\",\n      \"blocks\": [\n        {\n          \"type\": \"header\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"⚠️ Security Alert\",\n            \"emoji\": true\n          }\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"*High Priority Threats:*\\n\\n{{ $json.highMessages }}\"\n          }\n        },\n        {\n          \"type\": \"divider\"\n        },\n        {\n          \"type\": \"section\",\n          \"fields\": [\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Summary:*\\n🟠 {{ $json.summary.high }} High\\n🟡 {{ $json.summary.medium }} Medium\"\n            },\n            {\n              \"type\": \"mrkdwn\",\n              \"text\": \"*Agent:*\\nSam (Security Monitor)\"\n            }\n          ]\n        },\n        {\n          \"type\": \"section\",\n          \"text\": {\n            \"type\": \"mrkdwn\",\n            \"text\": \"<https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app/admin|🔒 Security Dashboard>\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "slack-high",
+      "name": "Slack High Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ops_events",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_type": "security_event",
+            "severity": "info",
+            "source": "sam",
+            "route": "/api/security/threats",
+            "message": "Security scan completed: No threats detected",
+            "metadata": "={{ JSON.stringify({ timestamp: $json.timestamp }) }}",
+            "created_at": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-quiet",
+      "name": "Log Quiet (No Threats)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 100],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase-Prod"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Detect Threats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Threats": {
+      "main": [
+        [
+          {
+            "node": "Process Threats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Threats": {
+      "main": [
+        [
+          {
+            "node": "Has Threats?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Threats?": {
+      "main": [
+        [
+          {
+            "node": "Is Critical?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Quiet (No Threats)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Critical?": {
+      "main": [
+        [
+          {
+            "node": "Log Critical Threat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log High Threat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Critical Threat": {
+      "main": [
+        [
+          {
+            "node": "Slack Critical Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log High Threat": {
+      "main": [
+        [
+          {
+            "node": "Slack High Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "15min"
+    },
+    {
+      "name": "security"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-13T00:00:00.000Z",
+  "versionId": "1"
+}
