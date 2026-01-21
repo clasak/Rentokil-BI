@@ -11,6 +11,7 @@ import {
   HandoffMetrics
 } from '@/lib/lead-engine-data'
 import { PipelineVisual, FunnelChart, StackedFunnelChart, HandoffCard, LeadSourceMatrix } from '@/components/lead-engine'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -59,6 +60,12 @@ export default function LeadServiceEnginePage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Lead Service Engine' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

@@ -32,7 +32,17 @@ import {
   Star,
   Timer,
   CreditCard,
+  Info,
+  ChevronRight,
 } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { useRouter } from 'next/navigation'
 import {
   initializeDailySalesData,
   getBranches,
@@ -129,6 +139,7 @@ function generateBranchWigData(branch: Branch, weekStart: string): BranchWigData
 }
 
 export default function WigScorecardPage() {
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [selectedRegion, setSelectedRegion] = useState<RegionCode>('R16')
   const [branches, setBranches] = useState<Branch[]>([])
@@ -313,6 +324,12 @@ export default function WigScorecardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'WIG Scorecard' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -374,51 +391,75 @@ export default function WigScorecardPage() {
       </Card>
 
       {/* WIG Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {wigCards.slice(0, 5).map((metric) => (
-          <Card key={metric.name} className={`border-2 ${statusColors[metric.status]}`}>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className={`${metric.status === 'success' ? 'text-green-600 dark:text-green-400' : metric.status === 'warning' ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {metric.icon}
+      <TooltipProvider delayDuration={200}>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {wigCards.slice(0, 5).map((metric) => (
+            <Card key={metric.name} className={`border-2 ${statusColors[metric.status]}`}>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className={`${metric.status === 'success' ? 'text-green-600 dark:text-green-400' : metric.status === 'warning' ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {metric.icon}
+                  </div>
+                  {metric.status === 'success' ? (
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  ) : metric.status === 'warning' ? (
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  )}
                 </div>
-                {metric.status === 'success' ? (
-                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                ) : metric.status === 'warning' ? (
-                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                ) : (
-                  <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
-                )}
-              </div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{metric.name}</p>
-              <p className="text-2xl font-bold mt-1">{metric.value}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Target: {metric.target} ({metric.unit})
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-help inline-flex items-center gap-1">
+                      {metric.name}
+                      <Info className="h-3 w-3 text-gray-400" />
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">{metric.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <p className="text-2xl font-bold mt-1">{metric.value}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Target: {metric.target} ({metric.unit})
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </TooltipProvider>
 
       {/* Secondary Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {wigCards.slice(5).map((metric) => (
-          <Card key={metric.name} className={`border ${statusColors[metric.status]}`}>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`${metric.status === 'success' ? 'text-green-600 dark:text-green-400' : metric.status === 'warning' ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {metric.icon}
+      <TooltipProvider delayDuration={200}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {wigCards.slice(5).map((metric) => (
+            <Card key={metric.name} className={`border ${statusColors[metric.status]}`}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`${metric.status === 'success' ? 'text-green-600 dark:text-green-400' : metric.status === 'warning' ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {metric.icon}
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-sm font-medium cursor-help inline-flex items-center gap-1">
+                        {metric.name}
+                        <Info className="h-3 w-3 text-gray-400" />
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">{metric.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                <p className="text-sm font-medium">{metric.name}</p>
-              </div>
-              <div className="flex items-end justify-between">
-                <p className="text-xl font-bold">{metric.value}</p>
-                <p className="text-xs text-gray-500">/ {metric.target}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <div className="flex items-end justify-between">
+                  <p className="text-xl font-bold">{metric.value}</p>
+                  <p className="text-xs text-gray-500">/ {metric.target}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </TooltipProvider>
 
       {/* Branch Breakdown Table */}
       <Card>
@@ -442,11 +483,16 @@ export default function WigScorecardPage() {
                   <TableHead className="text-center">&gt;55 Hrs</TableHead>
                   <TableHead className="text-right">Rev/Hr</TableHead>
                   <TableHead className="text-center">Driver</TableHead>
+                  <TableHead className="w-[40px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {wigData.map((data) => (
-                  <TableRow key={data.branch.code}>
+                  <TableRow
+                    key={data.branch.code}
+                    onClick={() => router.push(`/branch/${data.branch.code}`)}
+                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
                     <TableCell className="font-mono text-sm">{data.branch.code}</TableCell>
                     <TableCell>
                       <p className="font-medium truncate max-w-[140px]">{data.branch.name}</p>
@@ -497,6 +543,9 @@ export default function WigScorecardPage() {
                       <span className={data.driverScore >= WIG_TARGETS.driverScore ? 'text-green-600 font-medium' : data.driverScore >= WIG_TARGETS.driverScore * 0.9 ? '' : 'text-red-600'}>
                         {data.driverScore}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
                     </TableCell>
                   </TableRow>
                 ))}

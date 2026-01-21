@@ -150,6 +150,35 @@ export default function RTXDiscoveryPage() {
         </Button>
       </div>
 
+      {/* Field Type Legend */}
+      <Card className="bg-muted/50">
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <span className="font-medium text-muted-foreground">Field Types:</span>
+            <div className="flex items-center gap-2" role="img" aria-label="String/text fields shown in blue">
+              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">string</Badge>
+              <span className="text-muted-foreground">Text fields</span>
+            </div>
+            <div className="flex items-center gap-2" role="img" aria-label="Numeric fields shown in green">
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">number</Badge>
+              <span className="text-muted-foreground">Numeric fields</span>
+            </div>
+            <div className="flex items-center gap-2" role="img" aria-label="Date/time fields shown in orange">
+              <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">date</Badge>
+              <span className="text-muted-foreground">Date/time fields</span>
+            </div>
+            <div className="flex items-center gap-2" role="img" aria-label="Boolean fields shown in purple">
+              <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">boolean</Badge>
+              <span className="text-muted-foreground">True/false fields</span>
+            </div>
+            <div className="flex items-center gap-2" role="img" aria-label="Object/array fields shown in gray">
+              <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">object</Badge>
+              <span className="text-muted-foreground">Complex fields</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Discovery Message */}
       {discoveryMessage && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">

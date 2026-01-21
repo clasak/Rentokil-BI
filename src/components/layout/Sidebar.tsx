@@ -10,7 +10,10 @@ import {
   Users, DollarSign, Wrench, ShieldCheck, Calendar,
   CalendarDays, ChevronLeft, ChevronRight, Target,
   ClipboardList, Truck, Upload, Book, Shield, GitBranch,
-  ClipboardCheck, Workflow, Lock, X, Database
+  ClipboardCheck, Workflow, Lock, X, Database,
+  ChevronDown, Bug, Clock, Layers, BarChart3, BookOpen,
+  Briefcase, Building, AlertTriangle, RefreshCw, UserX,
+  Percent, FileBarChart, Receipt, LineChart, PieChart
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { isAdminEmail } from '@/lib/admin'
@@ -18,6 +21,20 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Role } from '@/types'
+
+// Collapsible nav section interface
+interface NavSection {
+  name: string
+  icon: React.ComponentType<{ className?: string }>
+  children: NavItem[]
+  allowedRoles: Role[]
+}
+
+interface NavItem {
+  name: string
+  href: string
+  icon?: React.ComponentType<{ className?: string }>
+}
 
 interface SidebarProps {
   onNavigate?: () => void
@@ -114,6 +131,99 @@ const settings = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
+// RTX Power BI Feature Parity - Collapsible Sections
+const rtxSections: NavSection[] = [
+  {
+    name: 'Leads',
+    icon: Target,
+    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager'],
+    children: [
+      { name: 'Type & Pest', href: '/leads/type-pest' },
+      { name: 'Trends', href: '/leads/trends' },
+      { name: 'Rankings', href: '/leads/rankings' },
+      { name: 'Cancels', href: '/leads/cancels' },
+      { name: 'Geographic', href: '/leads/geographic' },
+      { name: 'Glossary', href: '/governance?module=leads', icon: BookOpen },
+    ],
+  },
+  {
+    name: 'SALTI',
+    icon: Briefcase,
+    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager'],
+    children: [
+      { name: 'Daily Check-In', href: '/salti/daily-check-in' },
+      { name: 'Productivity', href: '/salti/productivity' },
+      { name: 'Proposal Pipeline', href: '/salti/proposal-pipeline' },
+      { name: 'YoY Trends', href: '/salti/yoy-trends' },
+      { name: 'Funnel Fallout', href: '/salti/funnel-fallout' },
+      { name: 'Sales Ladders', href: '/salti/sales-ladders' },
+      { name: 'Weekend Blitz', href: '/salti/weekend-blitz' },
+      { name: 'Glossary', href: '/governance?module=salti', icon: BookOpen },
+    ],
+  },
+  {
+    name: 'Sales',
+    icon: TrendingUp,
+    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
+    children: [
+      { name: 'Speed to Install', href: '/sales/speed-to-install' },
+      { name: "Today's Sales", href: '/sales/today' },
+      { name: 'Backlog', href: '/sales/backlog' },
+      { name: 'Canceled Agreements', href: '/sales/canceled-agreements' },
+      { name: 'Start Rate', href: '/sales/start-rate' },
+      { name: 'Glossary', href: '/governance?module=sales', icon: BookOpen },
+    ],
+  },
+  {
+    name: 'Finance',
+    icon: DollarSign,
+    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager'],
+    children: [
+      { name: 'Projections', href: '/finance/projections' },
+      { name: 'P&L Detail', href: '/finance/pnl' },
+      { name: 'AR Aging', href: '/finance/ar' },
+      { name: 'Glossary', href: '/governance?module=finance', icon: BookOpen },
+    ],
+  },
+  {
+    name: 'Termite',
+    icon: Bug,
+    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'ops_manager'],
+    children: [
+      { name: 'PNI', href: '/termite/pni' },
+      { name: 'Renewals', href: '/termite/renewals' },
+      { name: 'Glossary', href: '/governance?module=termite', icon: BookOpen },
+    ],
+  },
+  {
+    name: 'Workforce',
+    icon: Users,
+    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'ops_manager'],
+    children: [
+      { name: 'Tech Productivity', href: '/workforce/tech-productivity' },
+      { name: 'Glossary', href: '/governance?module=workforce', icon: BookOpen },
+    ],
+  },
+  {
+    name: 'HR',
+    icon: UserX,
+    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager'],
+    children: [
+      { name: 'Retention Detail', href: '/hr/retention' },
+      { name: 'Glossary', href: '/governance?module=hr', icon: BookOpen },
+    ],
+  },
+  {
+    name: 'Cross-Functional',
+    icon: Layers,
+    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director'],
+    children: [
+      { name: 'Lead to Revenue', href: '/cross-functional' },
+      { name: 'Glossary', href: '/governance?module=cross-functional', icon: BookOpen },
+    ],
+  },
+]
+
 // Get navigation based on role
 function getNavigationForRole(role: Role) {
   switch (role) {
@@ -173,7 +283,35 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
   const { sidebarCollapsed, setSidebarCollapsed, settings: appSettings } = useAppStore()
   const [isClient, setIsClient] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const supabase = createClient()
+
+  // Toggle section expansion
+  const toggleSection = (sectionName: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }))
+  }
+
+  // Check if any child route is active in a section
+  const isSectionActive = (section: NavSection) => {
+    return section.children.some(child =>
+      pathname === child.href ||
+      (child.href !== '/' && !child.href.includes('?') && pathname.startsWith(child.href))
+    )
+  }
+
+  // Auto-expand sections with active routes
+  useEffect(() => {
+    const activeSection = rtxSections.find(section => isSectionActive(section))
+    if (activeSection && !expandedSections[activeSection.name]) {
+      setExpandedSections(prev => ({
+        ...prev,
+        [activeSection.name]: true
+      }))
+    }
+  }, [pathname])
 
   useEffect(() => {
     setIsClient(true)
@@ -243,6 +381,83 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
     )
   }
 
+  // Collapsible section for RTX Power BI nav
+  const CollapsibleSection = ({ section }: { section: NavSection }) => {
+    const isExpanded = expandedSections[section.name] || false
+    const sectionIsActive = isSectionActive(section)
+    const SectionIcon = section.icon
+
+    // Filter sections by role
+    if (!section.allowedRoles.includes(currentRole)) {
+      return null
+    }
+
+    return (
+      <div className="space-y-1">
+        <button
+          onClick={() => toggleSection(section.name)}
+          className={cn(
+            'nav-item group w-full justify-between',
+            sectionIsActive && 'bg-gray-100 dark:bg-gray-800',
+            isCollapsed && 'justify-center px-2'
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <SectionIcon className={cn(
+              'h-5 w-5 flex-shrink-0',
+              sectionIsActive ? 'text-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
+            )} />
+            {!isCollapsed && (
+              <span className={cn(
+                'text-sm font-medium',
+                sectionIsActive ? 'text-primary' : 'text-gray-700 dark:text-gray-200'
+              )}>
+                {section.name}
+              </span>
+            )}
+          </div>
+          {!isCollapsed && (
+            <ChevronDown className={cn(
+              'h-4 w-4 text-gray-400 transition-transform duration-200',
+              isExpanded && 'transform rotate-180'
+            )} />
+          )}
+        </button>
+        {!isCollapsed && isExpanded && (
+          <div className="ml-4 pl-4 border-l border-gray-200 dark:border-gray-700 space-y-1">
+            {section.children.map((child) => {
+              const isChildActive = pathname === child.href ||
+                (child.href !== '/' && !child.href.includes('?') && pathname.startsWith(child.href))
+              const ChildIcon = child.icon
+
+              return (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  onClick={handleNavClick}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors',
+                    isChildActive
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  )}
+                >
+                  {ChildIcon && (
+                    <ChildIcon className={cn(
+                      'h-4 w-4',
+                      isChildActive ? 'text-primary' : 'text-gray-400'
+                    )} />
+                  )}
+                  {child.name}
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={cn(
       'flex flex-col h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 transition-all duration-300',
@@ -298,9 +513,35 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
           ))}
         </nav>
 
+        {/* RTX Power BI Feature Parity - Collapsible Sections */}
         {showGovernance && (
           <>
             <Separator className="my-4 mx-2" />
+            {!isCollapsed && (
+              <div className="px-3 py-2">
+                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                  RTX Reports
+                </span>
+              </div>
+            )}
+            <nav className="space-y-1 px-2">
+              {rtxSections.map((section) => (
+                <CollapsibleSection key={section.name} section={section} />
+              ))}
+            </nav>
+          </>
+        )}
+
+        {showGovernance && (
+          <>
+            <Separator className="my-4 mx-2" />
+            {!isCollapsed && (
+              <div className="px-3 py-2">
+                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                  Governance
+                </span>
+              </div>
+            )}
             <nav className="space-y-1 px-2">
               {governance.map((item) => (
                 <NavItem key={item.name} item={item} />

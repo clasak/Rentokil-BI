@@ -16,6 +16,13 @@ import {
   ArrowLeft, Workflow, Info, Clock, AlertTriangle, Zap, Settings,
   CheckCircle, XCircle
 } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 
 export default function StagesPage() {
   const [expandAll, setExpandAll] = useState(false)
@@ -24,6 +31,13 @@ export default function StagesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Lead Service Engine', href: '/lead-service-engine' },
+        { label: 'Stages' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/lead-service-engine">
@@ -205,32 +219,54 @@ export default function StagesPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Stage</TableHead>
-                    <TableHead>Owner</TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        Target
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                        At-Risk
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <XCircle className="h-4 w-4 text-red-500" />
-                        Critical
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center">Type</TableHead>
-                  </TableRow>
-                </TableHeader>
+              <TooltipProvider delayDuration={200}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Stage</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead className="text-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center justify-center gap-1 cursor-help">
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              Target
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-sm">On track: Within expected completion time</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center justify-center gap-1 cursor-help">
+                              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                              At-Risk
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-sm">At risk: Approaching SLA threshold (&gt;80% of allowed time)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center justify-center gap-1 cursor-help">
+                              <XCircle className="h-4 w-4 text-red-500" />
+                              Critical
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-sm">Critical: SLA breached, immediate action required</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableHead>
+                      <TableHead className="text-center">Type</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {stages.map(stage => {
                     const formatTime = (hours: number) => {
@@ -277,6 +313,7 @@ export default function StagesPage() {
                   })}
                 </TableBody>
               </Table>
+              </TooltipProvider>
 
               <div className="mt-6 p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
                 <h4 className="font-medium mb-2">SLA Configuration Notes</h4>

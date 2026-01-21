@@ -57,6 +57,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   ClipboardList, FileText, AlertTriangle, Target,
   Search, Download, CheckCircle, XCircle, Info,
@@ -981,6 +982,13 @@ export default function DataStandardsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Governance', href: '/governance' },
+        { label: 'Data Standards' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -5,6 +5,7 @@ import { useAppStore } from '@/store'
 import { getTechnicianCapacity, getBranches, getUsers } from '@/lib/data'
 import { calculateKPIValues } from '@/lib/kpi-calculations'
 import { KPICard } from '@/components/features/KPICard'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -102,6 +103,12 @@ export default function PeoplePage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'People' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -18,6 +18,7 @@ import {
   type ValidationResult
 } from '@/lib/data-validation'
 import { DATA_SOURCES_METADATA, type DataSource } from '@/lib/data-dictionary'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -62,11 +63,17 @@ import {
 import { formatDistanceToNow, format } from 'date-fns'
 
 // Quality score gauge component
-function QualityScoreGauge({ score, label }: { score: number; label: string }) {
+function QualityScoreGauge({ score, label, showLegend = false }: { score: number; label: string; showLegend?: boolean }) {
   const getColor = (s: number) => {
     if (s >= 95) return 'text-green-500'
     if (s >= 85) return 'text-yellow-500'
     return 'text-red-500'
+  }
+
+  const getStatus = (s: number) => {
+    if (s >= 95) return 'Excellent'
+    if (s >= 85) return 'Needs Attention'
+    return 'Critical'
   }
 
   const getBgColor = (s: number) => {
@@ -77,8 +84,15 @@ function QualityScoreGauge({ score, label }: { score: number; label: string }) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-24 h-24">
-        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+      <div
+        className="relative w-24 h-24"
+        role="meter"
+        aria-valuenow={score}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${label}: ${score}% - ${getStatus(score)}`}
+      >
+        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
           <circle
             cx="50"
             cy="50"
@@ -105,6 +119,22 @@ function QualityScoreGauge({ score, label }: { score: number; label: string }) {
         </div>
       </div>
       <span className="text-sm text-muted-foreground mt-2">{label}</span>
+      {showLegend && (
+        <div className="mt-3 text-xs space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-green-500" aria-hidden="true"></span>
+            <span>95-100%: Excellent</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-yellow-500" aria-hidden="true"></span>
+            <span>85-94%: Needs Attention</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-red-500" aria-hidden="true"></span>
+            <span>&lt;85%: Critical</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -133,8 +163,24 @@ function StatusBadge({ status }: { status: string }) {
     offline: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
   }
 
+  const descriptions: Record<string, string> = {
+    open: 'Issue is open and requires attention',
+    acknowledged: 'Issue has been acknowledged and is being worked on',
+    resolved: 'Issue has been resolved',
+    false_positive: 'Issue was determined to be a false positive',
+    healthy: 'System is operating normally',
+    warning: 'System is experiencing minor issues',
+    critical: 'System is experiencing critical issues requiring immediate attention',
+    degraded: 'System performance is degraded',
+    offline: 'System is offline and unavailable'
+  }
+
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${styles[status] || styles.healthy}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${styles[status] || styles.healthy}`}
+      role="status"
+      aria-label={descriptions[status] || `Status: ${status.replace('_', ' ')}`}
+    >
       {status.replace('_', ' ')}
     </span>
   )
@@ -298,6 +344,13 @@ export default function DataQualityPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Governance', href: '/governance' },
+        { label: 'Data Quality' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -324,7 +377,7 @@ export default function DataQualityPage() {
             <CardDescription>Composite score across all dimensions</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
-            <QualityScoreGauge score={qualityScore.overall} label="Overall Score" />
+            <QualityScoreGauge score={qualityScore.overall} label="Overall Score" showLegend={true} />
             <div className="mt-4 w-full grid grid-cols-2 gap-2 text-center">
               <div className="p-2 rounded bg-muted/50">
                 <div className="text-lg font-semibold text-green-500">

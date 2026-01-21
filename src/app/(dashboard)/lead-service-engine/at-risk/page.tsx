@@ -12,6 +12,7 @@ import {
   STAGE_CONFIG
 } from '@/lib/lead-engine-data'
 import { LeadTable } from '@/components/lead-engine'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -142,6 +143,13 @@ function AtRiskPageContent() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Lead Service Engine', href: '/lead-service-engine' },
+        { label: 'At Risk' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/lead-service-engine">

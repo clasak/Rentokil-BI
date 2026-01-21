@@ -37,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   Book, Database, Search, Download, Filter, Layers,
   CheckCircle, AlertTriangle, AlertCircle, Info,
@@ -642,6 +643,13 @@ export default function DataDictionaryPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: 'Command Center', href: '/' },
+        { label: 'Governance', href: '/governance' },
+        { label: 'Data Dictionary' }
+      ]} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -3,6 +3,12 @@
 import { cn } from '@/lib/utils'
 import { HealthStatus } from '@/lib/lead-engine-data'
 import { CheckCircle, AlertTriangle, XCircle } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface StageBadgeProps {
   status: HealthStatus
@@ -14,6 +20,7 @@ interface StageBadgeProps {
 
 const statusConfig: Record<HealthStatus, {
   label: string
+  description: string
   bgColor: string
   textColor: string
   borderColor: string
@@ -21,6 +28,7 @@ const statusConfig: Record<HealthStatus, {
 }> = {
   healthy: {
     label: 'Healthy',
+    description: 'All leads progressing within SLA',
     bgColor: 'bg-green-100 dark:bg-green-900/30',
     textColor: 'text-green-700 dark:text-green-400',
     borderColor: 'border-green-300 dark:border-green-700',
@@ -28,6 +36,7 @@ const statusConfig: Record<HealthStatus, {
   },
   at_risk: {
     label: 'At Risk',
+    description: 'Some leads approaching SLA threshold',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
     textColor: 'text-yellow-700 dark:text-yellow-400',
     borderColor: 'border-yellow-300 dark:border-yellow-700',
@@ -35,6 +44,7 @@ const statusConfig: Record<HealthStatus, {
   },
   critical: {
     label: 'Critical',
+    description: 'Leads have breached SLA - action needed',
     bgColor: 'bg-red-100 dark:bg-red-900/30',
     textColor: 'text-red-700 dark:text-red-400',
     borderColor: 'border-red-300 dark:border-red-700',
@@ -89,7 +99,7 @@ export function StageBadge({
   )
 }
 
-// Simple dot indicator for compact displays
+// Simple dot indicator for compact displays with tooltip
 export function HealthDot({ status, className }: { status: HealthStatus; className?: string }) {
   const colors: Record<HealthStatus, string> = {
     healthy: 'bg-green-500',
@@ -97,14 +107,26 @@ export function HealthDot({ status, className }: { status: HealthStatus; classNa
     critical: 'bg-red-500'
   }
 
+  const config = statusConfig[status]
+
   return (
-    <span
-      className={cn(
-        'inline-block w-2.5 h-2.5 rounded-full',
-        colors[status],
-        className
-      )}
-      title={statusConfig[status].label}
-    />
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              'inline-block w-2.5 h-2.5 rounded-full cursor-help',
+              colors[status],
+              className
+            )}
+            aria-label={`${config.label}: ${config.description}`}
+          />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="font-medium">{config.label}</p>
+          <p className="text-sm text-gray-400">{config.description}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

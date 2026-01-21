@@ -211,19 +211,41 @@ export function ExecutiveCommandCenter() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant={criticalKpis.length > 0 ? 'danger' : 'success'} className="gap-1">
-            {criticalKpis.length > 0 ? (
-              <>
-                <AlertTriangle className="h-3 w-3" />
-                {criticalKpis.length} Critical
-              </>
-            ) : (
-              <>
-                <CheckCircle className="h-3 w-3" />
-                All Systems Healthy
-              </>
-            )}
-          </Badge>
+          <RadixTooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => {
+                  if (criticalKpis.length > 0) {
+                    handleFilterClick('critical')
+                  }
+                }}
+                className={`inline-flex ${criticalKpis.length > 0 ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                disabled={criticalKpis.length === 0}
+                aria-label={criticalKpis.length > 0 ? `View ${criticalKpis.length} critical KPIs` : 'All systems healthy'}
+              >
+                <Badge variant={criticalKpis.length > 0 ? 'danger' : 'success'} className="gap-1">
+                  {criticalKpis.length > 0 ? (
+                    <>
+                      <AlertTriangle className="h-3 w-3" />
+                      {criticalKpis.length} Critical
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-3 w-3" />
+                      All Systems Healthy
+                    </>
+                  )}
+                </Badge>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {criticalKpis.length > 0 ? (
+                <p className="text-sm">Click to view critical KPIs</p>
+              ) : (
+                <p className="text-sm">All KPIs are within acceptable ranges</p>
+              )}
+            </TooltipContent>
+          </RadixTooltip>
           <Badge variant="outline" className="gap-1">
             <Clock className="h-3 w-3" />
             Last updated: {currentTime || '--:--:--'}
@@ -329,15 +351,31 @@ export function ExecutiveCommandCenter() {
           </CardContent>
         </Card>
 
-        <Card id="priority-actions-card">
-          <CardContent className="pt-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Priority Actions</div>
-            <div className="text-3xl font-bold mt-1 text-gray-900 dark:text-white">{actions.length}</div>
-            <div className="text-sm mt-2 text-gray-500 dark:text-gray-400">
-              {actions.filter(a => a.severity === 'critical').length} critical
-            </div>
-          </CardContent>
-        </Card>
+        <RadixTooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => {
+                document.getElementById('action-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              className="text-left w-full"
+              aria-label={`View ${actions.length} priority actions, ${actions.filter(a => a.severity === 'critical').length} critical`}
+            >
+              <Card id="priority-actions-card" className="h-full transition-transform hover:scale-[1.02] hover:shadow-lg cursor-pointer">
+                <CardContent className="pt-6">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Priority Actions</div>
+                  <div className="text-3xl font-bold mt-1 text-gray-900 dark:text-white">{actions.length}</div>
+                  <div className="text-sm mt-2 text-gray-500 dark:text-gray-400">
+                    {actions.filter(a => a.severity === 'critical').length} critical
+                  </div>
+                  <div className="text-xs text-gray-400 mt-2">Click to view</div>
+                </CardContent>
+              </Card>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-sm">Scroll to view priority action items</p>
+          </TooltipContent>
+        </RadixTooltip>
       </div>
 
       {/* Main Content Grid */}
@@ -539,7 +577,7 @@ export function ExecutiveCommandCenter() {
         </div>
 
         {/* Right Sidebar - Actions */}
-        <div className="space-y-6">
+        <div id="action-list" className="space-y-6">
           <ActionList
             actions={actions}
             title="Priority Actions"
