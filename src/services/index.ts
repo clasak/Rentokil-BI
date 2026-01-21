@@ -46,6 +46,17 @@ import { mockServiceProvider } from './mock'
 import { supabaseServiceProvider } from './supabase'
 import { rtxServiceProvider, rtxClient } from './rtx-hub'
 
+// BigQuery is SERVER-ONLY - uses Node.js modules (fs, net, child_process)
+// Do NOT import directly here. Use API routes for BigQuery data access.
+// The bigQueryServiceProvider is exported separately for server-side use.
+
+/**
+ * Check if BigQuery is configured (safe for client-side)
+ */
+export function isBigQueryConfigured(): boolean {
+  return !!process.env.NEXT_PUBLIC_BIGQUERY_PROJECT
+}
+
 // =============================================================================
 // Configuration
 // =============================================================================
@@ -53,7 +64,7 @@ import { rtxServiceProvider, rtxClient } from './rtx-hub'
 /**
  * Available data sources
  */
-export type DataSourceType = 'mock' | 'rtx' | 'salesforce' | 'hybrid'
+export type DataSourceType = 'mock' | 'rtx' | 'salesforce' | 'hybrid' | 'bigquery'
 
 /**
  * Current data source configuration
@@ -110,6 +121,19 @@ function getServiceProvider(): ServiceProvider {
   }
 
   switch (DATA_SOURCE) {
+    case 'bigquery':
+      // BigQuery uses Node.js modules and can only run server-side.
+      // For client-side service calls, use mock data.
+      // Actual BigQuery data is accessed through API routes:
+      //   - /api/bigquery/discover - Schema discovery
+      //   - /api/bigquery/query - Direct queries (server-side only)
+      // React components should fetch from these API endpoints.
+      if (!isBigQueryConfigured()) {
+        console.warn('[Services] BigQuery not configured. Set NEXT_PUBLIC_BIGQUERY_PROJECT in .env.local')
+      }
+      console.log('[Services] BigQuery mode: Using mock for client-side, API routes for server queries')
+      return mockServiceProvider
+
     case 'rtx':
       if (!isRTXConfigured()) {
         console.warn('[Services] RTX Data Hub not configured. Falling back to mock data.')
@@ -228,6 +252,8 @@ export function getDataSourceName(): string {
   if (isDemoMode()) return 'Demo Data'
 
   switch (DATA_SOURCE) {
+    case 'bigquery':
+      return 'BigQuery (Production)'
     case 'rtx':
       return 'RTX Data Hub'
     case 'salesforce':
@@ -257,6 +283,12 @@ export function getDataSourceStatus(): {
   }
 
   switch (DATA_SOURCE) {
+    case 'bigquery':
+      status.configured = isBigQueryConfigured()
+      status.description = status.configured
+        ? 'Connected to Google BigQuery data warehouse (bidata-sharedus-production)'
+        : 'BigQuery credentials not configured. Run: gcloud auth application-default login'
+      break
     case 'rtx':
       status.configured = isRTXConfigured()
       status.description = status.configured
@@ -283,3 +315,8 @@ export function getDataSourceStatus(): {
 // Re-export RTX client for direct access
 export { rtxClient, rtxServiceProvider } from './rtx-hub'
 export type { RTXConnectionStatus } from './rtx-hub'
+
+// BigQuery exports are SERVER-ONLY - import directly from '@/services/bigquery' in API routes
+// Do not import here as it would break client-side builds
+// For BigQuery types, import from '@/services/bigquery/types' (safe for client)
+export type { BigQueryConfig, BigQueryEnvironment } from './bigquery/types'
