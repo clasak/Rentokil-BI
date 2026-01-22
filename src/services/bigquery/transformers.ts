@@ -44,8 +44,11 @@ function mapRole(bqRole: string): Role {
   const roleMap: Record<string, Role> = {
     'executive': 'exec',
     'exec': 'exec',
-    'market_director': 'market_director',
+    'market_vp': 'market_vp',
+    'market_director': 'market_vp',
+    'market_sales_director': 'market_sales_director',
     'region_director': 'region_director',
+    'region_sales_manager': 'region_sales_manager',
     'branch_manager': 'manager',
     'manager': 'manager',
     'sales_manager': 'sales_manager',
@@ -63,7 +66,8 @@ function mapRole(bqRole: string): Role {
 /**
  * Map BigQuery opportunity stage to internal stage
  */
-function mapOpportunityStage(bqStage: string): Opportunity['stage'] {
+function mapOpportunityStage(bqStage: string | undefined): Opportunity['stage'] {
+  if (!bqStage) return 'prospect'
   const stageMap: Record<string, Opportunity['stage']> = {
     'prospect': 'prospect',
     'qualified': 'qualified',
@@ -84,7 +88,8 @@ function mapOpportunityStage(bqStage: string): Opportunity['stage'] {
 /**
  * Map BigQuery service event status to internal status
  */
-function mapServiceEventStatus(bqStatus: string): ServiceEvent['status'] {
+function mapServiceEventStatus(bqStatus: string | undefined): ServiceEvent['status'] {
+  if (!bqStatus) return 'scheduled'
   const statusMap: Record<string, ServiceEvent['status']> = {
     'scheduled': 'scheduled',
     'in_progress': 'scheduled', // Map in-progress to scheduled for now
@@ -101,7 +106,8 @@ function mapServiceEventStatus(bqStatus: string): ServiceEvent['status'] {
 /**
  * Map BigQuery invoice status to internal status
  */
-function mapInvoiceStatus(bqStatus: string): Invoice['status'] {
+function mapInvoiceStatus(bqStatus: string | undefined): Invoice['status'] {
+  if (!bqStatus) return 'open'
   const statusMap: Record<string, Invoice['status']> = {
     'pending': 'open',
     'open': 'open',
@@ -142,7 +148,8 @@ function mapRetentionRisk(risk: string | undefined): Account['retentionRisk'] {
 /**
  * Map BigQuery vertical to internal vertical
  */
-function mapVertical(vertical: string): Account['vertical'] {
+function mapVertical(vertical: string | undefined): Account['vertical'] {
+  if (!vertical) return 'Commercial'
   const verticalMap: Record<string, Account['vertical']> = {
     'commercial': 'Commercial',
     'residential': 'Residential',
@@ -158,7 +165,8 @@ function mapVertical(vertical: string): Account['vertical'] {
 /**
  * Map BigQuery service frequency to internal frequency
  */
-function mapServiceFrequency(freq: string): Account['serviceFrequency'] {
+function mapServiceFrequency(freq: string | undefined): Account['serviceFrequency'] {
+  if (!freq) return 'monthly'
   const freqMap: Record<string, Account['serviceFrequency']> = {
     'monthly': 'monthly',
     'quarterly': 'quarterly',
@@ -181,13 +189,13 @@ export function transformCustomerToAccount(row: BQCustomerRow): Account {
     id: row.customer_id,
     name: row.customer_name,
     vertical: mapVertical(row.vertical),
-    contractValue: row.contract_value,
+    contractValue: row.contract_value ?? 0,
     retentionRisk: mapRetentionRisk(row.retention_risk),
     lastServiceDate: row.last_service_date ? parseDate(row.last_service_date) : new Date(),
     openIssues: 0, // Would need separate query
-    marketId: row.market_id,
-    branchId: row.branch_id,
-    ownerId: row.owner_id,
+    marketId: row.market_id ?? '',
+    branchId: row.branch_id ?? '',
+    ownerId: row.owner_id ?? '',
     createdAt: row.start_date ? parseDate(row.start_date) : new Date(),
     arBalance: 0, // Would need separate query/calculation
     serviceFrequency: mapServiceFrequency(row.service_frequency),
@@ -204,23 +212,23 @@ export function transformOpportunity(row: BQOpportunityRow): Opportunity {
 
   return {
     id: row.opportunity_id,
-    accountId: row.customer_id,
+    accountId: row.customer_id ?? row.account_id ?? '',
     accountName: '', // Would need join query
     name: row.opportunity_name,
     stage,
-    amount: row.amount,
-    probability: row.probability || 0,
+    amount: row.amount ?? 0,
+    probability: row.probability ?? 0,
     createdDate,
     closeDate: parseDate(row.close_date),
     nextStepDate: row.next_step_date ? parseDate(row.next_step_date) : null,
     stageLastChanged: parseDate(row.last_modified_date),
-    ownerId: row.owner_id,
+    ownerId: row.owner_id ?? '',
     ownerName: '', // Would need join query
-    marketId: row.market_id || '',
-    branchId: row.branch_id,
+    marketId: row.market_id ?? '',
+    branchId: row.branch_id ?? '',
     daysInStage: 0, // Would need calculation
     isStalled: false, // Would need calculation based on last activity
-    nextStep: row.next_step || '',
+    nextStep: row.next_step ?? '',
     lostReason: row.lost_reason
   }
 }
@@ -233,16 +241,16 @@ export function transformServiceEvent(row: BQServiceEventRow): ServiceEvent {
   const status = row.is_callback ? 'callback' : mapServiceEventStatus(row.status)
 
   return {
-    id: row.service_event_id,
-    accountId: row.customer_id,
-    technicianId: row.technician_id,
-    routeId: row.route_id || '',
-    scheduledDate: parseDate(row.scheduled_date),
+    id: row.service_event_id ?? row.event_id ?? '',
+    accountId: row.customer_id ?? row.account_id ?? '',
+    technicianId: row.technician_id ?? '',
+    routeId: row.route_id ?? '',
+    scheduledDate: parseDate(row.scheduled_date ?? row.service_date),
     completedDate: row.completed_date ? parseDate(row.completed_date) : undefined,
     status,
-    timeOnSite: row.time_on_site_minutes || 0,
-    serviceType: row.service_type,
-    notes: row.callback_reason || row.notes
+    timeOnSite: row.duration_minutes ?? 0,
+    serviceType: row.service_type ?? '',
+    notes: row.notes ?? ''
   }
 }
 
@@ -252,9 +260,9 @@ export function transformServiceEvent(row: BQServiceEventRow): ServiceEvent {
 export function transformInvoice(row: BQInvoiceRow): Invoice {
   return {
     id: row.invoice_id,
-    accountId: row.customer_id,
+    accountId: row.customer_id ?? row.account_id ?? '',
     accountName: '', // Will be populated by join query or separate lookup
-    amount: row.amount,
+    amount: row.amount ?? 0,
     invoiceDate: parseDate(row.invoice_date),
     dueDate: parseDate(row.due_date),
     status: mapInvoiceStatus(row.status),
@@ -269,10 +277,10 @@ export function transformInvoice(row: BQInvoiceRow): Invoice {
 export function transformEmployee(row: BQEmployeeRow): User {
   return {
     id: row.employee_id,
-    name: `${row.first_name} ${row.last_name}`,
-    email: row.email,
-    role: mapRole(row.role),
-    title: row.role, // Use role as title for now
+    name: row.employee_name ?? (`${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Unknown'),
+    email: row.email ?? '',
+    role: mapRole(row.role ?? 'rep'),
+    title: row.role ?? '', // Use role as title for now
     assignedMarkets: row.market_id ? [row.market_id] : [],
     assignedRegions: row.region_id ? [row.region_id] : [],
     assignedBranches: row.branch_id ? [row.branch_id] : [],
@@ -298,9 +306,9 @@ export function transformBranch(row: BQBranchRow): Branch {
   return {
     id: row.branch_id,
     name: row.branch_name,
-    marketId: row.market_id,
-    regionId: row.region_id,
-    address: row.address ? `${row.address}, ${row.city || ''} ${row.state || ''} ${row.zip || ''}`.trim() : ''
+    marketId: row.market_id ?? '',
+    regionId: row.region_id ?? '',
+    address: row.address ? `${row.address}, ${row.city ?? ''} ${row.state ?? ''} ${row.zip ?? ''}`.trim() : ''
   }
 }
 

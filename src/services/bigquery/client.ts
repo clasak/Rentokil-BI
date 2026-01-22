@@ -53,7 +53,8 @@ export function getBigQueryConfig(): BigQueryConfig {
     environment = 'dev'
   }
 
-  return { projectId, dataset, environment }
+  const isConfigured = !!projectId
+  return { projectId, dataset, environment, isConfigured }
 }
 
 /**
