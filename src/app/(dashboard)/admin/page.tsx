@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/tooltip'
 import { Role, DemoMode, Scenario } from '@/types'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { getDataSourceStatus } from '@/services'
 import { createClient } from '@/lib/supabase/client'
 import { isAdminEmail } from '@/lib/admin'
@@ -85,7 +86,22 @@ interface LoginEvent {
   created_at: string
 }
 
+// Role to route mapping for navigation after role switch
+const ROLE_ROUTES: Record<Role, string> = {
+  exec: '/',
+  market_vp: '/',
+  market_sales_director: '/',
+  region_director: '/',
+  region_sales_manager: '/',
+  manager: '/',
+  sales_manager: '/ae',
+  ops_manager: '/',
+  rep: '/ae',
+  technician: '/tech'
+}
+
 export default function AdminPage() {
+  const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -115,6 +131,12 @@ export default function AdminPage() {
   const users = getUsers()
   const scope = mounted ? getCurrentUserScope() : { markets: [], branches: [], scope: 'Loading...' }
   const dataSourceStatus = getDataSourceStatus()
+
+  // Handle role change with navigation to appropriate dashboard
+  const handleRoleChange = (role: Role) => {
+    setRole(role)
+    router.push(ROLE_ROUTES[role])
+  }
 
   // Platform Admin Data
   const healthMetrics = getPlatformHealthMetrics()
@@ -370,7 +392,7 @@ export default function AdminPage() {
                       <Tooltip key={role}>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={() => setRole(role)}
+                            onClick={() => handleRoleChange(role)}
                             className={`p-3 rounded-lg border-2 text-left transition-all ${
                               isActive
                                 ? 'border-primary bg-primary/10'
@@ -387,6 +409,7 @@ export default function AdminPage() {
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-xs">
                           <p className="text-sm">{ROLE_PERMISSIONS[role].description}</p>
+                          <p className="text-xs text-gray-400 mt-1">Click to switch and navigate to dashboard</p>
                         </TooltipContent>
                       </Tooltip>
                     )
@@ -415,7 +438,7 @@ export default function AdminPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium mb-2 dark:text-gray-100">Role</label>
-                  <Select value={settings.role} onValueChange={(v) => setRole(v as Role)}>
+                  <Select value={settings.role} onValueChange={(v) => handleRoleChange(v as Role)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>

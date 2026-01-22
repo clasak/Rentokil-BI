@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppStore, ROLE_PERMISSIONS } from '@/store'
-import { getAccounts, getOpportunities, getInvoices } from '@/lib/data'
+import { getAccounts, getOpportunities, getInvoices, getMarkets } from '@/lib/data'
 import { getAEData } from '@/lib/sales-tracker-data'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -69,10 +69,12 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
 
   const {
     settings,
+    filters,
     refreshData,
     getCurrentUserScope,
     theme,
     setTheme,
+    setMarketFilter,
   } = useAppStore()
 
   // Load user info and recent searches
@@ -141,6 +143,17 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
   }, [searchOpen])
 
   const scope = getCurrentUserScope()
+  const allMarkets = getMarkets()
+
+  // Get markets available to current user based on role scope
+  const availableMarkets = isClient
+    ? (scope.markets.length > 0
+        ? allMarkets.filter(m => scope.markets.includes(m.id))
+        : allMarkets) // Execs see all markets
+    : []
+
+  // Get currently selected market
+  const selectedMarketId = filters.marketIds?.[0] || 'all'
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
@@ -392,6 +405,48 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
             {isClient ? scope.scope : 'Loading...'}
           </span>
         </div>
+
+        {/* Market Selector */}
+        {isClient && availableMarkets.length > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <Select
+                  value={selectedMarketId}
+                  onValueChange={(value) => {
+                    if (value === 'all') {
+                      setMarketFilter([])
+                    } else {
+                      setMarketFilter([value])
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[180px] bg-white dark:bg-gray-800">
+                    <div className="flex items-center gap-2">
+                      <Map className="h-4 w-4 text-primary" />
+                      <SelectValue placeholder="All Markets" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        All Markets
+                      </div>
+                    </SelectItem>
+                    {availableMarkets.map((market) => (
+                      <SelectItem key={market.id} value={market.id}>
+                        {market.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Filter data by market</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {/* Right side controls */}

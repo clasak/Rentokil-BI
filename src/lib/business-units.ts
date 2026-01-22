@@ -8,6 +8,8 @@
  * - ECI (independent/franchise operations)
  * - Presto-X (midwest)
  * - Anderson Pest (Chicago metro)
+ * - Bug Out Service (southeast)
+ * - Holders Pest Solutions (southwest)
  *
  * In production, business unit determines:
  * - Data partitioning (RLS)
@@ -23,6 +25,8 @@ export type BusinessUnitId =
   | 'eci'
   | 'prestox'
   | 'anderson'
+  | 'bugout'
+  | 'holders'
   | 'all' // Consolidated view
 
 export interface BusinessUnit {
@@ -207,6 +211,56 @@ export const BUSINESS_UNITS: Record<BusinessUnitId, BusinessUnit> = {
       marketShare: 5
     }
   },
+  bugout: {
+    id: 'bugout',
+    name: 'Bug Out Service',
+    shortName: 'Bugout',
+    description: 'Regional pest control service provider',
+    region: 'Southeast',
+    headquarters: 'Jacksonville, FL',
+    color: '#F59E0B', // Amber
+    active: true,
+    features: {
+      hasLeadEngine: true,
+      hasForecast: true,
+      hasGovernance: true,
+      hasFieldService: true,
+      hasFinance: true,
+      hasPdfParser: false
+    },
+    metrics: {
+      branches: 18,
+      technicians: 320,
+      accounts: 9500,
+      annualRevenue: 62,
+      marketShare: 4
+    }
+  },
+  holders: {
+    id: 'holders',
+    name: 'Holders Pest Solutions',
+    shortName: 'Holders',
+    description: 'Premium residential and commercial pest control',
+    region: 'Southwest',
+    headquarters: 'Phoenix, AZ',
+    color: '#8B5CF6', // Violet
+    active: true,
+    features: {
+      hasLeadEngine: true,
+      hasForecast: true,
+      hasGovernance: true,
+      hasFieldService: true,
+      hasFinance: true,
+      hasPdfParser: true
+    },
+    metrics: {
+      branches: 22,
+      technicians: 380,
+      accounts: 14000,
+      annualRevenue: 85,
+      marketShare: 5
+    }
+  },
   all: {
     id: 'all',
     name: 'All Business Units',
@@ -225,10 +279,10 @@ export const BUSINESS_UNITS: Record<BusinessUnitId, BusinessUnit> = {
       hasPdfParser: true
     },
     metrics: {
-      branches: 457,
-      technicians: 7800,
-      accounts: 233500,
-      annualRevenue: 1668,
+      branches: 497, // Updated to include Bugout (18) and Holders (22)
+      technicians: 8500, // Updated to include Bugout (320) and Holders (380)
+      accounts: 257000, // Updated to include Bugout (9500) and Holders (14000)
+      annualRevenue: 1815, // Updated to include Bugout (62) and Holders (85)
       marketShare: 100
     }
   }
