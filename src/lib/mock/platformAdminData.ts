@@ -153,6 +153,67 @@ export function getDataFreshnessSLAs(): DataFreshnessSLA[] {
         status: 'met',
         trend: 'stable',
         lastSync: new Date(now.getTime() - 42 * 60 * 1000)
+      },
+      // RNA/TMX Lead Flow Sources
+      {
+        id: 'invoca-1',
+        sourceName: 'Invoca',
+        slaTarget: '5 min',
+        slaMinutes: 5,
+        actualFreshnessMinutes: 18,     // BREACHED - call attribution delayed
+        status: 'breached',
+        trend: 'down',
+        lastSync: new Date(now.getTime() - 18 * 60 * 1000)
+      },
+      {
+        id: 'five9-1',
+        sourceName: 'Five9',
+        slaTarget: '5 min',
+        slaMinutes: 5,
+        actualFreshnessMinutes: 3,      // OK - contact center data fresh
+        status: 'met',
+        trend: 'stable',
+        lastSync: new Date(now.getTime() - 3 * 60 * 1000)
+      },
+      {
+        id: 'lead-exec-1',
+        sourceName: 'Lead Exec',
+        slaTarget: '15 min',
+        slaMinutes: 15,
+        actualFreshnessMinutes: 67,     // CRITICAL BREACH - lead routing delayed
+        status: 'breached',
+        trend: 'down',
+        lastSync: new Date(now.getTime() - 67 * 60 * 1000)
+      },
+      {
+        id: 'sales-exec-1',
+        sourceName: 'Sales Exec',
+        slaTarget: '15 min',
+        slaMinutes: 15,
+        actualFreshnessMinutes: 12,     // OK - opportunity tracking live
+        status: 'met',
+        trend: 'up',
+        lastSync: new Date(now.getTime() - 12 * 60 * 1000)
+      },
+      {
+        id: 'ccm-1',
+        sourceName: 'CCM (Winning Formula)',
+        slaTarget: '1 hour',
+        slaMinutes: 60,
+        actualFreshnessMinutes: 145,    // BREACHED - campaign attribution delayed
+        status: 'breached',
+        trend: 'down',
+        lastSync: new Date(now.getTime() - 145 * 60 * 1000)
+      },
+      {
+        id: 'iconnect-1',
+        sourceName: 'iConnect/Mission',
+        slaTarget: '4 hours',
+        slaMinutes: 240,
+        actualFreshnessMinutes: 180,    // OK - subsidiary data within SLA
+        status: 'met',
+        trend: 'stable',
+        lastSync: new Date(now.getTime() - 180 * 60 * 1000)
       }
     ]
   }
@@ -207,6 +268,67 @@ export function getDataFreshnessSLAs(): DataFreshnessSLA[] {
       status: 'met',
       trend: 'up',
       lastSync: new Date(now.getTime() - 45 * 60 * 1000)
+    },
+    // RNA/TMX Lead Flow Sources
+    {
+      id: 'invoca-1',
+      sourceName: 'Invoca',
+      slaTarget: '5 min',
+      slaMinutes: 5,
+      actualFreshnessMinutes: 3,
+      status: 'met',
+      trend: 'stable',
+      lastSync: new Date(now.getTime() - 3 * 60 * 1000)
+    },
+    {
+      id: 'five9-1',
+      sourceName: 'Five9',
+      slaTarget: '5 min',
+      slaMinutes: 5,
+      actualFreshnessMinutes: 2,
+      status: 'met',
+      trend: 'up',
+      lastSync: new Date(now.getTime() - 2 * 60 * 1000)
+    },
+    {
+      id: 'lead-exec-1',
+      sourceName: 'Lead Exec',
+      slaTarget: '15 min',
+      slaMinutes: 15,
+      actualFreshnessMinutes: 8,
+      status: 'met',
+      trend: 'stable',
+      lastSync: new Date(now.getTime() - 8 * 60 * 1000)
+    },
+    {
+      id: 'sales-exec-1',
+      sourceName: 'Sales Exec',
+      slaTarget: '15 min',
+      slaMinutes: 15,
+      actualFreshnessMinutes: 11,
+      status: 'met',
+      trend: 'up',
+      lastSync: new Date(now.getTime() - 11 * 60 * 1000)
+    },
+    {
+      id: 'ccm-1',
+      sourceName: 'CCM (Winning Formula)',
+      slaTarget: '1 hour',
+      slaMinutes: 60,
+      actualFreshnessMinutes: 38,
+      status: 'met',
+      trend: 'stable',
+      lastSync: new Date(now.getTime() - 38 * 60 * 1000)
+    },
+    {
+      id: 'iconnect-1',
+      sourceName: 'iConnect/Mission',
+      slaTarget: '4 hours',
+      slaMinutes: 240,
+      actualFreshnessMinutes: 195,
+      status: 'met',
+      trend: 'up',
+      lastSync: new Date(now.getTime() - 195 * 60 * 1000)
     }
   ]
 }
@@ -723,4 +845,173 @@ export function getFailedJobs(): FailedJob[] {
       status: 'manual_intervention'
     }
   ]
+}
+
+// ============================================================================
+// Web Channel Alert Types - RNA/TMX Lead Flow Integration
+// ============================================================================
+
+export interface LeadChannelAlert {
+  id: string
+  channel: string
+  channelName: string
+  severity: 'critical' | 'warning' | 'info'
+  currentMatchRate: number
+  baselineMatchRate: number
+  variance: number
+  threshold: number
+  missingFields: string[]
+  affectedLeadCount: number
+  detectedAt: Date
+  status: 'active' | 'acknowledged' | 'resolved'
+  recommendedAction: string
+}
+
+/**
+ * Get lead channel alerts for web form and low-traceability channels.
+ * Integrates with RNA/TMX lead journey tracking.
+ */
+export function getLeadChannelAlerts(): LeadChannelAlert[] {
+  const now = new Date()
+
+  if (TEST_MODE) {
+    // STRESS TEST: Multiple critical lead channel alerts
+    return [
+      {
+        id: 'lca-1',
+        channel: 'web_form',
+        channelName: 'Web Form Submissions',
+        severity: 'critical',
+        currentMatchRate: 6.8,
+        baselineMatchRate: 9.6,
+        variance: -29.2,
+        threshold: 15,
+        missingFields: ['bill_to_id', 'location_id', 'account_number'],
+        affectedLeadCount: 11501,
+        detectedAt: now,
+        status: 'active',
+        recommendedAction: 'Expose Bill-to ID and Location ID fields via API for web channel leads'
+      },
+      {
+        id: 'lca-2',
+        channel: 'email_chat',
+        channelName: 'Email/Chat Leads',
+        severity: 'critical',
+        currentMatchRate: 2.1,
+        baselineMatchRate: 3.1,
+        variance: -32.3,
+        threshold: 10,
+        missingFields: ['email', 'contact_id', 'bill_to_id'],
+        affectedLeadCount: 5559,
+        detectedAt: now,
+        status: 'active',
+        recommendedAction: 'Integrate Five9 contact data with lead routing for better matching'
+      },
+      {
+        id: 'lca-3',
+        channel: 'invoca',
+        channelName: 'Invoca Call Attribution',
+        severity: 'warning',
+        currentMatchRate: 42.3,
+        baselineMatchRate: 53.9,
+        variance: -21.5,
+        threshold: 50,
+        missingFields: ['call_id', 'ani', 'caller_id'],
+        affectedLeadCount: 5057,
+        detectedAt: new Date(now.getTime() - 30 * 60 * 1000),
+        status: 'active',
+        recommendedAction: 'Verify Invoca → Salesforce integration mapping for ANI field'
+      },
+      {
+        id: 'lca-4',
+        channel: 'ccm',
+        channelName: 'CCM Winning Formula',
+        severity: 'warning',
+        currentMatchRate: 89.4,
+        baselineMatchRate: 96.1,
+        variance: -7.0,
+        threshold: 90,
+        missingFields: ['campaign_id', 'utm_source'],
+        affectedLeadCount: 363,
+        detectedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+        status: 'active',
+        recommendedAction: 'Check CCM campaign tagging for missing UTM parameters'
+      },
+      {
+        id: 'lca-5',
+        channel: 'marketing',
+        channelName: 'Marketing Campaigns',
+        severity: 'warning',
+        currentMatchRate: 24.5,
+        baselineMatchRate: 30.1,
+        variance: -18.6,
+        threshold: 30,
+        missingFields: ['campaign_id', 'source_code', 'utm_medium'],
+        affectedLeadCount: 3448,
+        detectedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+        status: 'active',
+        recommendedAction: 'Review marketing automation lead capture forms'
+      }
+    ]
+  }
+
+  // Normal mode - only show if there are actual issues
+  return [
+    {
+      id: 'lca-1',
+      channel: 'web_form',
+      channelName: 'Web Form Submissions',
+      severity: 'warning',
+      currentMatchRate: 9.6,
+      baselineMatchRate: 9.6,
+      variance: 0,
+      threshold: 15,
+      missingFields: ['bill_to_id', 'location_id'],
+      affectedLeadCount: 11155,
+      detectedAt: now,
+      status: 'acknowledged',
+      recommendedAction: 'Known issue - web forms need API integration for Bill-to ID lookup'
+    },
+    {
+      id: 'lca-2',
+      channel: 'email_chat',
+      channelName: 'Email/Chat Leads',
+      severity: 'warning',
+      currentMatchRate: 3.1,
+      baselineMatchRate: 3.1,
+      variance: 0,
+      threshold: 10,
+      missingFields: ['contact_id', 'bill_to_id'],
+      affectedLeadCount: 5502,
+      detectedAt: now,
+      status: 'acknowledged',
+      recommendedAction: 'Integrate Five9 contact lookup during lead creation'
+    }
+  ]
+}
+
+/**
+ * Get combined anomaly alerts including lead channel issues
+ */
+export function getAllAnomalyAlerts(): (AnomalyAlert | LeadChannelAlert)[] {
+  const anomalyAlerts = getAnomalyAlerts()
+  const channelAlerts = getLeadChannelAlerts()
+
+  // Convert channel alerts to anomaly format for unified display
+  const channelAsAnomalies: AnomalyAlert[] = channelAlerts
+    .filter(ca => ca.status === 'active')
+    .map(ca => ({
+      id: `channel-${ca.id}`,
+      severity: ca.severity,
+      description: `Lead Channel: ${ca.channelName} match rate at ${ca.currentMatchRate.toFixed(1)}% (target: ${ca.baselineMatchRate}%)`,
+      detectionTime: ca.detectedAt,
+      likelyCause: `Missing fields: ${ca.missingFields.join(', ')} - ${ca.affectedLeadCount.toLocaleString()} leads affected`,
+      affectedKPIs: ['lead_match_rate', 'lead_attribution', 'marketing_roi'],
+      status: 'active' as const
+    }))
+
+  return [...anomalyAlerts, ...channelAsAnomalies].sort((a, b) => {
+    const severityOrder = { critical: 0, warning: 1, info: 2 }
+    return severityOrder[a.severity] - severityOrder[b.severity]
+  })
 }

@@ -138,6 +138,7 @@ const rtxSections: NavSection[] = [
     icon: Target,
     allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager'],
     children: [
+      { name: 'Journey Tracking', href: '/leads/journey', icon: GitBranch },
       { name: 'Type & Pest', href: '/leads/type-pest' },
       { name: 'Trends', href: '/leads/trends' },
       { name: 'Rankings', href: '/leads/rankings' },
