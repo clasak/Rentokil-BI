@@ -48,11 +48,74 @@ function parseEnvironment(env: string | undefined): BigQueryEnvironment {
 }
 
 /**
+ * Detect environment from deployment context
+ * Priority: explicit override > Vercel > NODE_ENV > default dev
+ */
+function getEnvironment(): BigQueryEnvironment {
+  // 1. Explicit override (highest priority)
+  if (process.env.BIGQUERY_ENVIRONMENT) {
+    return parseEnvironment(process.env.BIGQUERY_ENVIRONMENT)
+  }
+
+  // 2. Vercel environment detection
+  if (process.env.VERCEL_ENV === 'production') return 'production'
+  if (process.env.VERCEL_ENV === 'preview') return 'staging'
+
+  // 3. Node environment
+  if (process.env.NODE_ENV === 'production') return 'production'
+  if (process.env.NODE_ENV === 'test') return 'staging'
+
+  // 4. Default to development
+  return 'dev'
+}
+
+/**
+ * Get project ID from override or auto-detect from environment
+ */
+function getProjectId(): string {
+  // Explicit overrides
+  if (process.env.BIGQUERY_PROJECT_ID) {
+    return process.env.BIGQUERY_PROJECT_ID
+  }
+  if (process.env.GOOGLE_CLOUD_PROJECT) {
+    return process.env.GOOGLE_CLOUD_PROJECT
+  }
+
+  // Auto-detect based on environment
+  return getProjectIdForEnvironment(getEnvironment())
+}
+
+/**
+ * BigQuery configuration with auto-detected environment
+ */
+export const BIGQUERY_CONFIG = {
+  projectId: getProjectId(),
+  environment: getEnvironment(),
+
+  projects: {
+    production: 'bidata-sharedus-production',
+    staging: 'bidata-sharedus-staging',
+    dev: 'bidata-sharedus-dev',
+  },
+
+  // All datasets discovered from bidata-sharedus-dev
+  datasets: {
+    leads: ['Leads_S1', 'Leads_S2', 'Leads_S3'],
+    sales: ['S4_Reports', 'SalesReporting_RNA_PPNW'],
+    rna: ['S0_RNA', 'S0_RNA_Cleaned', 'S1', 'S1_Cleaned'],
+    tmx: ['S0_TMX', 'S0_TMX_Cleaned', 'S1_TMX', 'S2_TMX'],
+    reference: ['Reference', 'Reference_EXT'],
+    reports: ['Reports', 'S4_Reports'],
+    marketing: ['MktAnalytics_import'],
+  },
+}
+
+/**
  * Default configuration from environment variables
  */
 function getDefaultConfig(): BigQueryConfig {
-  const environment = parseEnvironment(process.env.BIGQUERY_ENVIRONMENT)
-  const projectId = process.env.GOOGLE_CLOUD_PROJECT || getProjectIdForEnvironment(environment)
+  const environment = getEnvironment()
+  const projectId = getProjectId()
 
   return {
     environment,
@@ -81,6 +144,15 @@ export class BigQueryClient {
     if (!config.projectId) {
       this.config.projectId = getProjectIdForEnvironment(this.config.environment)
     }
+
+    // Log initialization for debugging
+    console.log('[BigQuery] Initializing client:', {
+      environment: this.config.environment,
+      projectId: this.config.projectId,
+      authMethod: this.config.keyFilename ? 'service-account' : 'ADC',
+      vercelEnv: process.env.VERCEL_ENV || 'not-vercel',
+      nodeEnv: process.env.NODE_ENV,
+    })
 
     // Initialize BigQuery client
     this.client = new BigQuery({

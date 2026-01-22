@@ -11,6 +11,13 @@ interface HealthResponse {
     projectId: string | undefined
     dataset: string | undefined
     location: string | undefined
+    authMethod: 'service-account' | 'ADC'
+    vercelEnv: string | undefined
+    nodeEnv: string | undefined
+  }
+  stats: {
+    datasetsCount: number
+    datasetsAvailable: string[]
   }
 }
 
@@ -78,6 +85,13 @@ export async function GET(): Promise<NextResponse<HealthResponse>> {
       projectId: config.projectId,
       dataset: config.dataset,
       location: config.location,
+      authMethod: config.keyFilename ? 'service-account' : 'ADC',
+      vercelEnv: process.env.VERCEL_ENV,
+      nodeEnv: process.env.NODE_ENV,
+    },
+    stats: {
+      datasetsCount: connectionStatus.datasets?.length || 0,
+      datasetsAvailable: connectionStatus.datasets || [],
     },
   }
 
