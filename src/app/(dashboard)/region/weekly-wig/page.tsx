@@ -1,16 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -21,7 +15,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  Target,
   DollarSign,
   Users,
   Clock,
@@ -38,18 +31,19 @@ import {
   Percent,
   ChevronLeft,
   ChevronRight,
-  ClipboardCheck,
   Calendar,
+  RefreshCw,
 } from 'lucide-react'
-import { RegionCode } from '@/types/daily-sales-cadence'
+import { RegionCode, MarketCode } from '@/types/daily-sales-cadence'
 import {
   WIG_TARGETS,
   LAGGING_TARGETS,
   RegionWeeklyWIG,
+  BranchWIGMetrics,
+  LaggingMetrics,
   BranchWIGEntry,
 } from '@/types/weekly-wig'
 import {
-  getRegionWeeklyWIG,
   getWeekEndDate,
   getMetricStatus,
   getLaggingMetricStatus,
@@ -57,14 +51,10 @@ import {
   formatPercent,
   MetricStatus,
 } from '@/lib/weekly-wig-data'
-
-const REGIONS: { code: RegionCode; name: string }[] = [
-  { code: 'R16', name: 'Region 16 - Arkansas/Kansas' },
-  { code: 'R23', name: 'Region 23 - Oklahoma/Kansas' },
-  { code: 'R24', name: 'Region 24 - Illinois/Indiana' },
-  { code: 'R52', name: 'Region 52 - Texas East' },
-  { code: 'R54', name: 'Region 54 - Texas Central/West' },
-]
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import { useOrganizationData } from '@/hooks/useOrganizationData'
+import type { WIGRegionSummary, WIGBranchMetrics as BQWIGBranchMetrics } from '@/lib/bigquery/queries/wig'
 
 const statusColors: Record<MetricStatus, string> = {
   success: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-700',
@@ -78,28 +68,130 @@ const statusTextColors: Record<MetricStatus, string> = {
   danger: 'text-red-600 dark:text-red-400',
 }
 
+// Transform BigQuery data to UI format
+function transformBigQueryToUI(bqData: WIGRegionSummary): RegionWeeklyWIG {
+  const branches: BranchWIGEntry[] = bqData.branch_metrics.map((bm: BQWIGBranchMetrics) => ({
+    branch: {
+      code: bm.branch_code,
+      name: bm.branch_name,
+      region: bm.region as RegionCode,
+      market: bm.market as MarketCode,
+      branchManager: '', // Not available from BigQuery
+      phone: '', // Not available from BigQuery
+    },
+    metrics: {
+      salesDollarsPerRep: bm.sales_dollars_per_rep,
+      tapDollarPerTech: bm.tap_dollars_per_tech,
+      missedStops: bm.missed_stops,
+      twentyFourHourStart: bm.twenty_four_hour_start_pct,
+      npsScore: bm.nps_score,
+      pastDueCcmCfr: bm.past_due_ccm_cfr,
+      techsOver55Hours: bm.techs_over_55_hours,
+      serviceRevPerHour: bm.service_rev_per_hour,
+      driverScore: bm.driver_score,
+      fundamentalsChecklistMTD: bm.fundamentals_checklist_mtd,
+      rdBranchMeetingsMTD: bm.rd_branch_meetings_mtd,
+    },
+  }))
+
+  const lagging = bqData.lagging_metrics
+  const laggingMetrics: LaggingMetrics = {
+    salesYOY: lagging.sales_yoy_pct,
+    revenueGrowth: lagging.revenue_growth_pct,
+    retention: lagging.retention_pct,
+    profitVsAOP: lagging.profit_vs_aop_pct,
+    colleagueRetention: lagging.colleague_retention_pct,
+    safetyYOYReduction: lagging.safety_yoy_reduction_pct,
+  }
+
+  const totals: BranchWIGMetrics = {
+    salesDollarsPerRep: bqData.totals.avg_sales_per_rep,
+    tapDollarPerTech: bqData.totals.avg_tap_per_tech,
+    missedStops: bqData.totals.total_missed_stops,
+    twentyFourHourStart: bqData.totals.avg_24hr_start_pct,
+    npsScore: bqData.totals.avg_nps_score,
+    pastDueCcmCfr: bqData.totals.total_past_due,
+    techsOver55Hours: bqData.totals.total_techs_over_55,
+    serviceRevPerHour: bqData.totals.avg_service_rev_per_hour,
+    driverScore: bqData.totals.avg_driver_score,
+    fundamentalsChecklistMTD: bqData.totals.total_fundamentals,
+    rdBranchMeetingsMTD: bqData.totals.total_rd_meetings,
+  }
+
+  return {
+    regionCode: bqData.region as RegionCode,
+    weekEndDate: bqData.week_end_date,
+    laggingMetrics,
+    branches,
+    totals,
+  }
+}
+
 export default function WeeklyWIGPage() {
   const [mounted, setMounted] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [selectedRegion, setSelectedRegion] = useState<RegionCode>('R54')
+  const [selectedRegion, setSelectedRegion] = useState<string>('')
   const [weekOffset, setWeekOffset] = useState(0)
-  const [wigData, setWigData] = useState<RegionWeeklyWIG | null>(null)
+
+  // Get regions from BigQuery organization data
+  const { regions, isLoading: regionsLoading } = useOrganizationData()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // Set initial region once data loads
   useEffect(() => {
-    if (!mounted) return
+    if (regions.length > 0 && !selectedRegion) {
+      setSelectedRegion(regions[0].region_code)
+    }
+  }, [regions, selectedRegion])
 
-    setIsLoading(true)
-    const weekEndDate = getWeekEndDate(weekOffset)
-    const data = getRegionWeeklyWIG(selectedRegion, weekEndDate)
-    setWigData(data)
-    setIsLoading(false)
-  }, [selectedRegion, weekOffset, mounted])
+  const weekEndDate = useMemo(() => getWeekEndDate(weekOffset), [weekOffset])
 
-  if (!mounted || isLoading || !wigData) {
+  // Empty default state (no mock data - BigQuery only)
+  const EMPTY_WIG_DATA: RegionWeeklyWIG = useMemo(() => ({
+    regionCode: (selectedRegion || 'NE') as RegionCode,
+    weekEndDate,
+    laggingMetrics: {
+      salesYOY: 0,
+      revenueGrowth: 0,
+      retention: 0,
+      profitVsAOP: 0,
+      colleagueRetention: 0,
+      safetyYOYReduction: 0,
+    },
+    branches: [],
+    totals: {
+      salesDollarsPerRep: 0,
+      tapDollarPerTech: 0,
+      missedStops: 0,
+      twentyFourHourStart: 0,
+      npsScore: 0,
+      pastDueCcmCfr: 0,
+      techsOver55Hours: 0,
+      serviceRevPerHour: 0,
+      driverScore: 0,
+      fundamentalsChecklistMTD: 0,
+      rdBranchMeetingsMTD: 0,
+    },
+  }), [selectedRegion, weekEndDate])
+
+  // BigQuery data hook
+  const {
+    data: wigData,
+    isLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<WIGRegionSummary, RegionWeeklyWIG>({
+    queryName: 'wig-region-summary',
+    filters: { region: selectedRegion, weekEndDate },
+    defaultData: EMPTY_WIG_DATA,
+    transformBigQueryData: transformBigQueryToUI,
+    includeOrgFilters: false, // WIG uses its own region filter
+  })
+
+  if (!mounted || isLoading || regionsLoading || !wigData || !selectedRegion) {
     return (
       <div className="space-y-6">
         <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
@@ -156,7 +248,7 @@ export default function WeeklyWIGPage() {
     })
   }
 
-  // Check if it's a Friday and before 9am (due date reminder)
+  // Check if it&apos;s a Friday and before 9am (due date reminder)
   const isDueDateWarning = () => {
     const now = new Date()
     const dayOfWeek = now.getDay()
@@ -181,6 +273,12 @@ export default function WeeklyWIGPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Data Source Badge */}
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetch} disabled={isLoading} className="h-8 w-8">
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+
           {/* Week Navigation */}
           <div className="flex items-center gap-1">
             <Button
@@ -204,16 +302,18 @@ export default function WeeklyWIGPage() {
           </div>
 
           {/* Region Selector */}
-          <Select value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as RegionCode)}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Select Region" />
-            </SelectTrigger>
-            <SelectContent>
-              {REGIONS.map((r) => (
-                <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={regions.map(r => ({
+              value: r.region_code,
+              label: r.region_name,
+              description: `${r.branch_count} branches`
+            }))}
+            value={selectedRegion}
+            onValueChange={setSelectedRegion}
+            placeholder="Select Region"
+            searchPlaceholder="Search regions..."
+            className="w-64"
+          />
         </div>
       </div>
 

@@ -1,9 +1,12 @@
 "use client"
 
-import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Clock, MapPin, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Calendar, Clock, MapPin, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import type { BCGTechWorkOrder } from '@/lib/bigquery/queries/bcg-analytics'
 
 interface ScheduleItem {
   id: string
@@ -15,28 +18,70 @@ interface ScheduleItem {
   estimatedDuration: number
 }
 
+interface ScheduleDisplay {
+  schedule: ScheduleItem[]
+  completedCount: number
+  totalCount: number
+  totalDuration: number
+  callbackCount: number
+}
+
+const EMPTY_SCHEDULE: ScheduleDisplay = {
+  schedule: [],
+  completedCount: 0,
+  totalCount: 0,
+  totalDuration: 0,
+  callbackCount: 0,
+}
+
+function transformBigQueryData(bqData: BCGTechWorkOrder[]): ScheduleDisplay {
+  // Transform BCG tech work order data to today's schedule format
+  // Generate schedule times based on order index (8:00 AM start)
+  const schedule: ScheduleItem[] = bqData.slice(0, 10).map((workOrder, index) => {
+    const hour = 8 + Math.floor(index * 0.75) // ~45 min per stop
+    const minute = (index * 45) % 60
+    const timeStr = `${hour}:${minute.toString().padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`
+
+    return {
+      id: workOrder.technician_id || String(index + 1),
+      time: timeStr,
+      accountName: workOrder.technician_name || 'Service Customer',
+      address: workOrder.branch || 'Service Location',
+      serviceType: `${Math.round(workOrder.avg_stops_per_day)} stops/day avg`,
+      status: workOrder.completion_rate >= 0.8 ? 'completed' :
+              workOrder.completion_rate >= 0.5 ? 'in_progress' : 'scheduled',
+      estimatedDuration: Math.round(480 / Math.max(workOrder.avg_stops_per_day, 1)) || 45, // 8 hours / stops per day
+    }
+  })
+
+  return {
+    schedule,
+    completedCount: schedule.filter(s => s.status === 'completed').length,
+    totalCount: schedule.length,
+    totalDuration: schedule.reduce((acc, s) => acc + s.estimatedDuration, 0),
+    callbackCount: bqData.filter(wo => wo.completion_rate < 1).length, // Incomplete as callbacks
+  }
+}
+
 export default function TechSchedulePage() {
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  // BigQuery integration - Use BCG tech work orders query
+  const {
+    data: scheduleData,
+    isLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<BCGTechWorkOrder[], ScheduleDisplay>({
+    queryName: 'bcg-tech-work-orders',
+    filters: { daysBack: 1 },
+    defaultData: EMPTY_SCHEDULE,
+    transformBigQueryData,
+  })
 
-  useEffect(() => {
-    // Simulated schedule data
-    const mockSchedule: ScheduleItem[] = [
-      { id: '1', time: '8:00 AM', accountName: 'ABC Manufacturing', address: '123 Industrial Blvd', serviceType: 'Monthly Inspection', status: 'completed', estimatedDuration: 45 },
-      { id: '2', time: '9:30 AM', accountName: 'Downtown Cafe', address: '456 Main St', serviceType: 'Quarterly Treatment', status: 'completed', estimatedDuration: 60 },
-      { id: '3', time: '11:00 AM', accountName: 'City Hospital', address: '789 Health Way', serviceType: 'Monthly Inspection', status: 'in_progress', estimatedDuration: 90 },
-      { id: '4', time: '1:30 PM', accountName: 'Sunrise Apartments', address: '321 Residential Dr', serviceType: 'Initial Service', status: 'scheduled', estimatedDuration: 120 },
-      { id: '5', time: '4:00 PM', accountName: 'Tech Solutions Inc', address: '555 Corporate Park', serviceType: 'Callback', status: 'scheduled', estimatedDuration: 45 },
-    ]
-
-    setTimeout(() => {
-      setSchedule(mockSchedule)
-      setIsLoading(false)
-    }, 300)
-  }, [])
-
-  const completedCount = schedule.filter(s => s.status === 'completed').length
-  const totalCount = schedule.length
+  const schedule = scheduleData?.schedule || []
+  const completedCount = scheduleData?.completedCount || 0
+  const totalCount = scheduleData?.totalCount || 0
+  const callbackCount = scheduleData?.callbackCount || 0
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -62,10 +107,16 @@ export default function TechSchedulePage() {
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
-        <Badge variant="outline" className="gap-1">
-          <CheckCircle className="h-3 w-3" />
-          {completedCount}/{totalCount} Complete
-        </Badge>
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetch} disabled={isLoading} className="h-8 w-8">
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Badge variant="outline" className="gap-1">
+            <CheckCircle className="h-3 w-3" />
+            {completedCount}/{totalCount} Complete
+          </Badge>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -97,7 +148,7 @@ export default function TechSchedulePage() {
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-8 w-8 text-yellow-500" />
               <div>
-                <div className="text-2xl font-bold">{schedule.filter(s => s.serviceType === 'Callback').length}</div>
+                <div className="text-2xl font-bold">{callbackCount}</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">Callbacks</div>
               </div>
             </div>

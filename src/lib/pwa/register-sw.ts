@@ -21,7 +21,6 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
   // Check if service workers are supported
   if (!('serviceWorker' in navigator)) {
-    console.log('[PWA] Service workers not supported')
     return null
   }
 
@@ -33,26 +32,21 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     })
 
     swRegistration = registration
-    console.log('[PWA] Service worker registered:', registration.scope)
 
     // Handle updates
     registration.addEventListener('updatefound', () => {
       const newWorker = registration.installing
 
       if (newWorker) {
-        console.log('[PWA] New service worker installing...')
-
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
               // New content available - dispatch event for UI to handle
-              console.log('[PWA] New content available')
               window.dispatchEvent(new CustomEvent('sw-update-available', {
                 detail: { registration }
               }))
             } else {
               // First install - content cached for offline
-              console.log('[PWA] Content cached for offline use')
               window.dispatchEvent(new CustomEvent('sw-cached', {
                 detail: { registration }
               }))
@@ -131,7 +125,6 @@ export async function unregisterServiceWorker(): Promise<boolean> {
     const registrations = await navigator.serviceWorker.getRegistrations()
     await Promise.all(registrations.map(r => r.unregister()))
     swRegistration = null
-    console.log('[PWA] Service workers unregistered')
     return true
   } catch (error) {
     console.error('[PWA] Failed to unregister service workers:', error)

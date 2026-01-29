@@ -16,15 +16,73 @@ import {
   RefreshCw, FileText, DollarSign, Clock, AlertTriangle,
   CheckCircle, XCircle, Eye, Send, MessageSquare
 } from 'lucide-react'
-import {
-  generateMockProposalPipeline,
-  generateMockProposalSummary,
-} from '@/lib/mock/saltiExtendedData'
 import type { ProposalPipelineItem, ProposalPipelineSummary, ProposalStatus } from '@/types/salti-extended'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import type { SALTIProposalPipeline } from '@/lib/bigquery/queries/salti'
+
+// Transform BigQuery data to page format
+function transformBigQueryData(bqData: SALTIProposalPipeline[]): ProposalPipelineItem[] {
+  return bqData.map((d, index) => ({
+    id: d.proposal_id,
+    accountName: d.customer_name,
+    repId: `REP-${index + 1}`,
+    repName: d.employee_name,
+    createdAt: new Date(d.proposal_date),
+    presentedAt: d.days_pending < 7 ? new Date(d.proposal_date) : undefined,
+    status: (d.status === 'Won' ? 'accepted' : d.status === 'Lost' ? 'declined' : 'sent') as ProposalStatus,
+    amount: d.proposal_amount,
+    serviceType: 'Pest Control',
+    expiresAt: new Date(Date.now() + (30 - d.days_pending) * 24 * 60 * 60 * 1000),
+    followUpDate: d.days_pending > 14 ? new Date() : undefined,
+    customerName: d.customer_name,
+    customerPhone: undefined,
+    customerEmail: undefined,
+    daysOpen: d.days_pending,
+    touchpoints: Math.max(1, Math.floor(d.days_pending / 7)),
+    lastTouchpoint: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+  }))
+}
+
+// Calculate summary from proposals
+function calculateSummary(proposals: ProposalPipelineItem[]): ProposalPipelineSummary {
+  const statusCounts: Record<ProposalStatus, { count: number; value: number }> = {
+    draft: { count: 0, value: 0 },
+    sent: { count: 0, value: 0 },
+    viewed: { count: 0, value: 0 },
+    presented: { count: 0, value: 0 },
+    negotiating: { count: 0, value: 0 },
+    accepted: { count: 0, value: 0 },
+    declined: { count: 0, value: 0 },
+    expired: { count: 0, value: 0 },
+  }
+
+  proposals.forEach(p => {
+    if (statusCounts[p.status]) {
+      statusCounts[p.status].count++
+      statusCounts[p.status].value += p.amount
+    }
+  })
+
+  const totalValue = proposals.reduce((sum, p) => sum + p.amount, 0)
+  const acceptedValue = statusCounts.accepted.value
+  const declinedValue = statusCounts.declined.value
+
+  return {
+    totalProposals: proposals.length,
+    totalValue,
+    byStatus: statusCounts,
+    avgTimeToClose: proposals.reduce((sum, p) => sum + p.daysOpen, 0) / Math.max(proposals.length, 1),
+    avgAmount: totalValue / Math.max(proposals.length, 1),
+    winRate: acceptedValue / Math.max(acceptedValue + declinedValue, 1),
+    expiringSoon: proposals.filter(p => p.daysOpen > 25 && p.status !== 'accepted' && p.status !== 'declined').length,
+    needsFollowUp: proposals.filter(p => p.daysOpen > 14 && p.status !== 'accepted' && p.status !== 'declined').length,
+  }
+}
 
 const STATUS_CONFIG: Record<ProposalStatus, { color: string; bgColor: string; icon: React.ReactNode }> = {
   draft: { color: '#6b7280', bgColor: 'bg-gray-100 dark:bg-gray-800', icon: <FileText className="h-4 w-4" /> },
@@ -40,29 +98,29 @@ const STATUS_CONFIG: Record<ProposalStatus, { color: string; bgColor: string; ic
 const COLORS = ['#6b7280', '#3b82f6', '#8b5cf6', '#f97316', '#eab308', '#22c55e', '#ef4444', '#9ca3af']
 
 export default function ProposalPipelinePage() {
-  const [proposals, setProposals] = useState<ProposalPipelineItem[]>([])
-  const [summary, setSummary] = useState<ProposalPipelineSummary | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
 
-  useEffect(() => {
-    setIsLoading(true)
-    const data = generateMockProposalPipeline(100)
-    const summaryData = generateMockProposalSummary()
-    setProposals(data)
-    setSummary(summaryData)
-    setIsLoading(false)
-  }, [])
+  // Empty default data
+  const EMPTY_PROPOSALS: ProposalPipelineItem[] = []
+
+  const {
+    data: proposals,
+    isLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<SALTIProposalPipeline[], ProposalPipelineItem[]>({
+    queryName: 'salti-proposal-pipeline',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_PROPOSALS,
+    transformBigQueryData,
+  })
+
+  // Calculate summary from the proposals data
+  const summary = useMemo(() => calculateSummary(proposals), [proposals])
 
   const handleRefresh = () => {
-    setIsLoading(true)
-    setTimeout(() => {
-      const data = generateMockProposalPipeline(100, `refresh-${Date.now()}`)
-      const summaryData = generateMockProposalSummary(`refresh-${Date.now()}`)
-      setProposals(data)
-      setSummary(summaryData)
-      setIsLoading(false)
-    }, 500)
+    refetch()
   }
 
   const filteredProposals = useMemo(() => {
@@ -138,6 +196,7 @@ export default function ProposalPipelinePage() {
           <Button variant="outline" size="icon" onClick={handleRefresh}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
         </div>
       </div>
 

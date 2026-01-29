@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TrendingUp, TrendingDown, Minus, Info, AlertTriangle } from 'lucide-react'
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts'
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 
 interface KPICardProps {
   kpiValue: KPIValue
@@ -21,6 +22,14 @@ interface KPICardProps {
 
 export function KPICard({ kpiValue, showSparkline = true, compact = false, highlighted = false }: KPICardProps) {
   const definition = getKPIBySlug(kpiValue.slug)
+
+  // Animated number with appropriate decimals - must be called before early return
+  const decimals = definition?.format === 'percent' ? 1 : (definition?.format === 'currency' ? 0 : 0)
+  const animatedValue = useAnimatedNumber(kpiValue.value, {
+    duration: 1000,
+    decimals,
+    enabled: !!definition,
+  })
 
   if (!definition) return null
 
@@ -88,7 +97,7 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
   return (
     <Link href={`/kpi/${kpiValue.slug}`}>
       <Card className={cn(
-        'transition-all cursor-pointer border-l-4',
+        'transition-all duration-300 cursor-pointer border-l-4 hover:scale-[1.02] hover:shadow-xl hover:-translate-y-1',
         statusBorderStyles[kpiValue.status],
         getGlowClass(),
         highlighted && 'ring-2 ring-primary ring-offset-2',
@@ -121,33 +130,45 @@ export function KPICard({ kpiValue, showSparkline = true, compact = false, highl
               </div>
 
               <div className={cn(
-                'font-bold text-gray-900 dark:text-white',
+                'font-bold text-gray-900 dark:text-white transition-all',
                 compact ? 'text-xl' : 'text-2xl'
               )}>
-                {formatValue(kpiValue.value)}
+                {formatValue(animatedValue)}
               </div>
 
               <div className="flex items-center gap-2 mt-1">
-                <div className={cn(
-                  'flex items-center gap-1 text-sm font-medium',
-                  isPositiveChange && 'text-green-600 dark:text-green-400',
-                  isNegativeChange && 'text-red-600 dark:text-red-400',
-                  !isPositiveChange && !isNegativeChange && 'text-gray-500 dark:text-gray-400'
-                )}>
-                  {isPositiveChange && <TrendingUp className="h-3 w-3" />}
-                  {isNegativeChange && <TrendingDown className="h-3 w-3" />}
-                  {!isPositiveChange && !isNegativeChange && <Minus className="h-3 w-3" />}
-                  <span>{deltaPercent > 0 ? '+' : ''}{deltaPercent.toFixed(1)}%</span>
-                </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-xs text-gray-400 cursor-help border-b border-dotted border-gray-400">vs prior</span>
+                    <div className={cn(
+                      'flex items-center gap-1 text-sm font-medium cursor-help',
+                      isPositiveChange && 'text-green-600 dark:text-green-400',
+                      isNegativeChange && 'text-red-600 dark:text-red-400',
+                      !isPositiveChange && !isNegativeChange && 'text-gray-500 dark:text-gray-400'
+                    )}>
+                      {isPositiveChange && <TrendingUp className="h-3 w-3" />}
+                      {isNegativeChange && <TrendingDown className="h-3 w-3" />}
+                      {!isPositiveChange && !isNegativeChange && <Minus className="h-3 w-3" />}
+                      <span>{deltaPercent > 0 ? '+' : ''}{deltaPercent.toFixed(1)}%</span>
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="text-xs">Prior: {formatValue(priorValue)}</p>
-                    <p className="text-xs">Current: {formatValue(kpiValue.value)}</p>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium">Change vs Prior Period</p>
+                      <div className="text-xs text-gray-400">
+                        <p>Prior: {formatValue(priorValue)}</p>
+                        <p>Current: {formatValue(kpiValue.value)}</p>
+                        <p className="mt-1 pt-1 border-t border-gray-600">
+                          {isPositiveChange && definition.higherIsBetter && '✓ Improving trend'}
+                          {isPositiveChange && !definition.higherIsBetter && '⚠ Worsening trend'}
+                          {isNegativeChange && definition.higherIsBetter && '⚠ Declining trend'}
+                          {isNegativeChange && !definition.higherIsBetter && '✓ Improving trend'}
+                          {!isPositiveChange && !isNegativeChange && '— Stable'}
+                        </p>
+                      </div>
+                    </div>
                   </TooltipContent>
                 </Tooltip>
+                <span className="text-xs text-gray-400">vs prior period</span>
               </div>
 
               {kpiValue.target !== undefined && !compact && (

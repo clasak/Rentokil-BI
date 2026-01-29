@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
@@ -18,11 +18,89 @@ import {
   Package, AlertTriangle, Clock, DollarSign, Calendar,
   Filter, AlertCircle, CheckCircle2
 } from 'lucide-react'
-import {
-  generateMockBacklog,
-  generateMockBacklogSummary,
-} from '@/lib/mock/salesExtendedData'
-import type { BacklogItem, BacklogStatus } from '@/types/sales-extended'
+// No mock data - BigQuery only
+import type { BacklogItem, BacklogStatus, BacklogSummary } from '@/types/sales-extended'
+import { DataSourceBadge, type DataSourceStatus } from '@/components/ui/data-source-badge'
+import type { BacklogItem as BQBacklogItem } from '@/lib/bigquery/queries/sales'
+
+// Transform BigQuery data to component format
+// Uses deterministic logic based on actual data - NO random values
+function transformBQToBacklogItems(bqData: BQBacklogItem[]): BacklogItem[] {
+  return bqData.map((d) => {
+    const daysSinceSold = d.days_since_sold
+    const isAtRisk = daysSinceSold > 21
+
+    // Deterministic status based on days since sold (real business logic)
+    // 0-7 days: pending_schedule, 7-14: scheduled, 14-21: waiting_customer, 21+: blocked
+    let status: BacklogStatus
+    if (daysSinceSold <= 7) status = 'pending_schedule'
+    else if (daysSinceSold <= 14) status = 'scheduled'
+    else if (daysSinceSold <= 21) status = 'waiting_customer'
+    else status = 'blocked'
+
+    // Priority directly derived from age (deterministic)
+    const priority: 'low' | 'medium' | 'high' =
+      daysSinceSold > 21 ? 'high' : daysSinceSold > 14 ? 'medium' : 'low'
+
+    return {
+      id: d.sales_id,
+      accountId: `A-${d.sales_id}`,
+      accountName: d.customer_name,
+      serviceType: d.service_type,
+      amount: d.amount,
+      repId: d.sales_person ? `REP-${d.sales_person.replace(/\s/g, '')}` : 'UNASSIGNED',
+      repName: d.sales_person || 'Unassigned',
+      soldDate: new Date(d.sold_date),
+      daysSinceSold,
+      status,
+      priority,
+      isAtRisk,
+      blockedReason: isAtRisk ? `Aging ${daysSinceSold} days - needs attention` : undefined,
+      branch: d.branch,
+    }
+  })
+}
+
+function generateSummaryFromItems(items: BacklogItem[]): BacklogSummary {
+  const totalItems = items.length
+  const totalValue = items.reduce((sum, i) => sum + i.amount, 0)
+  const avgAge = totalItems > 0 ? items.reduce((sum, i) => sum + i.daysSinceSold, 0) / totalItems : 0
+  const atRisk = items.filter(i => i.isAtRisk)
+  const blocked = items.filter(i => i.status === 'blocked')
+
+  const under7 = items.filter(i => i.daysSinceSold < 7)
+  const days7to14 = items.filter(i => i.daysSinceSold >= 7 && i.daysSinceSold < 14)
+  const days14to30 = items.filter(i => i.daysSinceSold >= 14 && i.daysSinceSold < 30)
+  const over30 = items.filter(i => i.daysSinceSold >= 30)
+
+  const byStatus = items.reduce((acc, item) => {
+    if (!acc[item.status]) acc[item.status] = { count: 0, value: 0 }
+    acc[item.status].count++
+    acc[item.status].value += item.amount
+    return acc
+  }, {} as Record<BacklogStatus, { count: number; value: number }>)
+
+  // Find oldest item's age
+  const oldestItemAge = items.length > 0
+    ? Math.max(...items.map(i => i.daysSinceSold))
+    : 0
+
+  return {
+    totalItems,
+    totalValue,
+    avgAge,
+    oldestItem: oldestItemAge,
+    atRiskCount: atRisk.length,
+    atRiskValue: atRisk.reduce((s, i) => s + i.amount, 0),
+    blockedCount: blocked.length,
+    blockedValue: blocked.reduce((s, i) => s + i.amount, 0),
+    under7Days: { count: under7.length, value: under7.reduce((s, i) => s + i.amount, 0) },
+    days7to14: { count: days7to14.length, value: days7to14.reduce((s, i) => s + i.amount, 0) },
+    days14to30: { count: days14to30.length, value: days14to30.reduce((s, i) => s + i.amount, 0) },
+    over30Days: { count: over30.length, value: over30.reduce((s, i) => s + i.amount, 0) },
+    byStatus,
+  }
+}
 
 const STATUS_LABELS: Record<BacklogStatus, string> = {
   pending_schedule: 'Pending Schedule',
@@ -42,10 +120,66 @@ const STATUS_COLORS: Record<BacklogStatus, string> = {
   ready: '#22c55e',
 }
 
+// Empty summary for initial/error state
+const EMPTY_SUMMARY: BacklogSummary = {
+  totalItems: 0,
+  totalValue: 0,
+  avgAge: 0,
+  oldestItem: 0,
+  atRiskCount: 0,
+  atRiskValue: 0,
+  blockedCount: 0,
+  blockedValue: 0,
+  under7Days: { count: 0, value: 0 },
+  days7to14: { count: 0, value: 0 },
+  days14to30: { count: 0, value: 0 },
+  over30Days: { count: 0, value: 0 },
+  byStatus: {} as Record<BacklogStatus, { count: number; value: number }>,
+}
+
 export default function BacklogPage() {
-  const [backlogItems] = useState(() => generateMockBacklog(60))
-  const [summary] = useState(() => generateMockBacklogSummary())
+  const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([])
+  const [summary, setSummary] = useState<BacklogSummary>(EMPTY_SUMMARY)
   const [statusFilter, setStatusFilter] = useState<BacklogStatus | 'all'>('all')
+  const [dataSource, setDataSource] = useState<DataSourceStatus>('loading')
+  const [responseTime, setResponseTime] = useState<number | undefined>()
+  const [error, setError] = useState<string | undefined>()
+
+  const fetchData = useCallback(async () => {
+    setDataSource('loading')
+    setError(undefined)
+
+    try {
+      const startTime = Date.now()
+      const response = await fetch('/api/bigquery/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'backlog', filters: { limit: 100 } }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.data?.length > 0) {
+        const items = transformBQToBacklogItems(data.data)
+        setBacklogItems(items)
+        setSummary(generateSummaryFromItems(items))
+        setDataSource('bigquery')
+        setResponseTime(Date.now() - startTime)
+      } else {
+        throw new Error(data.error || 'No data returned from BigQuery')
+      }
+    } catch (err) {
+      console.error('BigQuery fetch failed:', err)
+      setDataSource('error')
+      setError(err instanceof Error ? err.message : 'Failed to fetch data')
+      setBacklogItems([])
+      setSummary(EMPTY_SUMMARY)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   // Age bucket data for chart
   const ageBucketData = [
@@ -89,9 +223,12 @@ export default function BacklogPage() {
             Pending installations and service starts
           </p>
         </div>
-        <Badge variant={summary.atRiskCount > 10 ? 'danger' : summary.atRiskCount > 5 ? 'warning' : 'success'}>
-          {summary.atRiskCount} at risk
-        </Badge>
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Badge variant={summary.atRiskCount > 10 ? 'danger' : summary.atRiskCount > 5 ? 'warning' : 'success'}>
+            {summary.atRiskCount} at risk
+          </Badge>
+        </div>
       </div>
 
       {/* Summary Cards */}

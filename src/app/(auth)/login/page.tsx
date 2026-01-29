@@ -1,21 +1,22 @@
 "use client"
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Mail, Lock, AlertCircle, Loader2, BarChart3, Shield, Users, ArrowLeft, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { logLoginSuccess, logLoginFailure, logPasswordReset } from '@/lib/security-logger'
+import { detectSSOProvider, isAllowedDomain, type SSOProviderConfig } from '@/lib/sso-config'
 
-type ViewMode = 'login' | 'signup' | 'forgot-password' | 'reset-sent'
+type ViewMode = 'login' | 'signup' | 'forgot-password' | 'reset-sent' | 'sso-detected'
 
-// Log login events to ops_events table for tracking (legacy function, kept for backwards compatibility)
+// Log login events to ops_events table for tracking
 async function logLoginEvent(
   supabase: SupabaseClient,
   email: string,
-  eventType: 'login' | 'signup'
+  eventType: 'login' | 'signup' | 'sso'
 ) {
   try {
     await supabase.from('ops_events').insert({
@@ -30,27 +31,91 @@ async function logLoginEvent(
       },
     })
   } catch (err) {
-    // Don't block login if logging fails
     console.log('Failed to log login event:', err)
   }
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('login')
+  const [detectedProvider, setDetectedProvider] = useState<SSOProviderConfig | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  // Check for error params from SSO callback
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    const messageParam = searchParams.get('message')
+    if (errorParam) {
+      setError(messageParam || `Authentication error: ${errorParam}`)
+    }
+  }, [searchParams])
+
+  // Detect SSO provider when email changes
+  useEffect(() => {
+    if (email && email.includes('@')) {
+      const provider = detectSSOProvider(email)
+      setDetectedProvider(provider)
+
+      // Auto-switch to SSO view if provider detected
+      if (provider && viewMode === 'login') {
+        setViewMode('sso-detected')
+      }
+    } else {
+      setDetectedProvider(null)
+      if (viewMode === 'sso-detected') {
+        setViewMode('login')
+      }
+    }
+  }, [email])
+
+  const handleSSOSignIn = async () => {
+    if (!detectedProvider || !email) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Log SSO attempt
+      await logLoginEvent(supabase, email, 'sso')
+
+      // Initiate SSO with Supabase
+      const { data, error: ssoError } = await supabase.auth.signInWithSSO({
+        domain: email.split('@')[1],
+        options: {
+          redirectTo: `${window.location.origin}/auth/sso-callback`,
+        },
+      })
+
+      if (ssoError) {
+        console.error('SSO error:', ssoError)
+        setError(`SSO authentication failed: ${ssoError.message}`)
+        await logLoginFailure(email, ssoError.message)
+        setLoading(false)
+        return
+      }
+
+      // Redirect to SSO provider
+      if (data?.url) {
+        window.location.href = data.url
+      }
+    } catch (err) {
+      console.error('SSO error:', err)
+      setError('Failed to initiate SSO. Please try again or use password login.')
+      setLoading(false)
+    }
+  }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    // Basic validation
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email address')
       setLoading(false)
@@ -70,7 +135,6 @@ export default function LoginPage() {
       })
 
       if (signInError) {
-        // Log failed login attempt to security events (for Sam agent)
         await logLoginFailure(email, signInError.message, {
           userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         })
@@ -81,7 +145,6 @@ export default function LoginPage() {
           setError(signInError.message)
         }
       } else {
-        // Log successful login (both to ops_events and security_events)
         await logLoginEvent(supabase, email, 'login')
         await logLoginSuccess(email, undefined, {
           action: 'login',
@@ -101,9 +164,25 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    // Basic validation
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email address')
+      setLoading(false)
+      return
+    }
+
+    // Check if email domain is allowed
+    if (!isAllowedDomain(email)) {
+      setError('Please use your corporate email address (@rentokil.com, @prestox.com, etc.)')
+      setLoading(false)
+      return
+    }
+
+    // If SSO is available, suggest using it
+    const provider = detectSSOProvider(email)
+    if (provider) {
+      setError(`Your organization uses ${provider.displayName} for sign-in. Please use the "Continue with ${provider.displayName}" button instead.`)
+      setDetectedProvider(provider)
+      setViewMode('sso-detected')
       setLoading(false)
       return
     }
@@ -129,13 +208,11 @@ export default function LoginPage() {
           await logLoginFailure(email, signUpError.message)
         }
       } else if (signUpData.user) {
-        // Log new user signup (both to ops_events and security_events)
         await logLoginEvent(supabase, email, 'signup')
         await logLoginSuccess(email, signUpData.user.id, {
           action: 'signup',
           userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         })
-        // New account created successfully
         router.push('/onboarding')
       }
     } catch (err) {
@@ -164,7 +241,6 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else {
-        // Log password reset request to security events (for Sam agent)
         await logPasswordReset(email, 'requested', {
           userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         })
@@ -177,7 +253,123 @@ export default function LoginPage() {
     }
   }
 
+  const renderSSOView = () => {
+    if (!detectedProvider) return null
+
+    return (
+      <>
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Welcome to Rentokil BI
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">
+            Sign in with your corporate account
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {/* Email display */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+              Email Address
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@rentokil.com"
+                className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          {/* SSO Provider Info */}
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-3">
+              {detectedProvider.name === 'azure' ? (
+                <svg className="h-8 w-8" viewBox="0 0 23 23" fill="none">
+                  <path fill="#f25022" d="M1 1h10v10H1z"/>
+                  <path fill="#00a4ef" d="M1 12h10v10H1z"/>
+                  <path fill="#7fba00" d="M12 1h10v10H12z"/>
+                  <path fill="#ffb900" d="M12 12h10v10H12z"/>
+                </svg>
+              ) : (
+                <svg className="h-8 w-8" viewBox="0 0 64 64" fill="none">
+                  <rect width="64" height="64" rx="8" fill="#007dc1"/>
+                  <text x="32" y="42" textAnchor="middle" fill="white" fontSize="24" fontWeight="bold">O</text>
+                </svg>
+              )}
+              <div>
+                <p className="font-medium text-blue-900 dark:text-blue-100">
+                  {detectedProvider.displayName} Single Sign-On
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Your organization uses {detectedProvider.displayName} for authentication
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {/* SSO Button */}
+          <Button
+            onClick={handleSSOSignIn}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Redirecting to {detectedProvider.displayName}...
+              </>
+            ) : (
+              <>
+                Continue with {detectedProvider.displayName}
+              </>
+            )}
+          </Button>
+
+          {/* Fallback to password login */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">or</span>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => {
+              setViewMode('login')
+              setDetectedProvider(null)
+            }}
+            className="w-full"
+            disabled={loading}
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            Sign in with password instead
+          </Button>
+        </div>
+      </>
+    )
+  }
+
   const renderForm = () => {
+    if (viewMode === 'sso-detected' && detectedProvider) {
+      return renderSSOView()
+    }
+
     if (viewMode === 'reset-sent') {
       return (
         <div className="text-center space-y-4">
@@ -339,6 +531,19 @@ export default function LoginPage() {
                 disabled={loading}
               />
             </div>
+            {/* SSO hint */}
+            {detectedProvider && (
+              <p className="mt-2 text-sm text-blue-600 dark:text-blue-400">
+                Your organization uses {detectedProvider.displayName} for sign-in.{' '}
+                <button
+                  type="button"
+                  onClick={() => setViewMode('sso-detected')}
+                  className="underline hover:text-blue-700 dark:hover:text-blue-300"
+                >
+                  Use SSO instead
+                </button>
+              </p>
+            )}
           </div>
 
           <div>
@@ -446,7 +651,7 @@ export default function LoginPage() {
             </Badge>
           </div>
 
-          <p className="text-white text-2xl font-light">Business Intelligence Platform</p>
+          <p className="text-white text-2xl font-light">Sales & Operations Intelligence Platform</p>
 
           {/* Feature highlights */}
           <div className="space-y-6 mt-12 text-left max-w-md">
@@ -479,9 +684,9 @@ export default function LoginPage() {
                 <Shield className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-white font-semibold text-lg">Data Governance</h3>
+                <h3 className="text-white font-semibold text-lg">Enterprise SSO</h3>
                 <p className="text-red-100 text-sm mt-1">
-                  Enterprise-grade security and audit trails
+                  Sign in with Microsoft or Okta
                 </p>
               </div>
             </div>
@@ -500,11 +705,32 @@ export default function LoginPage() {
             </Badge>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
             {renderForm()}
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+// Loading fallback for Suspense
+function LoginPageLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
+// Main export with Suspense boundary for useSearchParams
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageLoading />}>
+      <LoginPageContent />
+    </Suspense>
   )
 }

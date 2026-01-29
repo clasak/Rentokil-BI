@@ -12,6 +12,11 @@ import {
   type DataSource,
   type DataQualitySeverity
 } from '@/lib/data-dictionary'
+import {
+  BIGQUERY_DATASETS_METADATA,
+  getDatasetSummary,
+  type BigQueryDatasetMetadata
+} from '@/lib/data-dictionary-bigquery'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -95,7 +100,13 @@ function SourceBadge({ source }: { source: DataSource }) {
     start_packet_pdf: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     calculated: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
     workday: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
-    sap: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+    jde: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    invoca: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    five9: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+    lead_exec: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    sales_exec: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    xactly: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    winning_formula: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   }
 
   const labels: Record<DataSource, string> = {
@@ -105,7 +116,13 @@ function SourceBadge({ source }: { source: DataSource }) {
     start_packet_pdf: 'Start Packet',
     calculated: 'Calculated',
     workday: 'Workday',
-    sap: 'SAP'
+    jde: 'JDE',
+    invoca: 'Invoca',
+    five9: 'Five9',
+    lead_exec: 'Lead Exec',
+    sales_exec: 'Sales Exec',
+    xactly: 'Xactly',
+    winning_formula: 'Winning Formula',
   }
 
   return (
@@ -745,6 +762,70 @@ export default function DataDictionaryPage() {
                 </Card>
               )
             })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* BigQuery Datasets Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            BigQuery Datasets
+          </CardTitle>
+          <CardDescription>
+            {BIGQUERY_DATASETS_METADATA.length} datasets • {getDatasetSummary().totalTables} tables • {getDatasetSummary().totalViews} views
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {BIGQUERY_DATASETS_METADATA.filter(d => d.priority !== 'low').map(dataset => (
+              <Card
+                key={dataset.datasetId}
+                className={`border-l-4 ${
+                  dataset.priority === 'critical' ? 'border-l-red-500' :
+                  dataset.priority === 'high' ? 'border-l-orange-500' :
+                  'border-l-blue-500'
+                }`}
+              >
+                <CardContent className="pt-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="font-semibold text-sm">{dataset.name}</div>
+                      <code className="text-xs text-muted-foreground">{dataset.datasetId}</code>
+                    </div>
+                    <Badge variant={
+                      dataset.priority === 'critical' ? 'destructive' :
+                      dataset.priority === 'high' ? 'default' :
+                      'secondary'
+                    } className="text-xs">
+                      {dataset.priority}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+                    {dataset.description}
+                  </p>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Tables/Views</span>
+                      <span className="font-medium">
+                        {dataset.tableCount}{dataset.viewCount ? ` / ${dataset.viewCount}` : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Refresh</span>
+                      <span className="font-medium">{dataset.refreshFrequency}</span>
+                    </div>
+                    {dataset.totalRows && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Rows</span>
+                        <span className="font-medium">{dataset.totalRows}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </CardContent>
       </Card>

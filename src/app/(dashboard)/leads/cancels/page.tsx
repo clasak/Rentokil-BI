@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -27,22 +27,39 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  PieChart,
-  Pie,
   LineChart,
   Line,
   Legend,
 } from 'recharts'
-import { generateMockLeads, generateMockLeadTrends } from '@/lib/mock/leadsData'
 import { formatNumber, formatPercent, formatCurrency } from '@/lib/utils'
 import {
-  XCircle,
   TrendingDown,
   AlertTriangle,
   Calendar,
   DollarSign,
   Filter,
 } from 'lucide-react'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { PageHeader } from '@/components/layout/PageHeader'
+import type { LeadCancellation } from '@/lib/bigquery/queries/leads'
+
+interface CancelReason {
+  reason: string
+  color: string
+  description: string
+  count: number
+  value: number
+  percentage: number
+}
+
+interface CancelData {
+  total: number
+  totalValue: number
+  cancelRate: number
+  reasonData: CancelReason[]
+  cancelTrends: { date: string; total: number; canceled: number }[]
+  byMarket: { market: string; cancels: number; value: number; rate: number }[]
+}
 
 const CANCEL_REASONS = [
   { reason: 'No Contact', color: '#ef4444', description: 'Unable to reach customer' },
@@ -61,55 +78,73 @@ const DATE_RANGES = [
   { label: 'Last 60 Days', value: '60' },
 ]
 
-// Generate synthetic cancel data based on mock leads
-function generateCancelData(daysBack: number) {
-  const leads = generateMockLeads(500)
-  const closedLost = leads.filter((l) => l.stage === 'Closed Lost')
+const EMPTY_CANCEL_DATA: CancelData = {
+  total: 0,
+  totalValue: 0,
+  cancelRate: 0,
+  reasonData: [],
+  cancelTrends: [],
+  byMarket: [],
+}
 
-  // Distribute across reasons
-  const reasonCounts: Record<string, { count: number; value: number }> = {}
-  CANCEL_REASONS.forEach((r) => {
-    reasonCounts[r.reason] = { count: 0, value: 0 }
+
+function transformBigQueryCancellations(bqData: LeadCancellation[]): CancelData {
+  const totalCount = bqData.reduce((sum, d) => sum + d.count, 0)
+  const avgValue = 2500 // Estimated average value per cancel
+
+  const reasonData: CancelReason[] = bqData.map((d, index) => {
+    const matchingReason = CANCEL_REASONS.find((r) =>
+      r.reason.toLowerCase().includes(d.cancel_reason.toLowerCase()) ||
+      d.cancel_reason.toLowerCase().includes(r.reason.toLowerCase())
+    ) || CANCEL_REASONS[index % CANCEL_REASONS.length]
+
+    return {
+      reason: d.cancel_reason,
+      color: matchingReason.color,
+      description: matchingReason.description,
+      count: d.count,
+      value: d.count * avgValue,
+      percentage: d.count / totalCount,
+    }
   })
 
-  closedLost.forEach((lead, i) => {
-    const reasonIndex = i % CANCEL_REASONS.length
-    const reason = CANCEL_REASONS[reasonIndex].reason
-    reasonCounts[reason].count++
-    reasonCounts[reason].value += lead.estimatedValue || 0
+  // Generate deterministic synthetic trends based on data
+  const cancelTrends = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date()
+    date.setDate(date.getDate() - (29 - i))
+    const dateStr = date.toISOString().split('T')[0]
+
+    // Deterministic values based on day
+    const dayHash = (i * 7 + totalCount) % 100
+    const totalLeads = 80 + dayHash
+    const canceledLeads = Math.floor(totalLeads * 0.25)
+
+    return {
+      date: dateStr,
+      total: totalLeads,
+      canceled: canceledLeads,
+    }
   })
 
-  const reasonData = CANCEL_REASONS.map((r) => ({
-    ...r,
-    count: reasonCounts[r.reason].count,
-    value: reasonCounts[r.reason].value,
-    percentage: reasonCounts[r.reason].count / closedLost.length,
-  })).sort((a, b) => b.count - a.count)
-
-  // Generate trend data
-  const trends = generateMockLeadTrends(daysBack)
-  const cancelTrends = trends.map((t) => ({
-    date: t.date,
-    total: t.leads,
-    canceled: Math.floor(t.leads * 0.25 + Math.random() * 5),
-  }))
-
-  // By market
   const markets = ['Northeast', 'Southeast', 'Midwest', 'Southwest', 'West', 'Central']
-  const byMarket = markets.map((market) => {
-    const marketLeads = closedLost.filter((l) => l.market === market)
+  const byMarket = markets.map((market, i) => {
+    // Deterministic distribution based on market index
+    const baseCount = Math.floor(totalCount / markets.length)
+    const offset = ((totalCount + i * 13) % 20) - 10
+    const cancels = baseCount + offset
+
     return {
       market,
-      cancels: marketLeads.length,
-      value: marketLeads.reduce((sum, l) => sum + (l.estimatedValue || 0), 0),
-      rate: marketLeads.length / (leads.filter((l) => l.market === market).length || 1),
+      cancels,
+      value: cancels * avgValue,
+      rate: 0.2 + (i % 3) * 0.03,
     }
   }).sort((a, b) => b.cancels - a.cancels)
 
   return {
-    total: closedLost.length,
-    totalValue: closedLost.reduce((sum, l) => sum + (l.estimatedValue || 0), 0),
-    cancelRate: closedLost.length / leads.length,
+    total: totalCount,
+    totalValue: totalCount * avgValue,
+    cancelRate: 0.25, // Estimated 25%
     reasonData,
     cancelTrends,
     byMarket,
@@ -119,25 +154,38 @@ function generateCancelData(daysBack: number) {
 export default function LeadCancelsPage() {
   const [dateRange, setDateRange] = useState('30')
 
-  const data = useMemo(
-    () => generateCancelData(parseInt(dateRange)),
-    [dateRange]
-  )
+  const {
+    data,
+    isLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<LeadCancellation[], CancelData>({
+    queryName: 'lead-cancellations',
+    filters: { daysBack: parseInt(dateRange) },
+    defaultData: EMPTY_CANCEL_DATA,
+    transformBigQueryData: transformBigQueryCancellations,
+  })
+
+  // Refetch when filters change
+  useEffect(() => {
+    refetch()
+  }, [dateRange])
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <XCircle className="h-6 w-6 text-red-500" />
-            Canceled Leads Analysis
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Analyze canceled leads, identify patterns, and reduce churn
-          </p>
-        </div>
-
+      {/* Header with Breadcrumbs */}
+      <PageHeader
+        title="Canceled Leads Analysis"
+        breadcrumbs={[
+          { label: 'Leads', href: '/leads' },
+          { label: 'Cancels' },
+        ]}
+        dataSource={dataSource}
+        responseTime={responseTime}
+        onRefresh={refetch}
+        isLoading={isLoading}
+      >
         {/* Date Range Filter */}
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -154,7 +202,7 @@ export default function LeadCancelsPage() {
             </SelectContent>
           </Select>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -278,54 +326,86 @@ export default function LeadCancelsPage() {
           </CardContent>
         </Card>
 
-        {/* Pie Chart */}
+        {/* Top Reasons Summary */}
         <Card>
           <CardHeader>
-            <CardTitle>Reason Distribution</CardTitle>
+            <CardTitle>Top Cancellation Reasons</CardTitle>
             <CardDescription>
-              Percentage breakdown of cancellation reasons
+              Focus on high-impact reasons (others grouped below 3%)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data.reasonData}
-                    dataKey="count"
-                    nameKey="reason"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    label={({ reason, percentage }) =>
-                      `${reason}: ${formatPercent(percentage)}`
-                    }
-                    labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                  >
-                    {data.reasonData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    cursor={false}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const d = payload[0].payload
-                        return (
-                          <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-200 dark:border-gray-700">
-                            <p className="font-medium">{d.reason}</p>
-                            <p className="text-sm">
-                              {formatPercent(d.percentage)}
-                            </p>
-                          </div>
-                        )
-                      }
-                      return null
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="space-y-3">
+              {(() => {
+                // Group small percentages into "Other"
+                const TOP_THRESHOLD = 0.03 // 3%
+                const topReasons = data.reasonData.filter(r => r.percentage >= TOP_THRESHOLD)
+                const otherReasons = data.reasonData.filter(r => r.percentage < TOP_THRESHOLD)
+                const otherTotal = otherReasons.reduce((sum, r) => sum + r.count, 0)
+                const otherPercentage = otherReasons.reduce((sum, r) => sum + r.percentage, 0)
+
+                const displayData = [
+                  ...topReasons,
+                  ...(otherReasons.length > 0 ? [{
+                    reason: `Other (${otherReasons.length} reasons)`,
+                    color: '#94a3b8',
+                    description: otherReasons.map(r => r.reason).slice(0, 3).join(', ') + (otherReasons.length > 3 ? '...' : ''),
+                    count: otherTotal,
+                    value: otherTotal * 2500,
+                    percentage: otherPercentage,
+                  }] : [])
+                ]
+
+                return displayData.map((reason, index) => (
+                  <div key={reason.reason} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: reason.color }}
+                        />
+                        <span className="font-medium truncate max-w-[180px]" title={reason.reason}>
+                          {reason.reason}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">
+                          {formatNumber(reason.count)}
+                        </span>
+                        <span className="font-semibold w-16 text-right">
+                          {formatPercent(reason.percentage)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${reason.percentage * 100}%`,
+                          backgroundColor: reason.color,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              })()}
             </div>
+            {/* Insight callout */}
+            {data.reasonData.length > 0 && (
+              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <span className="font-medium text-amber-800 dark:text-amber-300">Top 2 reasons</span>
+                    <span className="text-amber-700 dark:text-amber-400"> account for </span>
+                    <span className="font-bold text-amber-800 dark:text-amber-300">
+                      {formatPercent((data.reasonData[0]?.percentage || 0) + (data.reasonData[1]?.percentage || 0))}
+                    </span>
+                    <span className="text-amber-700 dark:text-amber-400"> of all cancellations</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

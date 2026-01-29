@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAppStore } from '@/store'
 import { calculateKPIValues, getPipelineByStage } from '@/lib/kpi-calculations'
 import { getOpportunities } from '@/lib/data'
-import { getActiveBusinessUnits, formatRevenue } from '@/lib/business-units'
+import { getActiveBusinessUnits } from '@/lib/business-units'
 import { ViewToggle } from '@/components/features/ViewToggle'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,13 +16,16 @@ import {
 } from '@/components/ui/table'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
-  PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend
+  Tooltip as RechartsTooltip
 } from 'recharts'
 import {
   TrendingUp, DollarSign, Target, Users, ArrowRight,
-  Building2, Percent, Trophy, AlertTriangle, ChevronRight
+  Building2, Percent, Trophy, AlertTriangle, ChevronRight, RefreshCw
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import type { SalesKPIs } from '@/lib/bigquery/queries/sales-pipeline'
 
 const STAGE_COLORS = {
   prospecting: '#94a3b8',
@@ -33,18 +36,76 @@ const STAGE_COLORS = {
   closed_lost: '#ef4444'
 }
 
+// BigQuery data types and transformers
+interface SalesNationalDisplay {
+  pipelineValue: number
+  pipeline30Day: number
+  pipeline60Day: number
+  pipeline90Day: number
+  winRate: number
+  avgCycleTime: number
+  stalledCount: number
+  totalLeads: number
+  proposalsCount: number
+  soldCount: number
+}
+
+const EMPTY_SALES_DATA: SalesNationalDisplay = {
+  pipelineValue: 0,
+  pipeline30Day: 0,
+  pipeline60Day: 0,
+  pipeline90Day: 0,
+  winRate: 0,
+  avgCycleTime: 0,
+  stalledCount: 0,
+  totalLeads: 0,
+  proposalsCount: 0,
+  soldCount: 0,
+}
+
+function transformBigQueryData(bqData: SalesKPIs[]): SalesNationalDisplay {
+  const data = bqData[0] || {}
+  return {
+    pipelineValue: data.pipeline_value || 0,
+    pipeline30Day: data.pipeline_30_day || 0,
+    pipeline60Day: data.pipeline_60_day || 0,
+    pipeline90Day: data.pipeline_90_day || 0,
+    winRate: data.win_rate || 0,
+    avgCycleTime: data.avg_cycle_time_days || 0,
+    stalledCount: data.stalled_opps_count || 0,
+    totalLeads: data.total_leads || 0,
+    proposalsCount: data.proposals_count || 0,
+    soldCount: data.sold_count || 0,
+  }
+}
+
 export default function NationalSalesPage() {
   const { settings } = useAppStore()
+
+  // BigQuery integration for sales KPIs
+  const {
+    data: salesBQData,
+    isLoading: isBQLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<SalesKPIs[], SalesNationalDisplay>({
+    queryName: 'sales-kpis',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_SALES_DATA,
+    transformBigQueryData,
+  })
+
   // Pass role and userId to filter KPI data to user's scope
   const kpiValues = useMemo(() => calculateKPIValues(settings.role, settings.userId), [settings.role, settings.userId])
   const pipelineByStage = useMemo(() => getPipelineByStage(settings.role, settings.userId), [settings.role, settings.userId])
   const opportunities = useMemo(() => getOpportunities(), [])
   const businessUnits = useMemo(() => getActiveBusinessUnits(), [])
 
-  // Calculate key metrics
+  // Calculate key metrics - prefer BigQuery data when available
   const revenueMTD = kpiValues.get('revenue_mtd')
-  const pipeline = kpiValues.get('pipeline_30_60_90')
-  const winRate = kpiValues.get('win_rate')
+  const pipelineValue = salesBQData?.pipelineValue || kpiValues.get('pipeline_30_60_90')?.value || 0
+  const winRateValue = salesBQData?.winRate || kpiValues.get('win_rate')?.value || 0
   const avgDealSize = kpiValues.get('avg_deal_size')
 
   // Calculate regional breakdown (simulated)
@@ -84,7 +145,13 @@ export default function NationalSalesPage() {
             Cross-regional sales performance and pipeline analysis
           </p>
         </div>
-        <ViewToggle variant="dropdown" />
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading} className="h-8 w-8">
+            <RefreshCw className={`h-3.5 w-3.5 ${isBQLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <ViewToggle variant="dropdown" />
+        </div>
       </div>
 
       {/* KPI Summary Cards */}
@@ -118,7 +185,7 @@ export default function NationalSalesPage() {
               <div>
                 <div className="text-sm opacity-80">Total Pipeline</div>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(pipeline?.value ?? 0)}
+                  {formatCurrency(pipelineValue)}
                 </div>
                 <div className="text-xs opacity-70">30/60/90 day weighted</div>
               </div>
@@ -133,7 +200,7 @@ export default function NationalSalesPage() {
               <div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">Win Rate</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {((winRate?.value ?? 0) * 100).toFixed(1)}%
+                  {(winRateValue * 100).toFixed(1)}%
                 </div>
                 <div className="text-xs text-gray-500">All time</div>
               </div>

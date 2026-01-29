@@ -3,14 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Table,
   TableBody,
@@ -34,6 +28,7 @@ import {
   CreditCard,
   Info,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -43,26 +38,12 @@ import {
 } from '@/components/ui/tooltip'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { useRouter } from 'next/navigation'
-import {
-  initializeDailySalesData,
-  getBranches,
-  getBranchesByRegion,
-  getWeeklyRollup,
-  getRegionSummary,
-  DEFAULT_DAILY_GOALS,
-} from '@/lib/daily-sales-data'
-import {
-  Branch,
-  RegionCode,
-} from '@/types/daily-sales-cadence'
-
-const REGIONS: { code: RegionCode; name: string }[] = [
-  { code: 'R16', name: 'Region 16 - Arkansas/Kansas' },
-  { code: 'R23', name: 'Region 23 - Oklahoma/Kansas' },
-  { code: 'R24', name: 'Region 24 - Illinois/Indiana' },
-  { code: 'R52', name: 'Region 52 - Texas East' },
-  { code: 'R54', name: 'Region 54 - Texas Central/West' },
-]
+import { initializeDailySalesData } from '@/lib/daily-sales-data'
+import type { Branch } from '@/types/daily-sales-cadence'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import { useOrganizationData } from '@/hooks/useOrganizationData'
+import type { WIGBranchMetrics as BQWIGBranchMetrics } from '@/lib/bigquery/queries/wig'
 
 // WIG Targets - these would normally come from configuration
 const WIG_TARGETS = {
@@ -118,53 +99,73 @@ interface BranchWigData {
   driverScore: number
 }
 
-// Generate synthetic WIG data for branches
-function generateBranchWigData(branch: Branch, weekStart: string): BranchWigData {
-  // Use branch code to seed consistent random data
-  const seed = parseInt(branch.code) || 1
-  const random = (min: number, max: number) => min + ((seed * 7 + parseInt(weekStart.replace(/-/g, ''))) % (max - min + 1))
+// Empty default data
+const EMPTY_WIG_DATA: BranchWigData[] = []
 
-  return {
-    branch,
-    salesDollarsPerRep: 10000 + random(0, 10000),
-    tapDollarPerTech: 1500 + random(0, 2000),
-    missedStops: random(0, 5),
-    twentyFourHourStart: 25 + random(0, 20),
-    npsScore: 55 + random(0, 30),
-    pastDueCcmCfr: random(0, 12),
-    techsOver55Hours: random(0, 3),
-    serviceRevPerHour: 70 + random(0, 30),
-    driverScore: 75 + random(0, 20),
-  }
+// Transform BigQuery data to UI format
+function transformBigQueryData(bqData: BQWIGBranchMetrics[]): BranchWigData[] {
+  return bqData.map(bm => ({
+    branch: {
+      code: bm.branch_code,
+      name: bm.branch_name,
+      region: bm.region,
+      market: bm.market,
+      branchManager: '', // Not available from BigQuery
+      phone: '', // Not available from BigQuery
+    } as Branch,
+    salesDollarsPerRep: bm.sales_dollars_per_rep,
+    tapDollarPerTech: bm.tap_dollars_per_tech,
+    missedStops: bm.missed_stops,
+    twentyFourHourStart: bm.twenty_four_hour_start_pct,
+    npsScore: bm.nps_score,
+    pastDueCcmCfr: bm.past_due_ccm_cfr,
+    techsOver55Hours: bm.techs_over_55_hours,
+    serviceRevPerHour: bm.service_rev_per_hour,
+    driverScore: bm.driver_score,
+  }))
 }
 
 export default function WigScorecardPage() {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
-  const [selectedRegion, setSelectedRegion] = useState<RegionCode>('R16')
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [wigData, setWigData] = useState<BranchWigData[]>([])
+  const [mounted, setMounted] = useState(false)
+  const [selectedRegion, setSelectedRegion] = useState<string>('')
   const weekStart = getWeekStartDate(0)
+
+  // Get regions from BigQuery organization data
+  const { regions, isLoading: regionsLoading } = useOrganizationData()
 
   useEffect(() => {
     initializeDailySalesData()
-    setIsLoading(false)
+    setMounted(true)
   }, [])
 
+  // Set initial region once data loads
   useEffect(() => {
-    const regionBranches = getBranchesByRegion(selectedRegion)
-    setBranches(regionBranches)
+    if (regions.length > 0 && !selectedRegion) {
+      setSelectedRegion(regions[0].region_code)
+    }
+  }, [regions, selectedRegion])
 
-    // Generate WIG data for each branch
-    const data = regionBranches.map(branch => generateBranchWigData(branch, weekStart))
-    setWigData(data)
-  }, [selectedRegion, weekStart])
+  // BigQuery data hook
+  const {
+    data: wigData,
+    isLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<BQWIGBranchMetrics[], BranchWigData[]>({
+    queryName: 'wig-branch-metrics',
+    filters: { region: selectedRegion, daysBack: 7 },
+    defaultData: EMPTY_WIG_DATA,
+    transformBigQueryData,
+    includeOrgFilters: false,
+  })
 
-  if (isLoading) {
+  if (!mounted || isLoading || regionsLoading || !wigData || !selectedRegion) {
     return (
       <div className="space-y-6">
-        <div className="h-8 w-48 bg-gray-200 animate-pulse rounded" />
-        <div className="h-64 bg-gray-200 animate-pulse rounded-lg" />
+        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
+        <div className="h-64 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
       </div>
     )
   }
@@ -337,16 +338,24 @@ export default function WigScorecardPage() {
           <p className="text-gray-500 dark:text-gray-400">Wildly Important Goals - Weekly tracking</p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as RegionCode)}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Select Region" />
-            </SelectTrigger>
-            <SelectContent>
-              {REGIONS.map((r) => (
-                <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Data Source Badge */}
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetch} disabled={isLoading} className="h-8 w-8">
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+
+          <SearchableSelect
+            options={regions.map(r => ({
+              value: r.region_code,
+              label: r.region_name,
+              description: `${r.branch_count} branches`
+            }))}
+            value={selectedRegion}
+            onValueChange={setSelectedRegion}
+            placeholder="Select Region"
+            searchPlaceholder="Search regions..."
+            className="w-64"
+          />
         </div>
       </div>
 

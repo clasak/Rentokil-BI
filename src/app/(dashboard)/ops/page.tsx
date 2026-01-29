@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useAppStore } from '@/store'
-import { getAccounts, getServiceEvents, getComplaints, getTechnicianCapacity, filterByRole, getBranches, getUsers } from '@/lib/data'
+import { useEffectiveRole } from '@/hooks/useEffectiveRole'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { getTechnicianCapacity, filterByRole, getBranches, getUsers } from '@/lib/data'
 import { calculateKPIValues, getActionItems } from '@/lib/kpi-calculations'
 import { KPICard } from '@/components/features/KPICard'
 import { ActionList } from '@/components/features/ActionList'
 import { ChartTooltip } from '@/components/features/ChartTooltip'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,7 +27,7 @@ import { formatCurrency, formatPercent } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 import { Wrench, AlertTriangle, Users, ChevronRight, MapPin, Clock } from 'lucide-react'
 import { Account, KPIValue, ServiceEvent, Complaint } from '@/types'
-import { Breadcrumb } from '@/components/ui/breadcrumb'
+import type { OpsOverview } from '@/lib/bigquery/queries/ops'
 
 // Technician display data
 interface TechnicianDisplay {
@@ -38,27 +41,190 @@ interface TechnicianDisplay {
   status: 'available' | 'on_route' | 'break' | 'off_duty'
 }
 
+// Types for display data
+interface OpsDisplayData {
+  completionRate: number
+  callbackRate: number
+  totalServices: number
+  completedServices: number
+  callbacks: number
+}
+
+// Empty fallback data
+const EMPTY_OPS_DATA: OpsDisplayData = {
+  completionRate: 0,
+  callbackRate: 0,
+  totalServices: 0,
+  completedServices: 0,
+  callbacks: 0,
+}
+
+// Transform BigQuery data to display format
+function transformBigQueryData(bqData: OpsOverview[]): OpsDisplayData {
+  const metrics = new Map<string, number>()
+  bqData.forEach(row => {
+    metrics.set(row.metric, row.value)
+  })
+
+  return {
+    completionRate: metrics.get('Completion Rate') || 0,
+    callbackRate: metrics.get('Callback Rate') || 0,
+    totalServices: metrics.get('Services Completed') || 0,
+    completedServices: Math.round((metrics.get('Services Completed') || 0) * ((metrics.get('Completion Rate') || 95) / 100)),
+    callbacks: Math.round((metrics.get('Services Completed') || 0) * ((metrics.get('Callback Rate') || 3) / 100)),
+  }
+}
+
 export default function OpsPage() {
-  const { settings, showAllBranchTechnicians, setShowAllBranchTechnicians } = useAppStore()
+  const { settings, showAllBranchTechnicians, setShowAllBranchTechnicians, organizationFilters } = useAppStore()
+  const effectiveRole = useEffectiveRole()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [kpiValues, setKpiValues] = useState<Map<string, KPIValue>>(new Map())
   const [serviceEvents, setServiceEvents] = useState<ServiceEvent[]>([])
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [actions, setActions] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<TechnicianDisplay[]>([])
+  const [mounted, setMounted] = useState(false)
+
+  // BigQuery integration for operations metrics
+  const {
+    data: opsData,
+    isLoading: isBQLoading,
+    dataSource,
+    responseTime,
+    error,
+    refetch,
+  } = useBigQueryData<OpsOverview[], OpsDisplayData>({
+    queryName: 'ops-overview',
+    filters: { daysBack: 30 },
+    defaultData: EMPTY_OPS_DATA,
+    transformBigQueryData,
+  })
+
+  // Hydration fix
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
-    const filterOptions = { showAllBranchTechnicians }
-    let accs = getAccounts()
-    accs = filterByRole(accs, settings.role, settings.userId, settings.selectedMarkets, filterOptions) as Account[]
-    setAccounts(accs)
+    if (!mounted) return
 
-    const allServiceEvents = getServiceEvents()
-    setServiceEvents(allServiceEvents)
-    setComplaints(getComplaints())
+    const fetchOperationsData = async () => {
+      try {
+        // Fetch accounts
+        const accountsRes = await fetch('/api/bigquery/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: 'ops-accounts',
+            filters: {
+              market: organizationFilters.selectedMarket,
+              region: organizationFilters.selectedRegion,
+              branch: organizationFilters.selectedBranch,
+              limit: 1000,
+            },
+          }),
+        })
+        const accountsData = await accountsRes.json()
+
+        // Convert to Account type for compatibility with existing UI
+        const accs: Account[] = accountsData.success ? accountsData.data.map((acc: any) => ({
+          id: acc.id,
+          name: acc.name,
+          vertical: 'Commercial' as const,
+          contractValue: acc.monthlyValue * 12,
+          retentionRisk: 'low' as const,
+          lastServiceDate: new Date(acc.lastServiceDate),
+          openIssues: 0,
+          marketId: '',
+          branchId: acc.branch,
+          ownerId: '',
+          createdAt: new Date(),
+          arBalance: 0,
+          serviceFrequency: 'monthly' as const,
+          complaints: 0,
+        })) : []
+        setAccounts(accs)
+
+        // Fetch service events
+        const eventsRes = await fetch('/api/bigquery/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: 'ops-service-events',
+            filters: {
+              market: organizationFilters.selectedMarket,
+              region: organizationFilters.selectedRegion,
+              branch: organizationFilters.selectedBranch,
+              daysBack: 30,
+              limit: 500,
+            },
+          }),
+        })
+        const eventsData = await eventsRes.json()
+
+        // Convert to ServiceEvent type for compatibility with existing UI
+        const allServiceEvents: ServiceEvent[] = eventsData.success ? eventsData.data.map((evt: any) => ({
+          id: evt.id,
+          accountId: evt.customerId,
+          technicianId: evt.technicianId,
+          routeId: '',
+          scheduledDate: new Date(evt.date),
+          completedDate: evt.status === 'completed' ? new Date(evt.date) : undefined,
+          status: evt.status === 'completed' ? 'completed' :
+                  evt.status === 'in_progress' ? 'scheduled' :
+                  evt.status === 'escalated' ? 'callback' : 'scheduled',
+          timeOnSite: 45,
+          serviceType: evt.type,
+          notes: evt.reason,
+        })) : []
+        setServiceEvents(allServiceEvents)
+
+        // Fetch complaints
+        const complaintsRes = await fetch('/api/bigquery/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: 'ops-complaints',
+            filters: {
+              market: organizationFilters.selectedMarket,
+              region: organizationFilters.selectedRegion,
+              branch: organizationFilters.selectedBranch,
+              daysBack: 30,
+              limit: 200,
+            },
+          }),
+        })
+        const complaintsData = await complaintsRes.json()
+
+        // Convert to Complaint type for compatibility with existing UI
+        const complaints: Complaint[] = complaintsData.success ? complaintsData.data.map((cmp: any) => ({
+          id: cmp.id,
+          accountId: cmp.customerId,
+          type: cmp.category?.toLowerCase().includes('service') ? 'service_quality' :
+                cmp.category?.toLowerCase().includes('billing') ? 'billing' :
+                cmp.category?.toLowerCase().includes('scheduling') ? 'scheduling' :
+                cmp.category?.toLowerCase().includes('tech') ? 'technician' : 'other',
+          severity: cmp.severity?.toLowerCase() || 'medium',
+          description: cmp.description,
+          createdAt: new Date(cmp.date),
+          status: cmp.status,
+        })) : []
+        setComplaints(complaints)
+      } catch (error) {
+        console.error('[OpsPage] Error fetching operations data:', error)
+        // Set empty states on error
+        setAccounts([])
+        setServiceEvents([])
+        setComplaints([])
+      }
+    }
+
+    fetchOperationsData()
+
     // Pass role and userId to filter KPI data to user's scope
-    setKpiValues(calculateKPIValues(settings.role, settings.userId))
-    setActions(getActionItems(settings.role, settings.userId).filter(a => a.type === 'at_risk_account' || a.type === 'capacity_pressure'))
+    setKpiValues(calculateKPIValues(effectiveRole, settings.userId))
+    setActions(getActionItems(effectiveRole, settings.userId).filter(a => a.type === 'at_risk_account' || a.type === 'capacity_pressure'))
 
     // Build technician display data
     const users = getUsers()
@@ -76,7 +242,7 @@ export default function OpsPage() {
       const branch = branches.find(b => tech.assignedBranches.includes(b.id))
 
       // Get service events for this technician
-      const techEvents = allServiceEvents.filter(e => e.technicianId === tech.id)
+      const techEvents = serviceEvents.filter(e => e.technicianId === tech.id)
       const todayEvents = techEvents.filter(e => {
         const eventDate = new Date(e.scheduledDate)
         return eventDate >= today && eventDate < tomorrow
@@ -85,7 +251,7 @@ export default function OpsPage() {
       // Calculate metrics
       const completedToday = todayEvents.filter(e => e.status === 'completed').length
       const callbacksToday = todayEvents.filter(e => e.status === 'callback').length
-      const totalToday = todayEvents.length || Math.floor(Math.random() * 6) + 4 // Default 4-10 stops
+      const totalToday = todayEvents.length || 6 // Default 6 stops
 
       // Get utilization from capacity data
       const recentCapacity = capacity.filter(c =>
@@ -94,7 +260,7 @@ export default function OpsPage() {
       )
       const avgUtilization = recentCapacity.length > 0
         ? recentCapacity.reduce((sum, c) => sum + c.utilization, 0) / recentCapacity.length
-        : 0.7 + Math.random() * 0.25
+        : 0.75
 
       // Determine status based on time and completion
       const hour = new Date().getHours()
@@ -104,7 +270,7 @@ export default function OpsPage() {
       } else if (completedToday > 0 && completedToday < totalToday) {
         status = 'on_route'
       } else if (hour >= 12 && hour < 13) {
-        status = Math.random() > 0.5 ? 'break' : 'on_route'
+        status = 'break'
       }
 
       return {
@@ -113,14 +279,17 @@ export default function OpsPage() {
         branchName: branch?.name.split(' - ')[1] || branch?.name || 'Unknown',
         todayStops: totalToday,
         completedStops: completedToday || Math.floor(totalToday * 0.4),
-        callbacks: callbacksToday || (Math.random() > 0.8 ? 1 : 0),
+        callbacks: callbacksToday || 0,
         utilization: avgUtilization * 100,
         status,
       }
     })
 
     setTechnicians(techDisplayData)
-  }, [settings, showAllBranchTechnicians])
+  }, [mounted, settings, showAllBranchTechnicians, effectiveRole, organizationFilters])
+
+  // Show nothing until mounted (hydration fix)
+  if (!mounted) return null
 
   const opsKpis = ['service_risk_index', 'callback_rate', 'missed_service_rate', 'avg_response_time_hours', 'retention_risk']
 
@@ -168,20 +337,21 @@ export default function OpsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <Breadcrumb items={[
-        { label: 'Command Center', href: '/' },
-        { label: 'Operations' }
-      ]} />
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Operations</h1>
-          <p className="text-sm text-gray-500">Service quality, callbacks, and capacity management</p>
-        </div>
+      {/* Header with Breadcrumbs */}
+      <PageHeader
+        title="Operations"
+        breadcrumbs={[
+          { label: 'Command Center', href: '/' },
+          { label: 'Operations' },
+        ]}
+        dataSource={dataSource}
+        responseTime={responseTime}
+        error={error}
+        onRefresh={refetch}
+        isLoading={isBQLoading}
+      >
         {/* Ops Manager toggle for technician visibility */}
-        {settings.role === 'ops_manager' && (
+        {effectiveRole === 'ops_manager' && (
           <div className="flex items-center space-x-3 bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-lg">
             <span className="text-sm text-gray-600 dark:text-gray-300">
               {showAllBranchTechnicians ? 'All Branch Technicians' : 'My Technicians'}
@@ -192,7 +362,7 @@ export default function OpsPage() {
             />
           </div>
         )}
-      </div>
+      </PageHeader>
 
       {/* KPI Cards */}
       <div id="ops-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">

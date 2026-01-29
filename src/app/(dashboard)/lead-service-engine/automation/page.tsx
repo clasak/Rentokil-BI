@@ -24,7 +24,7 @@ export default function AutomationPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <TrendingUp className="h-7 w-7 text-green-500" />
+            <TrendingUp className="h-6 w-6 text-green-500" />
             Automation ROI
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -47,7 +47,7 @@ export default function AutomationPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
           <CardContent className="pt-6 text-center">
-            <Clock className="h-8 w-8 mx-auto mb-2 opacity-80" />
+            <Clock className="h-6 w-6 mx-auto mb-2 opacity-80" />
             <div className="text-3xl font-bold">85%</div>
             <div className="text-sm opacity-80">Reduction in Handoff Time</div>
           </CardContent>
@@ -55,7 +55,7 @@ export default function AutomationPage() {
 
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
           <CardContent className="pt-6 text-center">
-            <DollarSign className="h-8 w-8 mx-auto mb-2 opacity-80" />
+            <DollarSign className="h-6 w-6 mx-auto mb-2 opacity-80" />
             <div className="text-3xl font-bold">$50K+</div>
             <div className="text-sm opacity-80">Potential Annual Savings</div>
           </CardContent>
@@ -63,7 +63,7 @@ export default function AutomationPage() {
 
         <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
           <CardContent className="pt-6 text-center">
-            <Users className="h-8 w-8 mx-auto mb-2 opacity-80" />
+            <Users className="h-6 w-6 mx-auto mb-2 opacity-80" />
             <div className="text-3xl font-bold">1.5+</div>
             <div className="text-sm opacity-80">FTE Equivalent Freed</div>
           </CardContent>
@@ -71,7 +71,7 @@ export default function AutomationPage() {
 
         <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
           <CardContent className="pt-6 text-center">
-            <Zap className="h-8 w-8 mx-auto mb-2 opacity-80" />
+            <Zap className="h-6 w-6 mx-auto mb-2 opacity-80" />
             <div className="text-3xl font-bold">24h</div>
             <div className="text-sm opacity-80">Faster Lead Response</div>
           </CardContent>

@@ -81,7 +81,7 @@ export function DataFlowDiagram({ className }: DataFlowDiagramProps) {
             <ArrowRight className="h-8 w-8 text-gray-300 flex-shrink-0" />
 
             {/* Central Hub */}
-            <div className="p-6 rounded-xl bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white text-center min-w-[200px]">
+            <div className="p-6 rounded-lg bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white text-center min-w-[200px]">
               <Database className="h-8 w-8 mx-auto mb-2" />
               <div className="font-bold text-lg">Lead Service Engine</div>
               <div className="text-sm opacity-80">Central Processing</div>
@@ -113,7 +113,7 @@ export function DataFlowDiagram({ className }: DataFlowDiagramProps) {
             </div>
 
             {/* Central Hub */}
-            <div className="p-4 rounded-xl bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white text-center">
+            <div className="p-4 rounded-lg bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white text-center">
               <Database className="h-6 w-6 mx-auto mb-2" />
               <div className="font-bold">Lead Service Engine</div>
               <div className="text-sm opacity-80">Central Processing</div>

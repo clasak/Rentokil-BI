@@ -87,6 +87,21 @@ export async function middleware(request: NextRequest) {
       return supabaseResponse
     }
 
+    // Check if this is an SSO user (they skip onboarding - role auto-detected)
+    const identities = user.identities || []
+    const isSSOUser = identities.some(
+      (i) => i.provider?.startsWith('sso') || i.provider === 'azure' || i.provider === 'okta' || i.provider === 'saml'
+    )
+
+    if (isSSOUser) {
+      // SSO users have auto-detected roles from BigQuery lookup - skip onboarding
+      supabaseResponse.cookies.set('onboarding_complete', 'true', {
+        path: '/',
+        maxAge: 31536000, // 1 year
+      })
+      return supabaseResponse
+    }
+
     // Check cookie flag first
     const hasCompletedOnboarding = request.cookies.get('onboarding_complete')?.value === 'true'
 
@@ -95,13 +110,22 @@ export async function middleware(request: NextRequest) {
       try {
         const { data: profile, error } = await supabase
           .from('user_profiles')
-          .select('role')
+          .select('role, auth_provider')
           .eq('id', user.id)
           .single()
 
         // If profile exists with role, set cookie and continue (don't redirect to onboarding)
         if (profile?.role) {
           // Profile exists - set cookie so we don't check DB every request
+          supabaseResponse.cookies.set('onboarding_complete', 'true', {
+            path: '/',
+            maxAge: 31536000, // 1 year
+          })
+          return supabaseResponse
+        }
+
+        // SSO users with auth_provider = 'sso' also skip onboarding
+        if (profile?.auth_provider === 'sso') {
           supabaseResponse.cookies.set('onboarding_complete', 'true', {
             path: '/',
             maxAge: 31536000, // 1 year

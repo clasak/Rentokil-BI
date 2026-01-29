@@ -660,7 +660,7 @@ function SpotlightOverlay({
       <div
         style={calloutStyle}
         className={cn(
-          "w-[380px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-2 border-rentokil-red overflow-hidden",
+          "w-[380px] bg-white dark:bg-gray-900 rounded-md shadow-2xl border-2 border-rentokil-red overflow-hidden",
           "animate-in fade-in zoom-in-95 duration-300"
         )}
       >
@@ -1263,7 +1263,7 @@ export function DemoSpotlight() {
         <div className="fixed bottom-6 left-6 z-[10000] animate-in slide-in-from-left-4 duration-300">
           <button
             onClick={() => setIsMinimized(false)}
-            className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rentokil-red to-rentokil-darkred text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+            className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rentokil-red to-rentokil-darkred text-white rounded shadow-lg hover:shadow-xl transition-all"
           >
             <Zap className="h-5 w-5" />
             <span className="font-semibold">Step {presenterStep + 1}/{steps.length}</span>
@@ -1275,7 +1275,7 @@ export function DemoSpotlight() {
       ) : isPoppedOut ? (
         /* When popped out, show minimal indicator instead of full panel */
         <div className="fixed bottom-6 left-6 z-[10000] animate-in slide-in-from-left-4 duration-300">
-          <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl shadow-lg">
+          <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded shadow-lg">
             <Monitor className="h-5 w-5" />
             <div>
               <div className="font-semibold text-sm">Presenter Mode Active</div>
@@ -1293,7 +1293,7 @@ export function DemoSpotlight() {
       ) : (
       /* Unified presenter panel - ONLY visible to presenter when NOT popped out */
       <div className="fixed bottom-6 left-6 z-[10000] animate-in slide-in-from-left-4 duration-300">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden w-[420px]">
+        <div className="bg-white dark:bg-gray-900 rounded-md shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden w-[420px]">
           {/* Progress indicator */}
           <div className={cn("h-1.5 transition-all duration-300", isAutoPlaying ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600")}>
             {isAutoPlaying && <div className="h-full bg-green-400 animate-pulse" style={{ width: '100%' }} />}
@@ -1348,7 +1348,7 @@ export function DemoSpotlight() {
 
             {/* Current spotlight indicator */}
             {currentTarget && (
-              <div className="flex items-center gap-3 p-3 bg-rentokil-red/5 border border-rentokil-red/20 rounded-xl mb-4">
+              <div className="flex items-center gap-3 p-3 bg-rentokil-red/5 border border-rentokil-red/20 rounded-lg mb-4">
                 <div className="w-10 h-10 rounded-lg bg-rentokil-red/10 flex items-center justify-center shrink-0">
                   <ArrowRight className="h-5 w-5 text-rentokil-red" />
                 </div>

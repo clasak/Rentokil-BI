@@ -1,0 +1,6046 @@
+{
+  "generated": "2026-01-22T17:37:23.535Z",
+  "summary": {
+    "total_pages": 51,
+    "full_match": 26,
+    "partial_match": 16,
+    "poor_match": 5,
+    "no_match": 4
+  },
+  "by_category": {
+    "Executive": {
+      "full": 0,
+      "partial": 0,
+      "poor": 1,
+      "none": 0
+    },
+    "Leads": {
+      "full": 4,
+      "partial": 2,
+      "poor": 0,
+      "none": 0
+    },
+    "SALTI": {
+      "full": 4,
+      "partial": 4,
+      "poor": 0,
+      "none": 0
+    },
+    "Sales": {
+      "full": 6,
+      "partial": 1,
+      "poor": 0,
+      "none": 0
+    },
+    "Finance": {
+      "full": 0,
+      "partial": 3,
+      "poor": 0,
+      "none": 1
+    },
+    "Termite": {
+      "full": 1,
+      "partial": 1,
+      "poor": 0,
+      "none": 0
+    },
+    "Operations": {
+      "full": 2,
+      "partial": 0,
+      "poor": 1,
+      "none": 0
+    },
+    "HR": {
+      "full": 1,
+      "partial": 1,
+      "poor": 0,
+      "none": 0
+    },
+    "Workforce": {
+      "full": 0,
+      "partial": 0,
+      "poor": 1,
+      "none": 0
+    },
+    "Admin": {
+      "full": 0,
+      "partial": 1,
+      "poor": 0,
+      "none": 0
+    },
+    "KPI": {
+      "full": 0,
+      "partial": 0,
+      "poor": 1,
+      "none": 0
+    },
+    "Branch": {
+      "full": 2,
+      "partial": 0,
+      "poor": 0,
+      "none": 0
+    },
+    "Region": {
+      "full": 1,
+      "partial": 0,
+      "poor": 0,
+      "none": 0
+    },
+    "Market": {
+      "full": 1,
+      "partial": 0,
+      "poor": 0,
+      "none": 0
+    },
+    "Reviews": {
+      "full": 0,
+      "partial": 0,
+      "poor": 0,
+      "none": 2
+    },
+    "Governance": {
+      "full": 0,
+      "partial": 2,
+      "poor": 0,
+      "none": 0
+    },
+    "AE": {
+      "full": 2,
+      "partial": 0,
+      "poor": 0,
+      "none": 0
+    },
+    "Tech": {
+      "full": 1,
+      "partial": 1,
+      "poor": 0,
+      "none": 0
+    },
+    "LSE": {
+      "full": 1,
+      "partial": 0,
+      "poor": 0,
+      "none": 0
+    },
+    "Manager": {
+      "full": 0,
+      "partial": 0,
+      "poor": 1,
+      "none": 1
+    }
+  },
+  "mappings": [
+    {
+      "route": "/",
+      "name": "Executive Command Center",
+      "category": "Executive",
+      "status": "POOR_MATCH",
+      "best_match": {
+        "table": "S0.pestpac_Services",
+        "match_percentage": 33.33333333333333,
+        "matched_fields": [
+          "revenue",
+          "callbacks"
+        ],
+        "missing_fields": [
+          "pipeline",
+          "win_rate",
+          "ar_aging",
+          "backlog"
+        ],
+        "column_count": 96,
+        "row_count": 1129,
+        "size_gb": 0,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [],
+      "required_fields": [
+        "revenue",
+        "pipeline",
+        "win_rate",
+        "ar_aging",
+        "callbacks",
+        "backlog"
+      ],
+      "missing_fields": [
+        "pipeline",
+        "win_rate",
+        "ar_aging",
+        "backlog"
+      ]
+    },
+    {
+      "route": "/leads/type-pest",
+      "name": "Leads by Type & Pest",
+      "category": "Leads",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "Deprecated.Fact_Leads_Acc_Daily_Agg_Snp_Backup_20251001",
+        "match_percentage": 71.42857142857143,
+        "matched_fields": [
+          "pest_type",
+          "primary_pest",
+          "lead_type",
+          "received_date",
+          "sold_date"
+        ],
+        "missing_fields": [
+          "lead_count",
+          "conversion_rate"
+        ],
+        "column_count": 41,
+        "row_count": 13905336,
+        "size_gb": 4.048,
+        "days_since_modified": 113,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S4.Fact_Leads_Acc_Daily_Dtls_Snp",
+          "match_percentage": 71.42857142857143,
+          "matched_fields": [
+            "pest_type",
+            "primary_pest",
+            "lead_type",
+            "received_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "lead_count",
+            "conversion_rate"
+          ],
+          "column_count": 71,
+          "row_count": 11846813,
+          "size_gb": 5.873,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "BCG_RTD_DB.DR_Leads_SM_20251120",
+          "match_percentage": 71.42857142857143,
+          "matched_fields": [
+            "pest_type",
+            "primary_pest",
+            "lead_type",
+            "received_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "lead_count",
+            "conversion_rate"
+          ],
+          "column_count": 68,
+          "row_count": 10544239,
+          "size_gb": 4.789,
+          "days_since_modified": 62,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_Backup_20250925",
+          "match_percentage": 71.42857142857143,
+          "matched_fields": [
+            "pest_type",
+            "primary_pest",
+            "lead_type",
+            "received_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "lead_count",
+            "conversion_rate"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 119,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_Backup_20251001",
+          "match_percentage": 71.42857142857143,
+          "matched_fields": [
+            "pest_type",
+            "primary_pest",
+            "lead_type",
+            "received_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "lead_count",
+            "conversion_rate"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 113,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_copy_20251027",
+          "match_percentage": 71.42857142857143,
+          "matched_fields": [
+            "pest_type",
+            "primary_pest",
+            "lead_type",
+            "received_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "lead_count",
+            "conversion_rate"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 86,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "pest_type",
+        "primary_pest",
+        "lead_type",
+        "lead_count",
+        "received_date",
+        "sold_date",
+        "conversion_rate"
+      ],
+      "missing_fields": [
+        "lead_count",
+        "conversion_rate"
+      ]
+    },
+    {
+      "route": "/leads/trends",
+      "name": "Lead Trends",
+      "category": "Leads",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S4.Unf_RTX_cm_proj",
+        "match_percentage": 100,
+        "matched_fields": [
+          "received_date",
+          "lead_date",
+          "lead_count",
+          "scheduled_date",
+          "inspected_date",
+          "proposed_date",
+          "sold_date"
+        ],
+        "missing_fields": [],
+        "column_count": 9,
+        "row_count": 150387455,
+        "size_gb": 9.271,
+        "days_since_modified": 1,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S3.in_month_prj_pctc_job",
+          "match_percentage": 100,
+          "matched_fields": [
+            "received_date",
+            "lead_date",
+            "lead_count",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date"
+          ],
+          "missing_fields": [],
+          "column_count": 8,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S3.in_month_prj_tc_contract_tmx",
+          "match_percentage": 100,
+          "matched_fields": [
+            "received_date",
+            "lead_date",
+            "lead_count",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date"
+          ],
+          "missing_fields": [],
+          "column_count": 8,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_RNA.user_statistics",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "received_date",
+            "lead_date",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "lead_count"
+          ],
+          "column_count": 38,
+          "row_count": 304189822,
+          "size_gb": 94.169,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.ExtRaw_TDW_Time",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "received_date",
+            "lead_date",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "lead_count"
+          ],
+          "column_count": 40,
+          "row_count": 49308,
+          "size_gb": 0.014,
+          "days_since_modified": 22,
+          "is_fresh": false
+        },
+        {
+          "table": "S4.Dim_RTX_Time",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "received_date",
+            "lead_date",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "lead_count"
+          ],
+          "column_count": 40,
+          "row_count": 49308,
+          "size_gb": 0.014,
+          "days_since_modified": 22,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "received_date",
+        "lead_date",
+        "lead_count",
+        "scheduled_date",
+        "inspected_date",
+        "proposed_date",
+        "sold_date"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/leads/rankings",
+      "name": "Lead Rankings",
+      "category": "Leads",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S0.raw_TDW_PNIDetails_Daily",
+        "match_percentage": 57.14285714285714,
+        "matched_fields": [
+          "branch",
+          "region",
+          "sales_rep",
+          "lead_count"
+        ],
+        "missing_fields": [
+          "market",
+          "conversion_rate",
+          "rank"
+        ],
+        "column_count": 48,
+        "row_count": 6920595,
+        "size_gb": 3.135,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "Test.raw_TDW_PNIDetails_Daily",
+          "match_percentage": 57.14285714285714,
+          "matched_fields": [
+            "branch",
+            "region",
+            "sales_rep",
+            "lead_count"
+          ],
+          "missing_fields": [
+            "market",
+            "conversion_rate",
+            "rank"
+          ],
+          "column_count": 43,
+          "row_count": 6212710,
+          "size_gb": 2.761,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Test.raw_TDW_PNIDetails_Daily_bkp_20241208",
+          "match_percentage": 57.14285714285714,
+          "matched_fields": [
+            "branch",
+            "region",
+            "sales_rep",
+            "lead_count"
+          ],
+          "missing_fields": [
+            "market",
+            "conversion_rate",
+            "rank"
+          ],
+          "column_count": 43,
+          "row_count": 2071525,
+          "size_gb": 0.924,
+          "days_since_modified": 409,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.raw_TDW_PNIDetails_Daily_bkp_20241208",
+          "match_percentage": 57.14285714285714,
+          "matched_fields": [
+            "branch",
+            "region",
+            "sales_rep",
+            "lead_count"
+          ],
+          "missing_fields": [
+            "market",
+            "conversion_rate",
+            "rank"
+          ],
+          "column_count": 42,
+          "row_count": 2049978,
+          "size_gb": 0.899,
+          "days_since_modified": 409,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.vw_rpp_Contract_stage3_2024Onwards_vAM",
+          "match_percentage": 57.14285714285714,
+          "matched_fields": [
+            "branch",
+            "region",
+            "market",
+            "rank"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "lead_count",
+            "conversion_rate"
+          ],
+          "column_count": 86,
+          "row_count": 1062848,
+          "size_gb": 0.678,
+          "days_since_modified": 203,
+          "is_fresh": false
+        },
+        {
+          "table": "stg_tmx.stg_vwpnidetails",
+          "match_percentage": 57.14285714285714,
+          "matched_fields": [
+            "branch",
+            "region",
+            "sales_rep",
+            "lead_count"
+          ],
+          "missing_fields": [
+            "market",
+            "conversion_rate",
+            "rank"
+          ],
+          "column_count": 40,
+          "row_count": 696266,
+          "size_gb": 0.266,
+          "days_since_modified": 624,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "branch",
+        "region",
+        "market",
+        "sales_rep",
+        "lead_count",
+        "conversion_rate",
+        "rank"
+      ],
+      "missing_fields": [
+        "market",
+        "conversion_rate",
+        "rank"
+      ]
+    },
+    {
+      "route": "/leads/cancels",
+      "name": "Lead Cancellations",
+      "category": "Leads",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S4.Fact_Leads_Acc_Daily_Dtls_Snp",
+        "match_percentage": 80,
+        "matched_fields": [
+          "cancel_reason",
+          "cancel_date",
+          "lead_type",
+          "received_date"
+        ],
+        "missing_fields": [
+          "days_to_cancel"
+        ],
+        "column_count": 71,
+        "row_count": 11846813,
+        "size_gb": 5.873,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "BCG_RTD_DB.DR_Leads_SM_20251120",
+          "match_percentage": 80,
+          "matched_fields": [
+            "cancel_reason",
+            "cancel_date",
+            "lead_type",
+            "received_date"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 68,
+          "row_count": 10544239,
+          "size_gb": 4.789,
+          "days_since_modified": 62,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_Backup_20250925",
+          "match_percentage": 80,
+          "matched_fields": [
+            "cancel_reason",
+            "cancel_date",
+            "lead_type",
+            "received_date"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 119,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_Backup_20251001",
+          "match_percentage": 80,
+          "matched_fields": [
+            "cancel_reason",
+            "cancel_date",
+            "lead_type",
+            "received_date"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 113,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_copy_20251027",
+          "match_percentage": 80,
+          "matched_fields": [
+            "cancel_reason",
+            "cancel_date",
+            "lead_type",
+            "received_date"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 86,
+          "is_fresh": false
+        },
+        {
+          "table": "Archive.Fact_Leads_Acc_Daily_Dtls_Vw_2025",
+          "match_percentage": 80,
+          "matched_fields": [
+            "cancel_reason",
+            "cancel_date",
+            "lead_type",
+            "received_date"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 70,
+          "row_count": 6243543,
+          "size_gb": 2.885,
+          "days_since_modified": 16,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "cancel_reason",
+        "cancel_date",
+        "lead_type",
+        "days_to_cancel",
+        "received_date"
+      ],
+      "missing_fields": [
+        "days_to_cancel"
+      ]
+    },
+    {
+      "route": "/leads/geographic",
+      "name": "Geographic Analysis",
+      "category": "Leads",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0.raw_TDW_PNIDetails_Daily",
+        "match_percentage": 85.71428571428571,
+        "matched_fields": [
+          "state",
+          "zip_code",
+          "city",
+          "branch",
+          "region",
+          "lead_count"
+        ],
+        "missing_fields": [
+          "market"
+        ],
+        "column_count": 48,
+        "row_count": 6920595,
+        "size_gb": 3.135,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.raw_RNA_PNIDetails_Sch_Daily",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "state",
+            "zip_code",
+            "city",
+            "branch",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "lead_count"
+          ],
+          "column_count": 52,
+          "row_count": 6225287,
+          "size_gb": 2.649,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Test.raw_TDW_PNIDetails_Daily",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "state",
+            "zip_code",
+            "city",
+            "branch",
+            "region",
+            "lead_count"
+          ],
+          "missing_fields": [
+            "market"
+          ],
+          "column_count": 43,
+          "row_count": 6212710,
+          "size_gb": 2.761,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "BCG_RTD_DB.DR_Leads_copy",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "state",
+            "zip_code",
+            "city",
+            "branch",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "lead_count"
+          ],
+          "column_count": 79,
+          "row_count": 5348835,
+          "size_gb": 2.972,
+          "days_since_modified": 50,
+          "is_fresh": false
+        },
+        {
+          "table": "BCG_RTD_DB.DR_PNI",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "state",
+            "zip_code",
+            "city",
+            "branch",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "lead_count"
+          ],
+          "column_count": 47,
+          "row_count": 3801028,
+          "size_gb": 1.284,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S2.tmx_rto_sales_kpi",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "state",
+            "zip_code",
+            "city",
+            "branch",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "lead_count"
+          ],
+          "column_count": 44,
+          "row_count": 3656931,
+          "size_gb": 1.539,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "state",
+        "zip_code",
+        "city",
+        "branch",
+        "region",
+        "market",
+        "lead_count"
+      ],
+      "missing_fields": [
+        "market"
+      ]
+    },
+    {
+      "route": "/leads/journey",
+      "name": "Lead Journey Tracking",
+      "category": "Leads",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.tmx_lead",
+        "match_percentage": 87.5,
+        "matched_fields": [
+          "lead_id",
+          "received_date",
+          "assigned_date",
+          "scheduled_date",
+          "inspected_date",
+          "proposed_date",
+          "sold_date"
+        ],
+        "missing_fields": [
+          "stage"
+        ],
+        "column_count": 88,
+        "row_count": 74445347,
+        "size_gb": 43.299,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.tmx_lead",
+          "match_percentage": 87.5,
+          "matched_fields": [
+            "lead_id",
+            "received_date",
+            "assigned_date",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "stage"
+          ],
+          "column_count": 88,
+          "row_count": 74403215,
+          "size_gb": 43.289,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_lead_bkp_20250120",
+          "match_percentage": 87.5,
+          "matched_fields": [
+            "lead_id",
+            "received_date",
+            "assigned_date",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "stage"
+          ],
+          "column_count": 88,
+          "row_count": 70606894,
+          "size_gb": 41.054,
+          "days_since_modified": 367,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_lead_bkp_20250120",
+          "match_percentage": 87.5,
+          "matched_fields": [
+            "lead_id",
+            "received_date",
+            "assigned_date",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date"
+          ],
+          "missing_fields": [
+            "stage"
+          ],
+          "column_count": 88,
+          "row_count": 70606894,
+          "size_gb": 41.054,
+          "days_since_modified": 367,
+          "is_fresh": false
+        },
+        {
+          "table": "S4.Fact_Leads_Acc_Daily_Dtls_Snp",
+          "match_percentage": 87.5,
+          "matched_fields": [
+            "lead_id",
+            "received_date",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date",
+            "stage"
+          ],
+          "missing_fields": [
+            "assigned_date"
+          ],
+          "column_count": 71,
+          "row_count": 11846813,
+          "size_gb": 5.873,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "BCG_RTD_DB.DR_Leads_SM_20251120",
+          "match_percentage": 87.5,
+          "matched_fields": [
+            "lead_id",
+            "received_date",
+            "scheduled_date",
+            "inspected_date",
+            "proposed_date",
+            "sold_date",
+            "stage"
+          ],
+          "missing_fields": [
+            "assigned_date"
+          ],
+          "column_count": 68,
+          "row_count": 10544239,
+          "size_gb": 4.789,
+          "days_since_modified": 62,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "lead_id",
+        "received_date",
+        "assigned_date",
+        "scheduled_date",
+        "inspected_date",
+        "proposed_date",
+        "sold_date",
+        "stage"
+      ],
+      "missing_fields": [
+        "stage"
+      ]
+    },
+    {
+      "route": "/salti",
+      "name": "SALTI Dashboard",
+      "category": "SALTI",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.tmx_lead",
+        "match_percentage": 66.66666666666666,
+        "matched_fields": [
+          "scheduled",
+          "inspected",
+          "proposed",
+          "sold"
+        ],
+        "missing_fields": [
+          "sales_rep",
+          "lead_funnel"
+        ],
+        "column_count": 88,
+        "row_count": 74445347,
+        "size_gb": 43.299,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.tmx_lead",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "lead_funnel"
+          ],
+          "column_count": 88,
+          "row_count": 74403215,
+          "size_gb": 43.289,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_lead_bkp_20250120",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "lead_funnel"
+          ],
+          "column_count": 88,
+          "row_count": 70606894,
+          "size_gb": 41.054,
+          "days_since_modified": 367,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_lead_bkp_20250120",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "lead_funnel"
+          ],
+          "column_count": 88,
+          "row_count": 70606894,
+          "size_gb": 41.054,
+          "days_since_modified": 367,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.unf_all_lead_data_withChannel_vAM",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "lead_funnel"
+          ],
+          "column_count": 17,
+          "row_count": 25579083,
+          "size_gb": 3.719,
+          "days_since_modified": 176,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.unf_all_lead_data_vAM",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "lead_funnel"
+          ],
+          "column_count": 20,
+          "row_count": 25282178,
+          "size_gb": 10.924,
+          "days_since_modified": 177,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "sales_rep",
+        "scheduled",
+        "inspected",
+        "proposed",
+        "sold",
+        "lead_funnel"
+      ],
+      "missing_fields": [
+        "sales_rep",
+        "lead_funnel"
+      ]
+    },
+    {
+      "route": "/salti/daily-check-in",
+      "name": "SALTI Daily Check-In",
+      "category": "SALTI",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.tmx_lead",
+        "match_percentage": 85.71428571428571,
+        "matched_fields": [
+          "date",
+          "scheduled",
+          "inspected",
+          "proposed",
+          "sold",
+          "activity"
+        ],
+        "missing_fields": [
+          "sales_rep"
+        ],
+        "column_count": 88,
+        "row_count": 74445347,
+        "size_gb": 43.299,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.tmx_lead",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "date",
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold",
+            "activity"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 88,
+          "row_count": 74403215,
+          "size_gb": 43.289,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_lead_bkp_20250120",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "date",
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold",
+            "activity"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 88,
+          "row_count": 70606894,
+          "size_gb": 41.054,
+          "days_since_modified": 367,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_lead_bkp_20250120",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "date",
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold",
+            "activity"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 88,
+          "row_count": 70606894,
+          "size_gb": 41.054,
+          "days_since_modified": 367,
+          "is_fresh": false
+        },
+        {
+          "table": "S1.tmx_lead",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "date",
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold",
+            "activity"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 88,
+          "row_count": 1806876,
+          "size_gb": 1.057,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "stg_tmx.stg_tmxlead",
+          "match_percentage": 85.71428571428571,
+          "matched_fields": [
+            "date",
+            "scheduled",
+            "inspected",
+            "proposed",
+            "sold",
+            "activity"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 87,
+          "row_count": 20891,
+          "size_gb": 0.011,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "sales_rep",
+        "date",
+        "scheduled",
+        "inspected",
+        "proposed",
+        "sold",
+        "activity"
+      ],
+      "missing_fields": [
+        "sales_rep"
+      ]
+    },
+    {
+      "route": "/salti/productivity",
+      "name": "SALTI Productivity",
+      "category": "SALTI",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.tmx_ar",
+        "match_percentage": 60,
+        "matched_fields": [
+          "sales_rep",
+          "proposals",
+          "sales"
+        ],
+        "missing_fields": [
+          "inspections",
+          "productivity_score"
+        ],
+        "column_count": 66,
+        "row_count": 238782610,
+        "size_gb": 94.917,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.tmx_ar_bkp_202050422",
+          "match_percentage": 60,
+          "matched_fields": [
+            "sales_rep",
+            "proposals",
+            "sales"
+          ],
+          "missing_fields": [
+            "inspections",
+            "productivity_score"
+          ],
+          "column_count": 66,
+          "row_count": 139976848,
+          "size_gb": 56.026,
+          "days_since_modified": 275,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.tmx_ar",
+          "match_percentage": 60,
+          "matched_fields": [
+            "sales_rep",
+            "proposals",
+            "sales"
+          ],
+          "missing_fields": [
+            "inspections",
+            "productivity_score"
+          ],
+          "column_count": 67,
+          "row_count": 104116359,
+          "size_gb": 42.358,
+          "days_since_modified": 276,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.tmx_ar_bkp_20250422",
+          "match_percentage": 60,
+          "matched_fields": [
+            "sales_rep",
+            "proposals",
+            "sales"
+          ],
+          "missing_fields": [
+            "inspections",
+            "productivity_score"
+          ],
+          "column_count": 67,
+          "row_count": 104116359,
+          "size_gb": 42.358,
+          "days_since_modified": 275,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.raw_TDW_PNIDetails_Daily",
+          "match_percentage": 60,
+          "matched_fields": [
+            "sales_rep",
+            "proposals",
+            "sales"
+          ],
+          "missing_fields": [
+            "inspections",
+            "productivity_score"
+          ],
+          "column_count": 48,
+          "row_count": 6920595,
+          "size_gb": 3.135,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Test.raw_TDW_PNIDetails_Daily",
+          "match_percentage": 60,
+          "matched_fields": [
+            "sales_rep",
+            "proposals",
+            "sales"
+          ],
+          "missing_fields": [
+            "inspections",
+            "productivity_score"
+          ],
+          "column_count": 43,
+          "row_count": 6212710,
+          "size_gb": 2.761,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "sales_rep",
+        "inspections",
+        "proposals",
+        "sales",
+        "productivity_score"
+      ],
+      "missing_fields": [
+        "inspections",
+        "productivity_score"
+      ]
+    },
+    {
+      "route": "/salti/proposal-pipeline",
+      "name": "Proposal Pipeline",
+      "category": "SALTI",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.tmx_ar",
+        "match_percentage": 100,
+        "matched_fields": [
+          "proposal_id",
+          "proposal_date",
+          "proposal_status",
+          "sales_rep",
+          "proposal_amount"
+        ],
+        "missing_fields": [],
+        "column_count": 66,
+        "row_count": 238782610,
+        "size_gb": 94.917,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.tmx_ar_bkp_202050422",
+          "match_percentage": 100,
+          "matched_fields": [
+            "proposal_id",
+            "proposal_date",
+            "proposal_status",
+            "sales_rep",
+            "proposal_amount"
+          ],
+          "missing_fields": [],
+          "column_count": 66,
+          "row_count": 139976848,
+          "size_gb": 56.026,
+          "days_since_modified": 275,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.tmx_ar",
+          "match_percentage": 100,
+          "matched_fields": [
+            "proposal_id",
+            "proposal_date",
+            "proposal_status",
+            "sales_rep",
+            "proposal_amount"
+          ],
+          "missing_fields": [],
+          "column_count": 67,
+          "row_count": 104116359,
+          "size_gb": 42.358,
+          "days_since_modified": 276,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.tmx_ar_bkp_20250422",
+          "match_percentage": 100,
+          "matched_fields": [
+            "proposal_id",
+            "proposal_date",
+            "proposal_status",
+            "sales_rep",
+            "proposal_amount"
+          ],
+          "missing_fields": [],
+          "column_count": 67,
+          "row_count": 104116359,
+          "size_gb": 42.358,
+          "days_since_modified": 275,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.raw_TDW_PNIDetails_Daily",
+          "match_percentage": 100,
+          "matched_fields": [
+            "proposal_id",
+            "proposal_date",
+            "proposal_status",
+            "sales_rep",
+            "proposal_amount"
+          ],
+          "missing_fields": [],
+          "column_count": 48,
+          "row_count": 6920595,
+          "size_gb": 3.135,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Test.raw_TDW_PNIDetails_Daily",
+          "match_percentage": 100,
+          "matched_fields": [
+            "proposal_id",
+            "proposal_date",
+            "proposal_status",
+            "sales_rep",
+            "proposal_amount"
+          ],
+          "missing_fields": [],
+          "column_count": 43,
+          "row_count": 6212710,
+          "size_gb": 2.761,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "proposal_id",
+        "proposal_date",
+        "proposal_status",
+        "sales_rep",
+        "proposal_amount"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/salti/funnel-fallout",
+      "name": "Funnel Fallout",
+      "category": "SALTI",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S1.Five9_CallLog_Export_History",
+        "match_percentage": 75,
+        "matched_fields": [
+          "stage",
+          "count",
+          "rate"
+        ],
+        "missing_fields": [
+          "fallout_reason"
+        ],
+        "column_count": 115,
+        "row_count": 59767602,
+        "size_gb": 54.265,
+        "days_since_modified": 62,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.Five9_CallLog_Export",
+          "match_percentage": 75,
+          "matched_fields": [
+            "stage",
+            "count",
+            "rate"
+          ],
+          "missing_fields": [
+            "fallout_reason"
+          ],
+          "column_count": 120,
+          "row_count": 20254994,
+          "size_gb": 22.442,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.Five9_CallLog_Export",
+          "match_percentage": 75,
+          "matched_fields": [
+            "stage",
+            "count",
+            "rate"
+          ],
+          "missing_fields": [
+            "fallout_reason"
+          ],
+          "column_count": 122,
+          "row_count": 19739656,
+          "size_gb": 22.224,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.five9_call_export_12",
+          "match_percentage": 75,
+          "matched_fields": [
+            "stage",
+            "count",
+            "rate"
+          ],
+          "missing_fields": [
+            "fallout_reason"
+          ],
+          "column_count": 114,
+          "row_count": 5659396,
+          "size_gb": 5.902,
+          "days_since_modified": 62,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.five9_call_export_9",
+          "match_percentage": 75,
+          "matched_fields": [
+            "stage",
+            "count",
+            "rate"
+          ],
+          "missing_fields": [
+            "fallout_reason"
+          ],
+          "column_count": 114,
+          "row_count": 4991419,
+          "size_gb": 4.491,
+          "days_since_modified": 62,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.five9_call_export_2",
+          "match_percentage": 75,
+          "matched_fields": [
+            "stage",
+            "count",
+            "rate"
+          ],
+          "missing_fields": [
+            "fallout_reason"
+          ],
+          "column_count": 114,
+          "row_count": 4990008,
+          "size_gb": 3.645,
+          "days_since_modified": 62,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "stage",
+        "fallout_reason",
+        "count",
+        "rate"
+      ],
+      "missing_fields": [
+        "fallout_reason"
+      ]
+    },
+    {
+      "route": "/salti/sales-ladders",
+      "name": "Sales Ladders",
+      "category": "SALTI",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S1.Five9_CallLog_Export_History",
+        "match_percentage": 50,
+        "matched_fields": [
+          "level",
+          "skills"
+        ],
+        "missing_fields": [
+          "sales_rep",
+          "progression"
+        ],
+        "column_count": 115,
+        "row_count": 59767602,
+        "size_gb": 54.265,
+        "days_since_modified": 62,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.Five9_CallLog_Export",
+          "match_percentage": 50,
+          "matched_fields": [
+            "level",
+            "skills"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "progression"
+          ],
+          "column_count": 120,
+          "row_count": 20254994,
+          "size_gb": 22.442,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.Five9_CallLog_Export",
+          "match_percentage": 50,
+          "matched_fields": [
+            "level",
+            "skills"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "progression"
+          ],
+          "column_count": 122,
+          "row_count": 19739656,
+          "size_gb": 22.224,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.five9_call_export_12",
+          "match_percentage": 50,
+          "matched_fields": [
+            "level",
+            "skills"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "progression"
+          ],
+          "column_count": 114,
+          "row_count": 5659396,
+          "size_gb": 5.902,
+          "days_since_modified": 62,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_survey_Qualtrics_V5",
+          "match_percentage": 50,
+          "matched_fields": [
+            "level",
+            "progression"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "skills"
+          ],
+          "column_count": 150,
+          "row_count": 5651459,
+          "size_gb": 6.612,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.five9_call_export_9",
+          "match_percentage": 50,
+          "matched_fields": [
+            "level",
+            "skills"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "progression"
+          ],
+          "column_count": 114,
+          "row_count": 4991419,
+          "size_gb": 4.491,
+          "days_since_modified": 62,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "sales_rep",
+        "level",
+        "progression",
+        "skills"
+      ],
+      "missing_fields": [
+        "sales_rep",
+        "progression"
+      ]
+    },
+    {
+      "route": "/salti/weekend-blitz",
+      "name": "Weekend Blitz",
+      "category": "SALTI",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0.LeadExec_Export",
+        "match_percentage": 80,
+        "matched_fields": [
+          "date",
+          "appointments",
+          "sales",
+          "revenue"
+        ],
+        "missing_fields": [
+          "sales_rep"
+        ],
+        "column_count": 168,
+        "row_count": 984245,
+        "size_gb": 4.55,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S1.LeadExec_Export",
+          "match_percentage": 80,
+          "matched_fields": [
+            "date",
+            "appointments",
+            "sales",
+            "revenue"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 169,
+          "row_count": 984240,
+          "size_gb": 4.495,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.tmx_wo_item",
+          "match_percentage": 60,
+          "matched_fields": [
+            "date",
+            "sales",
+            "revenue"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "appointments"
+          ],
+          "column_count": 70,
+          "row_count": 779429848,
+          "size_gb": 371.134,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_wo_item",
+          "match_percentage": 60,
+          "matched_fields": [
+            "date",
+            "sales",
+            "revenue"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "appointments"
+          ],
+          "column_count": 70,
+          "row_count": 779100040,
+          "size_gb": 372.148,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_wo_item_bkp_20241204",
+          "match_percentage": 60,
+          "matched_fields": [
+            "date",
+            "sales",
+            "revenue"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "appointments"
+          ],
+          "column_count": 70,
+          "row_count": 624775119,
+          "size_gb": 298.243,
+          "days_since_modified": 413,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_wo_item_bkp_20241204",
+          "match_percentage": 60,
+          "matched_fields": [
+            "date",
+            "sales",
+            "revenue"
+          ],
+          "missing_fields": [
+            "sales_rep",
+            "appointments"
+          ],
+          "column_count": 69,
+          "row_count": 624775119,
+          "size_gb": 293.695,
+          "days_since_modified": 413,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "date",
+        "sales_rep",
+        "appointments",
+        "sales",
+        "revenue"
+      ],
+      "missing_fields": [
+        "sales_rep"
+      ]
+    },
+    {
+      "route": "/salti/yoy-trends",
+      "name": "YoY Trends",
+      "category": "SALTI",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "Test.DSP_AllSales",
+        "match_percentage": 80,
+        "matched_fields": [
+          "year",
+          "month",
+          "metric",
+          "value"
+        ],
+        "missing_fields": [
+          "yoy_change"
+        ],
+        "column_count": 18,
+        "row_count": 0,
+        "size_gb": 0,
+        "days_since_modified": 999,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "Test.DSP_GrossSales",
+          "match_percentage": 80,
+          "matched_fields": [
+            "year",
+            "month",
+            "metric",
+            "value"
+          ],
+          "missing_fields": [
+            "yoy_change"
+          ],
+          "column_count": 17,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "Test.DSP_NetSales",
+          "match_percentage": 80,
+          "matched_fields": [
+            "year",
+            "month",
+            "metric",
+            "value"
+          ],
+          "missing_fields": [
+            "yoy_change"
+          ],
+          "column_count": 17,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "Test.DSP_Started",
+          "match_percentage": 80,
+          "matched_fields": [
+            "year",
+            "month",
+            "metric",
+            "value"
+          ],
+          "missing_fields": [
+            "yoy_change"
+          ],
+          "column_count": 17,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_sa_item",
+          "match_percentage": 60,
+          "matched_fields": [
+            "year",
+            "month",
+            "value"
+          ],
+          "missing_fields": [
+            "metric",
+            "yoy_change"
+          ],
+          "column_count": 101,
+          "row_count": 533479606,
+          "size_gb": 428.855,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_sa_item",
+          "match_percentage": 60,
+          "matched_fields": [
+            "year",
+            "month",
+            "value"
+          ],
+          "missing_fields": [
+            "metric",
+            "yoy_change"
+          ],
+          "column_count": 101,
+          "row_count": 533396642,
+          "size_gb": 429.79,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "year",
+        "month",
+        "metric",
+        "value",
+        "yoy_change"
+      ],
+      "missing_fields": [
+        "yoy_change"
+      ]
+    },
+    {
+      "route": "/sales",
+      "name": "Sales Overview",
+      "category": "Sales",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S0.Raw_RTXSF_OpportunityHistory_Daily",
+        "match_percentage": 66.66666666666666,
+        "matched_fields": [
+          "opportunity",
+          "stage",
+          "amount",
+          "close_date"
+        ],
+        "missing_fields": [
+          "pipeline",
+          "rep"
+        ],
+        "column_count": 14,
+        "row_count": 456854,
+        "size_gb": 0.05,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S1.Raw_RTXSF_OpportunityHistory_Daily",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "opportunity",
+            "stage",
+            "amount",
+            "close_date"
+          ],
+          "missing_fields": [
+            "pipeline",
+            "rep"
+          ],
+          "column_count": 14,
+          "row_count": 456854,
+          "size_gb": 0.05,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.Raw_RTXSF_Opportunity_Daily",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "opportunity",
+            "stage",
+            "amount",
+            "close_date"
+          ],
+          "missing_fields": [
+            "pipeline",
+            "rep"
+          ],
+          "column_count": 168,
+          "row_count": 195932,
+          "size_gb": 0.256,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.Raw_RTXSF_Opportunity_Daily",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "opportunity",
+            "stage",
+            "amount",
+            "close_date"
+          ],
+          "missing_fields": [
+            "pipeline",
+            "rep"
+          ],
+          "column_count": 167,
+          "row_count": 195932,
+          "size_gb": 0.256,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Agg_Snp_Backup_20251001",
+          "match_percentage": 50,
+          "matched_fields": [
+            "rep",
+            "stage",
+            "amount"
+          ],
+          "missing_fields": [
+            "pipeline",
+            "opportunity",
+            "close_date"
+          ],
+          "column_count": 41,
+          "row_count": 13905336,
+          "size_gb": 4.048,
+          "days_since_modified": 113,
+          "is_fresh": false
+        },
+        {
+          "table": "S4.Fact_Leads_Acc_Daily_Dtls_Snp",
+          "match_percentage": 50,
+          "matched_fields": [
+            "rep",
+            "stage",
+            "amount"
+          ],
+          "missing_fields": [
+            "pipeline",
+            "opportunity",
+            "close_date"
+          ],
+          "column_count": 71,
+          "row_count": 11846813,
+          "size_gb": 5.873,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "pipeline",
+        "opportunity",
+        "rep",
+        "stage",
+        "amount",
+        "close_date"
+      ],
+      "missing_fields": [
+        "pipeline",
+        "rep"
+      ]
+    },
+    {
+      "route": "/sales/speed-to-install",
+      "name": "Speed to Install",
+      "category": "Sales",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.ExtRaw_TDW_Time",
+        "match_percentage": 100,
+        "matched_fields": [
+          "sell_date",
+          "start_date",
+          "install_date",
+          "days_to_install",
+          "days_to_start"
+        ],
+        "missing_fields": [],
+        "column_count": 40,
+        "row_count": 49308,
+        "size_gb": 0.014,
+        "days_since_modified": 22,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S4.Dim_RTX_Time",
+          "match_percentage": 100,
+          "matched_fields": [
+            "sell_date",
+            "start_date",
+            "install_date",
+            "days_to_install",
+            "days_to_start"
+          ],
+          "missing_fields": [],
+          "column_count": 40,
+          "row_count": 49308,
+          "size_gb": 0.014,
+          "days_since_modified": 22,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_RNA.user_statistics",
+          "match_percentage": 60,
+          "matched_fields": [
+            "sell_date",
+            "start_date",
+            "install_date"
+          ],
+          "missing_fields": [
+            "days_to_install",
+            "days_to_start"
+          ],
+          "column_count": 38,
+          "row_count": 304189822,
+          "size_gb": 94.169,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S4.Unf_RTX_cm_proj",
+          "match_percentage": 60,
+          "matched_fields": [
+            "sell_date",
+            "start_date",
+            "install_date"
+          ],
+          "missing_fields": [
+            "days_to_install",
+            "days_to_start"
+          ],
+          "column_count": 9,
+          "row_count": 150387455,
+          "size_gb": 9.271,
+          "days_since_modified": 1,
+          "is_fresh": true
+        },
+        {
+          "table": "Playground.InvoiceHistoryChangeTracking",
+          "match_percentage": 60,
+          "matched_fields": [
+            "start_date",
+            "days_to_install",
+            "days_to_start"
+          ],
+          "missing_fields": [
+            "sell_date",
+            "install_date"
+          ],
+          "column_count": 182,
+          "row_count": 114096143,
+          "size_gb": 131.482,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.InvoiceHistory_bkp20250130_BeforeRebranch",
+          "match_percentage": 60,
+          "matched_fields": [
+            "start_date",
+            "days_to_install",
+            "days_to_start"
+          ],
+          "missing_fields": [
+            "sell_date",
+            "install_date"
+          ],
+          "column_count": 184,
+          "row_count": 97793842,
+          "size_gb": 111.264,
+          "days_since_modified": 356,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "sell_date",
+        "start_date",
+        "install_date",
+        "days_to_install",
+        "days_to_start"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/sales/today",
+      "name": "Today's Sales",
+      "category": "Sales",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "W3_Contract_Checker.T0_unf_Contract_All",
+        "match_percentage": 80,
+        "matched_fields": [
+          "sell_date",
+          "contract_value",
+          "contract_type",
+          "product_group"
+        ],
+        "missing_fields": [
+          "sales_rep"
+        ],
+        "column_count": 88,
+        "row_count": 7886431,
+        "size_gb": 6.033,
+        "days_since_modified": 181,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "W3_Contract_Checker.T0_FullYear",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "contract_value",
+            "contract_type",
+            "product_group"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 90,
+          "row_count": 6316868,
+          "size_gb": 4.995,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.testGCSexport",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "contract_value",
+            "contract_type",
+            "product_group"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 88,
+          "row_count": 6200687,
+          "size_gb": 4.791,
+          "days_since_modified": 199,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.vw_rpp_Contract_stage3_2024Onwards_vAM",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "contract_value",
+            "contract_type",
+            "product_group"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 86,
+          "row_count": 1062848,
+          "size_gb": 0.678,
+          "days_since_modified": 203,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.Prorated_Per_Year_HY_v2",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "contract_value",
+            "contract_type",
+            "product_group"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 108,
+          "row_count": 936453,
+          "size_gb": 0.93,
+          "days_since_modified": 190,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.Prorated_Per_Year_HY_v3_2024Only",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "contract_value",
+            "contract_type",
+            "product_group"
+          ],
+          "missing_fields": [
+            "sales_rep"
+          ],
+          "column_count": 109,
+          "row_count": 374087,
+          "size_gb": 0.377,
+          "days_since_modified": 189,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "sell_date",
+        "sales_rep",
+        "contract_value",
+        "contract_type",
+        "product_group"
+      ],
+      "missing_fields": [
+        "sales_rep"
+      ]
+    },
+    {
+      "route": "/sales/backlog",
+      "name": "Sales Backlog",
+      "category": "Sales",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "W3_Contract_Checker.T0_unf_Contract_All",
+        "match_percentage": 80,
+        "matched_fields": [
+          "sell_date",
+          "status",
+          "customer_name",
+          "contract_value"
+        ],
+        "missing_fields": [
+          "days_in_backlog"
+        ],
+        "column_count": 88,
+        "row_count": 7886431,
+        "size_gb": 6.033,
+        "days_since_modified": 181,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "W3_Contract_Checker.T0_FullYear",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "status",
+            "customer_name",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_in_backlog"
+          ],
+          "column_count": 90,
+          "row_count": 6316868,
+          "size_gb": 4.995,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.testGCSexport",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "status",
+            "customer_name",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_in_backlog"
+          ],
+          "column_count": 88,
+          "row_count": 6200687,
+          "size_gb": 4.791,
+          "days_since_modified": 199,
+          "is_fresh": false
+        },
+        {
+          "table": "BCG_RTD_DB.DR_ContractSales",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "status",
+            "customer_name",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_in_backlog"
+          ],
+          "column_count": 76,
+          "row_count": 3180265,
+          "size_gb": 2.169,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Custom_Data_Tables.Prorated_Per_Year_HY_v2",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "status",
+            "customer_name",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_in_backlog"
+          ],
+          "column_count": 108,
+          "row_count": 936453,
+          "size_gb": 0.93,
+          "days_since_modified": 190,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.Prorated_Per_Year_HY_v3_2024Only",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "status",
+            "customer_name",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_in_backlog"
+          ],
+          "column_count": 109,
+          "row_count": 374087,
+          "size_gb": 0.377,
+          "days_since_modified": 189,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "sell_date",
+        "status",
+        "days_in_backlog",
+        "customer_name",
+        "contract_value"
+      ],
+      "missing_fields": [
+        "days_in_backlog"
+      ]
+    },
+    {
+      "route": "/sales/canceled-agreements",
+      "name": "Canceled Agreements",
+      "category": "Sales",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "W3_Contract_Checker.T0_unf_Contract_All",
+        "match_percentage": 80,
+        "matched_fields": [
+          "sell_date",
+          "cancel_date",
+          "cancel_reason",
+          "contract_value"
+        ],
+        "missing_fields": [
+          "days_to_cancel"
+        ],
+        "column_count": 88,
+        "row_count": 7886431,
+        "size_gb": 6.033,
+        "days_since_modified": 181,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "W3_Contract_Checker.T0_FullYear",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "cancel_date",
+            "cancel_reason",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 90,
+          "row_count": 6316868,
+          "size_gb": 4.995,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.testGCSexport",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "cancel_date",
+            "cancel_reason",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 88,
+          "row_count": 6200687,
+          "size_gb": 4.791,
+          "days_since_modified": 199,
+          "is_fresh": false
+        },
+        {
+          "table": "BCG_RTD_DB.DR_ContractSales",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "cancel_date",
+            "cancel_reason",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 76,
+          "row_count": 3180265,
+          "size_gb": 2.169,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Custom_Data_Tables.vw_rpp_Contract_stage3_2024Onwards_vAM",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "cancel_date",
+            "cancel_reason",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 86,
+          "row_count": 1062848,
+          "size_gb": 0.678,
+          "days_since_modified": 203,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.Prorated_Per_Year_HY_v2",
+          "match_percentage": 80,
+          "matched_fields": [
+            "sell_date",
+            "cancel_date",
+            "cancel_reason",
+            "contract_value"
+          ],
+          "missing_fields": [
+            "days_to_cancel"
+          ],
+          "column_count": 108,
+          "row_count": 936453,
+          "size_gb": 0.93,
+          "days_since_modified": 190,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "sell_date",
+        "cancel_date",
+        "cancel_reason",
+        "days_to_cancel",
+        "contract_value"
+      ],
+      "missing_fields": [
+        "days_to_cancel"
+      ]
+    },
+    {
+      "route": "/sales/start-rate",
+      "name": "Start Rate",
+      "category": "Sales",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "W3_Contract_Checker.T0_unf_Contract_All",
+        "match_percentage": 100,
+        "matched_fields": [
+          "sell_date",
+          "start_date",
+          "started_ind",
+          "contract_count"
+        ],
+        "missing_fields": [],
+        "column_count": 88,
+        "row_count": 7886431,
+        "size_gb": 6.033,
+        "days_since_modified": 181,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "W3_Contract_Checker.T0_FullYear",
+          "match_percentage": 100,
+          "matched_fields": [
+            "sell_date",
+            "start_date",
+            "started_ind",
+            "contract_count"
+          ],
+          "missing_fields": [],
+          "column_count": 90,
+          "row_count": 6316868,
+          "size_gb": 4.995,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.testGCSexport",
+          "match_percentage": 100,
+          "matched_fields": [
+            "sell_date",
+            "start_date",
+            "started_ind",
+            "contract_count"
+          ],
+          "missing_fields": [],
+          "column_count": 88,
+          "row_count": 6200687,
+          "size_gb": 4.791,
+          "days_since_modified": 199,
+          "is_fresh": false
+        },
+        {
+          "table": "BCG_RTD_DB.DR_ContractSales",
+          "match_percentage": 100,
+          "matched_fields": [
+            "sell_date",
+            "start_date",
+            "started_ind",
+            "contract_count"
+          ],
+          "missing_fields": [],
+          "column_count": 76,
+          "row_count": 3180265,
+          "size_gb": 2.169,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Custom_Data_Tables.Prorated_Per_Year_HY_v2",
+          "match_percentage": 100,
+          "matched_fields": [
+            "sell_date",
+            "start_date",
+            "started_ind",
+            "contract_count"
+          ],
+          "missing_fields": [],
+          "column_count": 108,
+          "row_count": 936453,
+          "size_gb": 0.93,
+          "days_since_modified": 190,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.Prorated_Per_Year_HY_v3_2024Only",
+          "match_percentage": 100,
+          "matched_fields": [
+            "sell_date",
+            "start_date",
+            "started_ind",
+            "contract_count"
+          ],
+          "missing_fields": [],
+          "column_count": 109,
+          "row_count": 374087,
+          "size_gb": 0.377,
+          "days_since_modified": 189,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "sell_date",
+        "start_date",
+        "started_ind",
+        "contract_count"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/sales/national",
+      "name": "National Sales",
+      "category": "Sales",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.tmx_survey_Qualtrics_V5",
+        "match_percentage": 80,
+        "matched_fields": [
+          "market",
+          "region",
+          "sales",
+          "revenue"
+        ],
+        "missing_fields": [
+          "quota"
+        ],
+        "column_count": 150,
+        "row_count": 5651459,
+        "size_gb": 6.612,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.tmx_survey_Qualtrics_V3",
+          "match_percentage": 80,
+          "matched_fields": [
+            "market",
+            "region",
+            "sales",
+            "revenue"
+          ],
+          "missing_fields": [
+            "quota"
+          ],
+          "column_count": 129,
+          "row_count": 58666,
+          "size_gb": 0.065,
+          "days_since_modified": 149,
+          "is_fresh": false
+        },
+        {
+          "table": "S2.snp_RPP_Portfolio_Monthly",
+          "match_percentage": 60,
+          "matched_fields": [
+            "market",
+            "region",
+            "sales"
+          ],
+          "missing_fields": [
+            "revenue",
+            "quota"
+          ],
+          "column_count": 37,
+          "row_count": 57822190,
+          "size_gb": 17.763,
+          "days_since_modified": 20,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Portfolio_Pull_COM.snp_RPP_Portfolio_Monthly_20230101_20250501",
+          "match_percentage": 60,
+          "matched_fields": [
+            "market",
+            "region",
+            "sales"
+          ],
+          "missing_fields": [
+            "revenue",
+            "quota"
+          ],
+          "column_count": 37,
+          "row_count": 39398801,
+          "size_gb": 12.047,
+          "days_since_modified": 161,
+          "is_fresh": false
+        },
+        {
+          "table": "W3_Contract_Checker.T0_unf_Contract_All",
+          "match_percentage": 60,
+          "matched_fields": [
+            "market",
+            "region",
+            "sales"
+          ],
+          "missing_fields": [
+            "revenue",
+            "quota"
+          ],
+          "column_count": 88,
+          "row_count": 7886431,
+          "size_gb": 6.033,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "W3_Contract_Checker.T0_FullYear",
+          "match_percentage": 60,
+          "matched_fields": [
+            "market",
+            "region",
+            "sales"
+          ],
+          "missing_fields": [
+            "revenue",
+            "quota"
+          ],
+          "column_count": 90,
+          "row_count": 6316868,
+          "size_gb": 4.995,
+          "days_since_modified": 181,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "market",
+        "region",
+        "sales",
+        "revenue",
+        "quota"
+      ],
+      "missing_fields": [
+        "quota"
+      ]
+    },
+    {
+      "route": "/finance",
+      "name": "Finance Overview",
+      "category": "Finance",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "Playground.InvoiceHistoryChangeTracking",
+        "match_percentage": 50,
+        "matched_fields": [
+          "ar_balance",
+          "revenue"
+        ],
+        "missing_fields": [
+          "ar_aging",
+          "collections"
+        ],
+        "column_count": 182,
+        "row_count": 114096143,
+        "size_gb": 131.482,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.InvoiceHistory_bkp20250130_BeforeRebranch",
+          "match_percentage": 50,
+          "matched_fields": [
+            "ar_balance",
+            "revenue"
+          ],
+          "missing_fields": [
+            "ar_aging",
+            "collections"
+          ],
+          "column_count": 184,
+          "row_count": 97793842,
+          "size_gb": 111.264,
+          "days_since_modified": 356,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.Invoices_bkp20250130_BeforeRebranch",
+          "match_percentage": 50,
+          "matched_fields": [
+            "ar_balance",
+            "revenue"
+          ],
+          "missing_fields": [
+            "ar_aging",
+            "collections"
+          ],
+          "column_count": 184,
+          "row_count": 2169627,
+          "size_gb": 2.716,
+          "days_since_modified": 356,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.pestpac_Invoices",
+          "match_percentage": 50,
+          "matched_fields": [
+            "ar_balance",
+            "revenue"
+          ],
+          "missing_fields": [
+            "ar_aging",
+            "collections"
+          ],
+          "column_count": 182,
+          "row_count": 1892553,
+          "size_gb": 2.366,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Validation.pestpac_wo_migration_branches_2024",
+          "match_percentage": 50,
+          "matched_fields": [
+            "ar_balance",
+            "revenue"
+          ],
+          "missing_fields": [
+            "ar_aging",
+            "collections"
+          ],
+          "column_count": 490,
+          "row_count": 123269,
+          "size_gb": 0.345,
+          "days_since_modified": 486,
+          "is_fresh": false
+        },
+        {
+          "table": "S1.vw_invoices_complete_history",
+          "match_percentage": 50,
+          "matched_fields": [
+            "ar_balance",
+            "revenue"
+          ],
+          "missing_fields": [
+            "ar_aging",
+            "collections"
+          ],
+          "column_count": 184,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "ar_balance",
+        "ar_aging",
+        "collections",
+        "revenue"
+      ],
+      "missing_fields": [
+        "ar_aging",
+        "collections"
+      ]
+    },
+    {
+      "route": "/finance/ar",
+      "name": "Accounts Receivable",
+      "category": "Finance",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "Validation.pestpac_wo_migration_branches_2024",
+        "match_percentage": 66.66666666666666,
+        "matched_fields": [
+          "customer",
+          "invoice_date",
+          "amount",
+          "days_outstanding"
+        ],
+        "missing_fields": [
+          "aging_bucket",
+          "past_due_bucket"
+        ],
+        "column_count": 490,
+        "row_count": 123269,
+        "size_gb": 0.345,
+        "days_since_modified": 486,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "Reference_User_Managed.S4Fact_PortfolioActivity_Txn_Na_Daily_Dtl_Vw_v2LAST2YEARS",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "customer",
+            "amount",
+            "aging_bucket",
+            "past_due_bucket"
+          ],
+          "missing_fields": [
+            "invoice_date",
+            "days_outstanding"
+          ],
+          "column_count": 22,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "Reports.VwUnf_dim_ar_detail",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "customer",
+            "invoice_date",
+            "amount",
+            "days_outstanding"
+          ],
+          "missing_fields": [
+            "aging_bucket",
+            "past_due_bucket"
+          ],
+          "column_count": 21,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S4.Fact_PortfolioActivity_Txn_Na_Daily_Dtl_Vw",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "customer",
+            "amount",
+            "aging_bucket",
+            "past_due_bucket"
+          ],
+          "missing_fields": [
+            "invoice_date",
+            "days_outstanding"
+          ],
+          "column_count": 15,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S4.Fact_PortfolioActivity_Txn_Na_Daily_Dtl_Vw_v2",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "customer",
+            "amount",
+            "aging_bucket",
+            "past_due_bucket"
+          ],
+          "missing_fields": [
+            "invoice_date",
+            "days_outstanding"
+          ],
+          "column_count": 23,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S4.Fact_PortfolioActivity_Txn_Na_Daily_Dtl_Vw_v3",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "customer",
+            "amount",
+            "aging_bucket",
+            "past_due_bucket"
+          ],
+          "missing_fields": [
+            "invoice_date",
+            "days_outstanding"
+          ],
+          "column_count": 22,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "customer",
+        "invoice_date",
+        "amount",
+        "days_outstanding",
+        "aging_bucket",
+        "past_due_bucket"
+      ],
+      "missing_fields": [
+        "aging_bucket",
+        "past_due_bucket"
+      ]
+    },
+    {
+      "route": "/finance/projections",
+      "name": "Revenue Projections",
+      "category": "Finance",
+      "status": "NO_MATCH",
+      "alternative_matches": [],
+      "required_fields": [
+        "forecast",
+        "projection",
+        "actual",
+        "variance"
+      ],
+      "missing_fields": [
+        "forecast",
+        "projection",
+        "actual",
+        "variance"
+      ]
+    },
+    {
+      "route": "/finance/pnl",
+      "name": "P&L Statement",
+      "category": "Finance",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "Playground.InvoiceHistoryChangeTracking",
+        "match_percentage": 60,
+        "matched_fields": [
+          "credit",
+          "balance",
+          "period"
+        ],
+        "missing_fields": [
+          "gl_account",
+          "debit"
+        ],
+        "column_count": 182,
+        "row_count": 114096143,
+        "size_gb": 131.482,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.InvoiceHistory_bkp20250130_BeforeRebranch",
+          "match_percentage": 60,
+          "matched_fields": [
+            "credit",
+            "balance",
+            "period"
+          ],
+          "missing_fields": [
+            "gl_account",
+            "debit"
+          ],
+          "column_count": 184,
+          "row_count": 97793842,
+          "size_gb": 111.264,
+          "days_since_modified": 356,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.Invoices_bkp20250130_BeforeRebranch",
+          "match_percentage": 60,
+          "matched_fields": [
+            "credit",
+            "balance",
+            "period"
+          ],
+          "missing_fields": [
+            "gl_account",
+            "debit"
+          ],
+          "column_count": 184,
+          "row_count": 2169627,
+          "size_gb": 2.716,
+          "days_since_modified": 356,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.pestpac_Invoices",
+          "match_percentage": 60,
+          "matched_fields": [
+            "credit",
+            "balance",
+            "period"
+          ],
+          "missing_fields": [
+            "gl_account",
+            "debit"
+          ],
+          "column_count": 182,
+          "row_count": 1892553,
+          "size_gb": 2.366,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Validation.pestpac_wo_migration_branches_2024",
+          "match_percentage": 60,
+          "matched_fields": [
+            "credit",
+            "balance",
+            "period"
+          ],
+          "missing_fields": [
+            "gl_account",
+            "debit"
+          ],
+          "column_count": 490,
+          "row_count": 123269,
+          "size_gb": 0.345,
+          "days_since_modified": 486,
+          "is_fresh": false
+        },
+        {
+          "table": "S1.vw_invoices_complete_history",
+          "match_percentage": 60,
+          "matched_fields": [
+            "credit",
+            "balance",
+            "period"
+          ],
+          "missing_fields": [
+            "gl_account",
+            "debit"
+          ],
+          "column_count": 184,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "gl_account",
+        "debit",
+        "credit",
+        "balance",
+        "period"
+      ],
+      "missing_fields": [
+        "gl_account",
+        "debit"
+      ]
+    },
+    {
+      "route": "/termite/pni",
+      "name": "PNI (Paid Not Installed)",
+      "category": "Termite",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S0_RNA.user_statistics",
+        "match_percentage": 66.66666666666666,
+        "matched_fields": [
+          "customer",
+          "paid_date",
+          "install_date",
+          "branch"
+        ],
+        "missing_fields": [
+          "days_pending",
+          "revenue"
+        ],
+        "column_count": 38,
+        "row_count": 304189822,
+        "size_gb": 94.169,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "Validation.pestpac_wo_migration_branches_2024",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "customer",
+            "days_pending",
+            "branch",
+            "revenue"
+          ],
+          "missing_fields": [
+            "paid_date",
+            "install_date"
+          ],
+          "column_count": 490,
+          "row_count": 123269,
+          "size_gb": 0.345,
+          "days_since_modified": 486,
+          "is_fresh": false
+        },
+        {
+          "table": "S3.in_month_prj_pctc_job",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "customer",
+            "paid_date",
+            "install_date",
+            "branch"
+          ],
+          "missing_fields": [
+            "days_pending",
+            "revenue"
+          ],
+          "column_count": 8,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S3.in_month_prj_tc_contract_tmx",
+          "match_percentage": 66.66666666666666,
+          "matched_fields": [
+            "customer",
+            "paid_date",
+            "install_date",
+            "branch"
+          ],
+          "missing_fields": [
+            "days_pending",
+            "revenue"
+          ],
+          "column_count": 8,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_RNA.disputes",
+          "match_percentage": 50,
+          "matched_fields": [
+            "customer",
+            "days_pending",
+            "branch"
+          ],
+          "missing_fields": [
+            "paid_date",
+            "install_date",
+            "revenue"
+          ],
+          "column_count": 52,
+          "row_count": 338608007,
+          "size_gb": 153.861,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S4.Unf_RTX_cm_proj",
+          "match_percentage": 50,
+          "matched_fields": [
+            "paid_date",
+            "install_date",
+            "branch"
+          ],
+          "missing_fields": [
+            "customer",
+            "days_pending",
+            "revenue"
+          ],
+          "column_count": 9,
+          "row_count": 150387455,
+          "size_gb": 9.271,
+          "days_since_modified": 1,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "customer",
+        "paid_date",
+        "install_date",
+        "days_pending",
+        "branch",
+        "revenue"
+      ],
+      "missing_fields": [
+        "days_pending",
+        "revenue"
+      ]
+    },
+    {
+      "route": "/termite/renewals",
+      "name": "Termite Renewals",
+      "category": "Termite",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S1.vw_rna_termite_renewals",
+        "match_percentage": 100,
+        "matched_fields": [
+          "customer",
+          "renewal_month",
+          "autopay_flag",
+          "service_frequency",
+          "branch"
+        ],
+        "missing_fields": [],
+        "column_count": 55,
+        "row_count": 0,
+        "size_gb": 0,
+        "days_since_modified": 999,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S1.vw_tmx_termite_renewals",
+          "match_percentage": 100,
+          "matched_fields": [
+            "customer",
+            "renewal_month",
+            "autopay_flag",
+            "service_frequency",
+            "branch"
+          ],
+          "missing_fields": [],
+          "column_count": 55,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S2.VwUnf_Termite_Renewals",
+          "match_percentage": 100,
+          "matched_fields": [
+            "customer",
+            "renewal_month",
+            "autopay_flag",
+            "service_frequency",
+            "branch"
+          ],
+          "missing_fields": [],
+          "column_count": 55,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S4.Fact_TermiteRenewals_Snp_Na_Daily_Agg_Vw",
+          "match_percentage": 100,
+          "matched_fields": [
+            "customer",
+            "renewal_month",
+            "autopay_flag",
+            "service_frequency",
+            "branch"
+          ],
+          "missing_fields": [],
+          "column_count": 55,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.vw_unified_WorkOrderID_Clean_TDW_RPP_TABLE",
+          "match_percentage": 60,
+          "matched_fields": [
+            "customer",
+            "service_frequency",
+            "branch"
+          ],
+          "missing_fields": [
+            "renewal_month",
+            "autopay_flag"
+          ],
+          "column_count": 37,
+          "row_count": 126765129,
+          "size_gb": 35.288,
+          "days_since_modified": 147,
+          "is_fresh": false
+        },
+        {
+          "table": "Week7_TenureAnalysis_NG.vw_unified_WorkOrderID_Clean_TDW_RPP_TABLE",
+          "match_percentage": 60,
+          "matched_fields": [
+            "customer",
+            "service_frequency",
+            "branch"
+          ],
+          "missing_fields": [
+            "renewal_month",
+            "autopay_flag"
+          ],
+          "column_count": 37,
+          "row_count": 126765129,
+          "size_gb": 35.288,
+          "days_since_modified": 147,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "customer",
+        "renewal_month",
+        "autopay_flag",
+        "service_frequency",
+        "branch"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/ops",
+      "name": "Operations Overview",
+      "category": "Operations",
+      "status": "POOR_MATCH",
+      "best_match": {
+        "table": "BCG_RTD_DB.250911_cc_techrouting_helper_tmx",
+        "match_percentage": 40,
+        "matched_fields": [
+          "capacity",
+          "work_order"
+        ],
+        "missing_fields": [
+          "technician",
+          "dispatch",
+          "completion_rate"
+        ],
+        "column_count": 76,
+        "row_count": 97887712,
+        "size_gb": 58.225,
+        "days_since_modified": 121,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.tap_workordercompletion",
+          "match_percentage": 40,
+          "matched_fields": [
+            "capacity",
+            "work_order"
+          ],
+          "missing_fields": [
+            "technician",
+            "dispatch",
+            "completion_rate"
+          ],
+          "column_count": 40,
+          "row_count": 42532071,
+          "size_gb": 16.157,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tap_workordercompletion",
+          "match_percentage": 40,
+          "matched_fields": [
+            "capacity",
+            "work_order"
+          ],
+          "missing_fields": [
+            "technician",
+            "dispatch",
+            "completion_rate"
+          ],
+          "column_count": 40,
+          "row_count": 37011191,
+          "size_gb": 13.665,
+          "days_since_modified": 289,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.tap_workordercompletion_bkp_20250104",
+          "match_percentage": 40,
+          "matched_fields": [
+            "capacity",
+            "work_order"
+          ],
+          "missing_fields": [
+            "technician",
+            "dispatch",
+            "completion_rate"
+          ],
+          "column_count": 40,
+          "row_count": 35404181,
+          "size_gb": 13.059,
+          "days_since_modified": 383,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tap_workordercompletion_bkp_20250104",
+          "match_percentage": 40,
+          "matched_fields": [
+            "capacity",
+            "work_order"
+          ],
+          "missing_fields": [
+            "technician",
+            "dispatch",
+            "completion_rate"
+          ],
+          "column_count": 40,
+          "row_count": 35404177,
+          "size_gb": 13.432,
+          "days_since_modified": 383,
+          "is_fresh": false
+        },
+        {
+          "table": "BCG_RTD_DB.250911_cc_techrouting_helper",
+          "match_percentage": 40,
+          "matched_fields": [
+            "capacity",
+            "work_order"
+          ],
+          "missing_fields": [
+            "technician",
+            "dispatch",
+            "completion_rate"
+          ],
+          "column_count": 45,
+          "row_count": 25732934,
+          "size_gb": 9.73,
+          "days_since_modified": 121,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "technician",
+        "dispatch",
+        "capacity",
+        "work_order",
+        "completion_rate"
+      ],
+      "missing_fields": [
+        "technician",
+        "dispatch",
+        "completion_rate"
+      ]
+    },
+    {
+      "route": "/ops/national",
+      "name": "National Ops",
+      "category": "Operations",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S1.VwStg_RNA_INPDetails",
+        "match_percentage": 80,
+        "matched_fields": [
+          "region",
+          "market",
+          "work_orders",
+          "completion"
+        ],
+        "missing_fields": [
+          "technicians"
+        ],
+        "column_count": 38,
+        "row_count": 0,
+        "size_gb": 0,
+        "days_since_modified": 999,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S1.VwStg_TDW_INPDetails",
+          "match_percentage": 80,
+          "matched_fields": [
+            "region",
+            "market",
+            "work_orders",
+            "completion"
+          ],
+          "missing_fields": [
+            "technicians"
+          ],
+          "column_count": 38,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S2.snp_RPP_Portfolio_Monthly",
+          "match_percentage": 60,
+          "matched_fields": [
+            "region",
+            "market",
+            "technicians"
+          ],
+          "missing_fields": [
+            "work_orders",
+            "completion"
+          ],
+          "column_count": 37,
+          "row_count": 57822190,
+          "size_gb": 17.763,
+          "days_since_modified": 20,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Portfolio_Pull_COM.snp_RPP_Portfolio_Monthly_20230101_20250501",
+          "match_percentage": 60,
+          "matched_fields": [
+            "region",
+            "market",
+            "technicians"
+          ],
+          "missing_fields": [
+            "work_orders",
+            "completion"
+          ],
+          "column_count": 37,
+          "row_count": 39398801,
+          "size_gb": 12.047,
+          "days_since_modified": 161,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_survey_Qualtrics_V5",
+          "match_percentage": 60,
+          "matched_fields": [
+            "region",
+            "market",
+            "completion"
+          ],
+          "missing_fields": [
+            "technicians",
+            "work_orders"
+          ],
+          "column_count": 150,
+          "row_count": 5651459,
+          "size_gb": 6.612,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "BCG_RTD_DB.DR_PNI",
+          "match_percentage": 60,
+          "matched_fields": [
+            "region",
+            "market",
+            "work_orders"
+          ],
+          "missing_fields": [
+            "technicians",
+            "completion"
+          ],
+          "column_count": 47,
+          "row_count": 3801028,
+          "size_gb": 1.284,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "region",
+        "market",
+        "technicians",
+        "work_orders",
+        "completion"
+      ],
+      "missing_fields": [
+        "technicians"
+      ]
+    },
+    {
+      "route": "/ops/new-starts",
+      "name": "New Starts",
+      "category": "Operations",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S4_CusFP.US_CustomerFootPrint_0001",
+        "match_percentage": 100,
+        "matched_fields": [
+          "start_date",
+          "customer",
+          "service_type",
+          "branch"
+        ],
+        "missing_fields": [],
+        "column_count": 118,
+        "row_count": 50274622,
+        "size_gb": 18.405,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S4_CusFP.US_CustomerFootPrint",
+          "match_percentage": 100,
+          "matched_fields": [
+            "start_date",
+            "customer",
+            "service_type",
+            "branch"
+          ],
+          "missing_fields": [],
+          "column_count": 118,
+          "row_count": 37596679,
+          "size_gb": 13.643,
+          "days_since_modified": 554,
+          "is_fresh": false
+        },
+        {
+          "table": "W3_Contract_Checker.T0_unf_Contract_All",
+          "match_percentage": 100,
+          "matched_fields": [
+            "start_date",
+            "customer",
+            "service_type",
+            "branch"
+          ],
+          "missing_fields": [],
+          "column_count": 88,
+          "row_count": 7886431,
+          "size_gb": 6.033,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "W3_Contract_Checker.T0_FullYear",
+          "match_percentage": 100,
+          "matched_fields": [
+            "start_date",
+            "customer",
+            "service_type",
+            "branch"
+          ],
+          "missing_fields": [],
+          "column_count": 90,
+          "row_count": 6316868,
+          "size_gb": 4.995,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.testGCSexport",
+          "match_percentage": 100,
+          "matched_fields": [
+            "start_date",
+            "customer",
+            "service_type",
+            "branch"
+          ],
+          "missing_fields": [],
+          "column_count": 88,
+          "row_count": 6200687,
+          "size_gb": 4.791,
+          "days_since_modified": 199,
+          "is_fresh": false
+        },
+        {
+          "table": "BCG_RTD_DB.DR_ContractSales",
+          "match_percentage": 100,
+          "matched_fields": [
+            "start_date",
+            "customer",
+            "service_type",
+            "branch"
+          ],
+          "missing_fields": [],
+          "column_count": 76,
+          "row_count": 3180265,
+          "size_gb": 2.169,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "start_date",
+        "customer",
+        "service_type",
+        "branch"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/people",
+      "name": "People Overview",
+      "category": "HR",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S3.Employee",
+        "match_percentage": 80,
+        "matched_fields": [
+          "employee",
+          "hire_date",
+          "branch",
+          "role"
+        ],
+        "missing_fields": [
+          "department"
+        ],
+        "column_count": 75,
+        "row_count": 27090,
+        "size_gb": 0.022,
+        "days_since_modified": 59,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S2.VwUnf_RTX_Employees",
+          "match_percentage": 80,
+          "matched_fields": [
+            "employee",
+            "hire_date",
+            "branch",
+            "role"
+          ],
+          "missing_fields": [
+            "department"
+          ],
+          "column_count": 82,
+          "row_count": 26985,
+          "size_gb": 0.023,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S4.Fact_RTX_Employees",
+          "match_percentage": 80,
+          "matched_fields": [
+            "employee",
+            "hire_date",
+            "branch",
+            "role"
+          ],
+          "missing_fields": [
+            "department"
+          ],
+          "column_count": 82,
+          "row_count": 26985,
+          "size_gb": 0.023,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S2.Unf_HREmployeeDetails",
+          "match_percentage": 80,
+          "matched_fields": [
+            "employee",
+            "hire_date",
+            "branch",
+            "role"
+          ],
+          "missing_fields": [
+            "department"
+          ],
+          "column_count": 93,
+          "row_count": 26984,
+          "size_gb": 0.026,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_RNA.user_statistics",
+          "match_percentage": 60,
+          "matched_fields": [
+            "employee",
+            "hire_date",
+            "branch"
+          ],
+          "missing_fields": [
+            "department",
+            "role"
+          ],
+          "column_count": 38,
+          "row_count": 304189822,
+          "size_gb": 94.169,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S4.Fact_Leads_Acc_Daily_Dtls_Snp",
+          "match_percentage": 60,
+          "matched_fields": [
+            "employee",
+            "branch",
+            "role"
+          ],
+          "missing_fields": [
+            "hire_date",
+            "department"
+          ],
+          "column_count": 71,
+          "row_count": 11846813,
+          "size_gb": 5.873,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "employee",
+        "hire_date",
+        "department",
+        "branch",
+        "role"
+      ],
+      "missing_fields": [
+        "department"
+      ]
+    },
+    {
+      "route": "/hr/retention",
+      "name": "Employee Retention",
+      "category": "HR",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S0_RNA.user_statistics",
+        "match_percentage": 50,
+        "matched_fields": [
+          "employee",
+          "hire_date",
+          "term_date"
+        ],
+        "missing_fields": [
+          "term_reason",
+          "voluntary",
+          "tenure"
+        ],
+        "column_count": 38,
+        "row_count": 304189822,
+        "size_gb": 94.169,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.tmx_survey_l360_V2",
+          "match_percentage": 50,
+          "matched_fields": [
+            "employee",
+            "hire_date",
+            "tenure"
+          ],
+          "missing_fields": [
+            "term_date",
+            "term_reason",
+            "voluntary"
+          ],
+          "column_count": 53,
+          "row_count": 2914796,
+          "size_gb": 1.629,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.vw_tmx_survey_l360_V2",
+          "match_percentage": 50,
+          "matched_fields": [
+            "employee",
+            "hire_date",
+            "tenure"
+          ],
+          "missing_fields": [
+            "term_date",
+            "term_reason",
+            "voluntary"
+          ],
+          "column_count": 53,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S4.Unf_RTX_cm_proj",
+          "match_percentage": 33.33333333333333,
+          "matched_fields": [
+            "hire_date",
+            "term_date"
+          ],
+          "missing_fields": [
+            "employee",
+            "term_reason",
+            "voluntary",
+            "tenure"
+          ],
+          "column_count": 9,
+          "row_count": 150387455,
+          "size_gb": 9.271,
+          "days_since_modified": 1,
+          "is_fresh": true
+        },
+        {
+          "table": "Custom_Data_Tables.vw_unified_WorkOrderID_Clean_TDW_RPP_TABLE",
+          "match_percentage": 33.33333333333333,
+          "matched_fields": [
+            "employee",
+            "tenure"
+          ],
+          "missing_fields": [
+            "hire_date",
+            "term_date",
+            "term_reason",
+            "voluntary"
+          ],
+          "column_count": 37,
+          "row_count": 126765129,
+          "size_gb": 35.288,
+          "days_since_modified": 147,
+          "is_fresh": false
+        },
+        {
+          "table": "Week7_TenureAnalysis_NG.vw_unified_WorkOrderID_Clean_TDW_RPP_TABLE",
+          "match_percentage": 33.33333333333333,
+          "matched_fields": [
+            "employee",
+            "tenure"
+          ],
+          "missing_fields": [
+            "hire_date",
+            "term_date",
+            "term_reason",
+            "voluntary"
+          ],
+          "column_count": 37,
+          "row_count": 126765129,
+          "size_gb": 35.288,
+          "days_since_modified": 147,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "employee",
+        "hire_date",
+        "term_date",
+        "term_reason",
+        "voluntary",
+        "tenure"
+      ],
+      "missing_fields": [
+        "term_reason",
+        "voluntary",
+        "tenure"
+      ]
+    },
+    {
+      "route": "/workforce/tech-productivity",
+      "name": "Tech Productivity",
+      "category": "Workforce",
+      "status": "POOR_MATCH",
+      "best_match": {
+        "table": "S0_TMX.tmx_wo_item",
+        "match_percentage": 40,
+        "matched_fields": [
+          "work_orders",
+          "revenue"
+        ],
+        "missing_fields": [
+          "technician",
+          "stops_completed",
+          "efficiency"
+        ],
+        "column_count": 70,
+        "row_count": 779429848,
+        "size_gb": 371.134,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.tmx_wo_item",
+          "match_percentage": 40,
+          "matched_fields": [
+            "work_orders",
+            "revenue"
+          ],
+          "missing_fields": [
+            "technician",
+            "stops_completed",
+            "efficiency"
+          ],
+          "column_count": 70,
+          "row_count": 779100040,
+          "size_gb": 372.148,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_wo_item_bkp_20241204",
+          "match_percentage": 40,
+          "matched_fields": [
+            "work_orders",
+            "revenue"
+          ],
+          "missing_fields": [
+            "technician",
+            "stops_completed",
+            "efficiency"
+          ],
+          "column_count": 70,
+          "row_count": 624775119,
+          "size_gb": 298.243,
+          "days_since_modified": 413,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_wo_item_bkp_20241204",
+          "match_percentage": 40,
+          "matched_fields": [
+            "work_orders",
+            "revenue"
+          ],
+          "missing_fields": [
+            "technician",
+            "stops_completed",
+            "efficiency"
+          ],
+          "column_count": 69,
+          "row_count": 624775119,
+          "size_gb": 293.695,
+          "days_since_modified": 413,
+          "is_fresh": false
+        },
+        {
+          "table": "BCG_RTD_DB.250911_cc_techrouting_helper_tmx",
+          "match_percentage": 40,
+          "matched_fields": [
+            "work_orders",
+            "revenue"
+          ],
+          "missing_fields": [
+            "technician",
+            "stops_completed",
+            "efficiency"
+          ],
+          "column_count": 76,
+          "row_count": 97887712,
+          "size_gb": 58.225,
+          "days_since_modified": 121,
+          "is_fresh": false
+        },
+        {
+          "table": "Test.tmx_wo_item",
+          "match_percentage": 40,
+          "matched_fields": [
+            "work_orders",
+            "revenue"
+          ],
+          "missing_fields": [
+            "technician",
+            "stops_completed",
+            "efficiency"
+          ],
+          "column_count": 73,
+          "row_count": 16000000,
+          "size_gb": 8.113,
+          "days_since_modified": 359,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "technician",
+        "stops_completed",
+        "work_orders",
+        "revenue",
+        "efficiency"
+      ],
+      "missing_fields": [
+        "technician",
+        "stops_completed",
+        "efficiency"
+      ]
+    },
+    {
+      "route": "/admin",
+      "name": "Admin Dashboard",
+      "category": "Admin",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "S0.Raw_PBIGatewayConnections",
+        "match_percentage": 75,
+        "matched_fields": [
+          "role",
+          "user",
+          "data_source"
+        ],
+        "missing_fields": [
+          "settings"
+        ],
+        "column_count": 23,
+        "row_count": 0,
+        "size_gb": 0,
+        "days_since_modified": 999,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "W3_Contract_Checker.T0_unf_Contract_All",
+          "match_percentage": 50,
+          "matched_fields": [
+            "role",
+            "data_source"
+          ],
+          "missing_fields": [
+            "user",
+            "settings"
+          ],
+          "column_count": 88,
+          "row_count": 7886431,
+          "size_gb": 6.033,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "W3_Contract_Checker.T0_FullYear",
+          "match_percentage": 50,
+          "matched_fields": [
+            "role",
+            "data_source"
+          ],
+          "missing_fields": [
+            "user",
+            "settings"
+          ],
+          "column_count": 90,
+          "row_count": 6316868,
+          "size_gb": 4.995,
+          "days_since_modified": 181,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.testGCSexport",
+          "match_percentage": 50,
+          "matched_fields": [
+            "role",
+            "data_source"
+          ],
+          "missing_fields": [
+            "user",
+            "settings"
+          ],
+          "column_count": 88,
+          "row_count": 6200687,
+          "size_gb": 4.791,
+          "days_since_modified": 199,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.vw_rpp_Contract_stage3_2024Onwards_vAM",
+          "match_percentage": 50,
+          "matched_fields": [
+            "user",
+            "data_source"
+          ],
+          "missing_fields": [
+            "role",
+            "settings"
+          ],
+          "column_count": 86,
+          "row_count": 1062848,
+          "size_gb": 0.678,
+          "days_since_modified": 203,
+          "is_fresh": false
+        },
+        {
+          "table": "Custom_Data_Tables.Prorated_Per_Year_HY_v2",
+          "match_percentage": 50,
+          "matched_fields": [
+            "role",
+            "data_source"
+          ],
+          "missing_fields": [
+            "user",
+            "settings"
+          ],
+          "column_count": 108,
+          "row_count": 936453,
+          "size_gb": 0.93,
+          "days_since_modified": 190,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "role",
+        "user",
+        "settings",
+        "data_source"
+      ],
+      "missing_fields": [
+        "settings"
+      ]
+    },
+    {
+      "route": "/kpi/[slug]",
+      "name": "KPI Detail",
+      "category": "KPI",
+      "status": "POOR_MATCH",
+      "best_match": {
+        "table": "S0.Raw_RTXSF_Opportunity_Daily",
+        "match_percentage": 40,
+        "matched_fields": [
+          "kpi_name",
+          "target"
+        ],
+        "missing_fields": [
+          "actual",
+          "variance",
+          "trend"
+        ],
+        "column_count": 168,
+        "row_count": 195932,
+        "size_gb": 0.256,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S1.Raw_RTXSF_Opportunity_Daily",
+          "match_percentage": 40,
+          "matched_fields": [
+            "kpi_name",
+            "target"
+          ],
+          "missing_fields": [
+            "actual",
+            "variance",
+            "trend"
+          ],
+          "column_count": 167,
+          "row_count": 195932,
+          "size_gb": 0.256,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.Raw_RTXSF_Account_Daily",
+          "match_percentage": 40,
+          "matched_fields": [
+            "kpi_name",
+            "actual"
+          ],
+          "missing_fields": [
+            "target",
+            "variance",
+            "trend"
+          ],
+          "column_count": 121,
+          "row_count": 108807,
+          "size_gb": 0.055,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.Raw_RTXSF_Account_Daily",
+          "match_percentage": 40,
+          "matched_fields": [
+            "kpi_name",
+            "actual"
+          ],
+          "missing_fields": [
+            "target",
+            "variance",
+            "trend"
+          ],
+          "column_count": 121,
+          "row_count": 108807,
+          "size_gb": 0.055,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Reference.ref_noaa_stations",
+          "match_percentage": 40,
+          "matched_fields": [
+            "kpi_name",
+            "trend"
+          ],
+          "missing_fields": [
+            "actual",
+            "target",
+            "variance"
+          ],
+          "column_count": 11,
+          "row_count": 29590,
+          "size_gb": 0.002,
+          "days_since_modified": 246,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "kpi_name",
+        "actual",
+        "target",
+        "variance",
+        "trend"
+      ],
+      "missing_fields": [
+        "actual",
+        "variance",
+        "trend"
+      ]
+    },
+    {
+      "route": "/branch/[code]",
+      "name": "Branch Dashboard",
+      "category": "Branch",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0.raw_RNA_PNIDetails_Sch_Daily",
+        "match_percentage": 80,
+        "matched_fields": [
+          "branch_code",
+          "branch_name",
+          "region",
+          "market"
+        ],
+        "missing_fields": [
+          "metrics"
+        ],
+        "column_count": 52,
+        "row_count": 6225287,
+        "size_gb": 2.649,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S2.tmx_rto_sales_kpi",
+          "match_percentage": 80,
+          "matched_fields": [
+            "branch_code",
+            "branch_name",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "metrics"
+          ],
+          "column_count": 44,
+          "row_count": 3656931,
+          "size_gb": 1.539,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.tmx_survey_detail",
+          "match_percentage": 80,
+          "matched_fields": [
+            "branch_code",
+            "branch_name",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "metrics"
+          ],
+          "column_count": 41,
+          "row_count": 2917343,
+          "size_gb": 1.344,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.tmx_survey_l360_V2",
+          "match_percentage": 80,
+          "matched_fields": [
+            "branch_code",
+            "branch_name",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "metrics"
+          ],
+          "column_count": 53,
+          "row_count": 2914796,
+          "size_gb": 1.629,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_survey_detail",
+          "match_percentage": 80,
+          "matched_fields": [
+            "branch_code",
+            "branch_name",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "metrics"
+          ],
+          "column_count": 41,
+          "row_count": 2604591,
+          "size_gb": 1.193,
+          "days_since_modified": 414,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.tmx_survey_detail_bkp_20241204",
+          "match_percentage": 80,
+          "matched_fields": [
+            "branch_code",
+            "branch_name",
+            "region",
+            "market"
+          ],
+          "missing_fields": [
+            "metrics"
+          ],
+          "column_count": 41,
+          "row_count": 2604591,
+          "size_gb": 1.193,
+          "days_since_modified": 413,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "branch_code",
+        "branch_name",
+        "region",
+        "market",
+        "metrics"
+      ],
+      "missing_fields": [
+        "metrics"
+      ]
+    },
+    {
+      "route": "/branch/daily",
+      "name": "Branch Daily",
+      "category": "Branch",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "Playground.InvoiceHistoryChangeTracking",
+        "match_percentage": 100,
+        "matched_fields": [
+          "branch",
+          "date",
+          "sales",
+          "service",
+          "ar"
+        ],
+        "missing_fields": [],
+        "column_count": 182,
+        "row_count": 114096143,
+        "size_gb": 131.482,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.InvoiceHistory_bkp20250130_BeforeRebranch",
+          "match_percentage": 100,
+          "matched_fields": [
+            "branch",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 184,
+          "row_count": 97793842,
+          "size_gb": 111.264,
+          "days_since_modified": 356,
+          "is_fresh": false
+        },
+        {
+          "table": "S4_CusFP.US_CustomerFootPrint_0001",
+          "match_percentage": 100,
+          "matched_fields": [
+            "branch",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 118,
+          "row_count": 50274622,
+          "size_gb": 18.405,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.tap_workordercompletion",
+          "match_percentage": 100,
+          "matched_fields": [
+            "branch",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 40,
+          "row_count": 42532071,
+          "size_gb": 16.157,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S4_CusFP.US_CustomerFootPrint",
+          "match_percentage": 100,
+          "matched_fields": [
+            "branch",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 118,
+          "row_count": 37596679,
+          "size_gb": 13.643,
+          "days_since_modified": 554,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.tap_workordercompletion",
+          "match_percentage": 100,
+          "matched_fields": [
+            "branch",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 40,
+          "row_count": 37011191,
+          "size_gb": 13.665,
+          "days_since_modified": 289,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "branch",
+        "date",
+        "sales",
+        "service",
+        "ar"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/region/daily",
+      "name": "Region Daily",
+      "category": "Region",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S2.snp_RPP_Portfolio_Monthly",
+        "match_percentage": 100,
+        "matched_fields": [
+          "region",
+          "date",
+          "sales",
+          "service",
+          "ar"
+        ],
+        "missing_fields": [],
+        "column_count": 37,
+        "row_count": 57822190,
+        "size_gb": 17.763,
+        "days_since_modified": 20,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S4_CusFP.US_CustomerFootPrint_0001",
+          "match_percentage": 100,
+          "matched_fields": [
+            "region",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 118,
+          "row_count": 50274622,
+          "size_gb": 18.405,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.tap_workordercompletion",
+          "match_percentage": 100,
+          "matched_fields": [
+            "region",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 40,
+          "row_count": 42532071,
+          "size_gb": 16.157,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "Custom_Portfolio_Pull_COM.snp_RPP_Portfolio_Monthly_20230101_20250501",
+          "match_percentage": 100,
+          "matched_fields": [
+            "region",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 37,
+          "row_count": 39398801,
+          "size_gb": 12.047,
+          "days_since_modified": 161,
+          "is_fresh": false
+        },
+        {
+          "table": "S4_CusFP.US_CustomerFootPrint",
+          "match_percentage": 100,
+          "matched_fields": [
+            "region",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 118,
+          "row_count": 37596679,
+          "size_gb": 13.643,
+          "days_since_modified": 554,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.tap_workordercompletion",
+          "match_percentage": 100,
+          "matched_fields": [
+            "region",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 40,
+          "row_count": 37011191,
+          "size_gb": 13.665,
+          "days_since_modified": 289,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "region",
+        "date",
+        "sales",
+        "service",
+        "ar"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/market/daily",
+      "name": "Market Daily",
+      "category": "Market",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.tmx_dor_bkp_20251217",
+        "match_percentage": 100,
+        "matched_fields": [
+          "market",
+          "date",
+          "sales",
+          "service",
+          "ar"
+        ],
+        "missing_fields": [],
+        "column_count": 12,
+        "row_count": 679072470,
+        "size_gb": 60.081,
+        "days_since_modified": 36,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.tmx_lead",
+          "match_percentage": 100,
+          "matched_fields": [
+            "market",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 88,
+          "row_count": 74445347,
+          "size_gb": 43.299,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_lead",
+          "match_percentage": 100,
+          "matched_fields": [
+            "market",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 88,
+          "row_count": 74403215,
+          "size_gb": 43.289,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.tmx_lead_bkp_20250120",
+          "match_percentage": 100,
+          "matched_fields": [
+            "market",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 88,
+          "row_count": 70606894,
+          "size_gb": 41.054,
+          "days_since_modified": 367,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_lead_bkp_20250120",
+          "match_percentage": 100,
+          "matched_fields": [
+            "market",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 88,
+          "row_count": 70606894,
+          "size_gb": 41.054,
+          "days_since_modified": 367,
+          "is_fresh": false
+        },
+        {
+          "table": "S2.snp_RPP_Portfolio_Monthly",
+          "match_percentage": 100,
+          "matched_fields": [
+            "market",
+            "date",
+            "sales",
+            "service",
+            "ar"
+          ],
+          "missing_fields": [],
+          "column_count": 37,
+          "row_count": 57822190,
+          "size_gb": 17.763,
+          "days_since_modified": 20,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "market",
+        "date",
+        "sales",
+        "service",
+        "ar"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/qbr",
+      "name": "Quarterly Business Review",
+      "category": "Reviews",
+      "status": "NO_MATCH",
+      "alternative_matches": [],
+      "required_fields": [
+        "quarter",
+        "metrics",
+        "goals",
+        "achievements"
+      ],
+      "missing_fields": [
+        "quarter",
+        "metrics",
+        "goals",
+        "achievements"
+      ]
+    },
+    {
+      "route": "/wbr",
+      "name": "Weekly Business Review",
+      "category": "Reviews",
+      "status": "NO_MATCH",
+      "alternative_matches": [],
+      "required_fields": [
+        "week",
+        "metrics",
+        "issues",
+        "actions"
+      ],
+      "missing_fields": [
+        "week",
+        "metrics",
+        "issues",
+        "actions"
+      ]
+    },
+    {
+      "route": "/governance/field-lineage",
+      "name": "Field Lineage",
+      "category": "Governance",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "Playground.InvoiceHistoryChangeTracking",
+        "match_percentage": 75,
+        "matched_fields": [
+          "field",
+          "source",
+          "target"
+        ],
+        "missing_fields": [
+          "transformation"
+        ],
+        "column_count": 182,
+        "row_count": 114096143,
+        "size_gb": 131.482,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.InvoiceHistory_bkp20250130_BeforeRebranch",
+          "match_percentage": 75,
+          "matched_fields": [
+            "field",
+            "source",
+            "target"
+          ],
+          "missing_fields": [
+            "transformation"
+          ],
+          "column_count": 184,
+          "row_count": 97793842,
+          "size_gb": 111.264,
+          "days_since_modified": 356,
+          "is_fresh": false
+        },
+        {
+          "table": "Playground.ServiceOrders_PIT",
+          "match_percentage": 75,
+          "matched_fields": [
+            "field",
+            "source",
+            "target"
+          ],
+          "missing_fields": [
+            "transformation"
+          ],
+          "column_count": 248,
+          "row_count": 6648605,
+          "size_gb": 9.075,
+          "days_since_modified": 62,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.Invoices_bkp20250130_BeforeRebranch",
+          "match_percentage": 75,
+          "matched_fields": [
+            "field",
+            "source",
+            "target"
+          ],
+          "missing_fields": [
+            "transformation"
+          ],
+          "column_count": 184,
+          "row_count": 2169627,
+          "size_gb": 2.716,
+          "days_since_modified": 356,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.pestpac_Invoices",
+          "match_percentage": 75,
+          "matched_fields": [
+            "field",
+            "source",
+            "target"
+          ],
+          "missing_fields": [
+            "transformation"
+          ],
+          "column_count": 182,
+          "row_count": 1892553,
+          "size_gb": 2.366,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.pestpac_ServiceOrders",
+          "match_percentage": 75,
+          "matched_fields": [
+            "field",
+            "source",
+            "target"
+          ],
+          "missing_fields": [
+            "transformation"
+          ],
+          "column_count": 247,
+          "row_count": 892334,
+          "size_gb": 1.21,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "field",
+        "source",
+        "transformation",
+        "target"
+      ],
+      "missing_fields": [
+        "transformation"
+      ]
+    },
+    {
+      "route": "/data-quality",
+      "name": "Data Quality",
+      "category": "Governance",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "ndp_repo.Ndp_Ingest_Config",
+        "match_percentage": 50,
+        "matched_fields": [
+          "table",
+          "column"
+        ],
+        "missing_fields": [
+          "quality_score",
+          "issues"
+        ],
+        "column_count": 27,
+        "row_count": 65,
+        "size_gb": 0,
+        "days_since_modified": 1,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.rspr_ingestconfig",
+          "match_percentage": 50,
+          "matched_fields": [
+            "table",
+            "column"
+          ],
+          "missing_fields": [
+            "quality_score",
+            "issues"
+          ],
+          "column_count": 26,
+          "row_count": 49,
+          "size_gb": 0,
+          "days_since_modified": 274,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.rspr_ingestconfig_bkp_20241204",
+          "match_percentage": 50,
+          "matched_fields": [
+            "table",
+            "column"
+          ],
+          "missing_fields": [
+            "quality_score",
+            "issues"
+          ],
+          "column_count": 26,
+          "row_count": 49,
+          "size_gb": 0,
+          "days_since_modified": 413,
+          "is_fresh": false
+        },
+        {
+          "table": "dpipeconfig.rtx_dpipe_ingestconfig",
+          "match_percentage": 50,
+          "matched_fields": [
+            "table",
+            "column"
+          ],
+          "missing_fields": [
+            "quality_score",
+            "issues"
+          ],
+          "column_count": 27,
+          "row_count": 46,
+          "size_gb": 0,
+          "days_since_modified": 507,
+          "is_fresh": false
+        },
+        {
+          "table": "replicate_pestpac_bishared_conf.pestpac_ingestion_config",
+          "match_percentage": 50,
+          "matched_fields": [
+            "table",
+            "column"
+          ],
+          "missing_fields": [
+            "quality_score",
+            "issues"
+          ],
+          "column_count": 14,
+          "row_count": 36,
+          "size_gb": 0,
+          "days_since_modified": 127,
+          "is_fresh": false
+        },
+        {
+          "table": "dpipeconfig.rtx_dpipe_ingestconfig_bkp_20240501",
+          "match_percentage": 50,
+          "matched_fields": [
+            "table",
+            "column"
+          ],
+          "missing_fields": [
+            "quality_score",
+            "issues"
+          ],
+          "column_count": 27,
+          "row_count": 31,
+          "size_gb": 0,
+          "days_since_modified": 631,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "table",
+        "column",
+        "quality_score",
+        "issues"
+      ],
+      "missing_fields": [
+        "quality_score",
+        "issues"
+      ]
+    },
+    {
+      "route": "/ae/pipeline",
+      "name": "AE Pipeline",
+      "category": "AE",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0.Raw_RTXSF_Opportunity_Daily",
+        "match_percentage": 100,
+        "matched_fields": [
+          "opportunity",
+          "stage",
+          "amount",
+          "close_date",
+          "account"
+        ],
+        "missing_fields": [],
+        "column_count": 168,
+        "row_count": 195932,
+        "size_gb": 0.256,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S1.Raw_RTXSF_Opportunity_Daily",
+          "match_percentage": 100,
+          "matched_fields": [
+            "opportunity",
+            "stage",
+            "amount",
+            "close_date",
+            "account"
+          ],
+          "missing_fields": [],
+          "column_count": 167,
+          "row_count": 195932,
+          "size_gb": 0.256,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.Raw_RTXSF_OpportunityHistory_Daily",
+          "match_percentage": 80,
+          "matched_fields": [
+            "opportunity",
+            "stage",
+            "amount",
+            "close_date"
+          ],
+          "missing_fields": [
+            "account"
+          ],
+          "column_count": 14,
+          "row_count": 456854,
+          "size_gb": 0.05,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.Raw_RTXSF_OpportunityHistory_Daily",
+          "match_percentage": 80,
+          "matched_fields": [
+            "opportunity",
+            "stage",
+            "amount",
+            "close_date"
+          ],
+          "missing_fields": [
+            "account"
+          ],
+          "column_count": 14,
+          "row_count": 456854,
+          "size_gb": 0.05,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.Raw_RTXSF_Quote_Daily",
+          "match_percentage": 60,
+          "matched_fields": [
+            "opportunity",
+            "amount",
+            "account"
+          ],
+          "missing_fields": [
+            "stage",
+            "close_date"
+          ],
+          "column_count": 141,
+          "row_count": 64764,
+          "size_gb": 0.049,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.Raw_RTXSF_Quote_Daily",
+          "match_percentage": 60,
+          "matched_fields": [
+            "opportunity",
+            "amount",
+            "account"
+          ],
+          "missing_fields": [
+            "stage",
+            "close_date"
+          ],
+          "column_count": 141,
+          "row_count": 64764,
+          "size_gb": 0.049,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "opportunity",
+        "stage",
+        "amount",
+        "close_date",
+        "account"
+      ],
+      "missing_fields": []
+    },
+    {
+      "route": "/ae/tracker",
+      "name": "AE Activity Tracker",
+      "category": "AE",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S0_TMX.vfct_gl_activity",
+        "match_percentage": 80,
+        "matched_fields": [
+          "activity",
+          "date",
+          "type",
+          "account"
+        ],
+        "missing_fields": [
+          "outcome"
+        ],
+        "column_count": 22,
+        "row_count": 60976663,
+        "size_gb": 11.964,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0_TMX.vfct_gl_activity_bkp_20250908",
+          "match_percentage": 80,
+          "matched_fields": [
+            "activity",
+            "date",
+            "type",
+            "account"
+          ],
+          "missing_fields": [
+            "outcome"
+          ],
+          "column_count": 22,
+          "row_count": 56058302,
+          "size_gb": 11.019,
+          "days_since_modified": 136,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.vfct_glactivity",
+          "match_percentage": 80,
+          "matched_fields": [
+            "activity",
+            "date",
+            "type",
+            "account"
+          ],
+          "missing_fields": [
+            "outcome"
+          ],
+          "column_count": 22,
+          "row_count": 51139194,
+          "size_gb": 10.096,
+          "days_since_modified": 260,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.vfct_gl_activity_bkp_20241208",
+          "match_percentage": 80,
+          "matched_fields": [
+            "activity",
+            "date",
+            "type",
+            "account"
+          ],
+          "missing_fields": [
+            "outcome"
+          ],
+          "column_count": 21,
+          "row_count": 45639135,
+          "size_gb": 8.67,
+          "days_since_modified": 409,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.vfct_glactivity_bkp_20241208",
+          "match_percentage": 80,
+          "matched_fields": [
+            "activity",
+            "date",
+            "type",
+            "account"
+          ],
+          "missing_fields": [
+            "outcome"
+          ],
+          "column_count": 22,
+          "row_count": 45623245,
+          "size_gb": 9.004,
+          "days_since_modified": 409,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.vfct_gl_activity_bkp_1409",
+          "match_percentage": 80,
+          "matched_fields": [
+            "activity",
+            "date",
+            "type",
+            "account"
+          ],
+          "missing_fields": [
+            "outcome"
+          ],
+          "column_count": 21,
+          "row_count": 42666690,
+          "size_gb": 8.103,
+          "days_since_modified": 495,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "activity",
+        "date",
+        "type",
+        "outcome",
+        "account"
+      ],
+      "missing_fields": [
+        "outcome"
+      ]
+    },
+    {
+      "route": "/tech/dispatch",
+      "name": "Tech Dispatch",
+      "category": "Tech",
+      "status": "PARTIAL_MATCH",
+      "best_match": {
+        "table": "Playground.ServiceOrders_PIT",
+        "match_percentage": 75,
+        "matched_fields": [
+          "route",
+          "appointments",
+          "status"
+        ],
+        "missing_fields": [
+          "technician"
+        ],
+        "column_count": 248,
+        "row_count": 6648605,
+        "size_gb": 9.075,
+        "days_since_modified": 62,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.pestpac_ServiceOrders",
+          "match_percentage": 75,
+          "matched_fields": [
+            "route",
+            "appointments",
+            "status"
+          ],
+          "missing_fields": [
+            "technician"
+          ],
+          "column_count": 247,
+          "row_count": 892334,
+          "size_gb": 1.21,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.ServiceOrders_bkp20250130_BeforeRebranch",
+          "match_percentage": 75,
+          "matched_fields": [
+            "route",
+            "appointments",
+            "status"
+          ],
+          "missing_fields": [
+            "technician"
+          ],
+          "column_count": 249,
+          "row_count": 792967,
+          "size_gb": 1.084,
+          "days_since_modified": 356,
+          "is_fresh": false
+        },
+        {
+          "table": "S0.Raw_RTXSF_Opportunity_Daily",
+          "match_percentage": 75,
+          "matched_fields": [
+            "technician",
+            "route",
+            "status"
+          ],
+          "missing_fields": [
+            "appointments"
+          ],
+          "column_count": 168,
+          "row_count": 195932,
+          "size_gb": 0.256,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.Raw_RTXSF_Opportunity_Daily",
+          "match_percentage": 75,
+          "matched_fields": [
+            "technician",
+            "route",
+            "status"
+          ],
+          "missing_fields": [
+            "appointments"
+          ],
+          "column_count": 167,
+          "row_count": 195932,
+          "size_gb": 0.256,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0_TMX.tmx_sa_item",
+          "match_percentage": 50,
+          "matched_fields": [
+            "route",
+            "status"
+          ],
+          "missing_fields": [
+            "technician",
+            "appointments"
+          ],
+          "column_count": 101,
+          "row_count": 533479606,
+          "size_gb": 428.855,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "technician",
+        "route",
+        "appointments",
+        "status"
+      ],
+      "missing_fields": [
+        "technician"
+      ]
+    },
+    {
+      "route": "/tech/tickets",
+      "name": "Tech Tickets",
+      "category": "Tech",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "BCG_RTD_DB.DR_CCM_Test",
+        "match_percentage": 80,
+        "matched_fields": [
+          "ticket",
+          "customer",
+          "status",
+          "resolution"
+        ],
+        "missing_fields": [
+          "issue"
+        ],
+        "column_count": 24,
+        "row_count": 0,
+        "size_gb": 0,
+        "days_since_modified": 999,
+        "is_fresh": false
+      },
+      "alternative_matches": [
+        {
+          "table": "Reference_User_Managed.cxo_ccm_cases_tickets_view",
+          "match_percentage": 80,
+          "matched_fields": [
+            "ticket",
+            "customer",
+            "status",
+            "resolution"
+          ],
+          "missing_fields": [
+            "issue"
+          ],
+          "column_count": 63,
+          "row_count": 0,
+          "size_gb": 0,
+          "days_since_modified": 999,
+          "is_fresh": false
+        },
+        {
+          "table": "S0_TMX.tmx_survey_Qualtrics_V5",
+          "match_percentage": 60,
+          "matched_fields": [
+            "customer",
+            "status",
+            "resolution"
+          ],
+          "missing_fields": [
+            "ticket",
+            "issue"
+          ],
+          "column_count": 150,
+          "row_count": 5651459,
+          "size_gb": 6.612,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.Raw_RTXSF_Case_Daily",
+          "match_percentage": 60,
+          "matched_fields": [
+            "customer",
+            "status",
+            "resolution"
+          ],
+          "missing_fields": [
+            "ticket",
+            "issue"
+          ],
+          "column_count": 102,
+          "row_count": 2939806,
+          "size_gb": 7.034,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.ProspectPipelineNA9_temp_copy",
+          "match_percentage": 60,
+          "matched_fields": [
+            "ticket",
+            "customer",
+            "status"
+          ],
+          "missing_fields": [
+            "issue",
+            "resolution"
+          ],
+          "column_count": 125,
+          "row_count": 1955688,
+          "size_gb": 2.02,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.ProspectPipelineNA9_bkp_16092025",
+          "match_percentage": 60,
+          "matched_fields": [
+            "ticket",
+            "customer",
+            "status"
+          ],
+          "missing_fields": [
+            "issue",
+            "resolution"
+          ],
+          "column_count": 126,
+          "row_count": 385695,
+          "size_gb": 0.402,
+          "days_since_modified": 128,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "ticket",
+        "customer",
+        "issue",
+        "status",
+        "resolution"
+      ],
+      "missing_fields": [
+        "issue"
+      ]
+    },
+    {
+      "route": "/lead-service-engine",
+      "name": "Lead Service Engine",
+      "category": "LSE",
+      "status": "FULL_MATCH",
+      "best_match": {
+        "table": "S4.Fact_Leads_Acc_Daily_Dtls_Snp",
+        "match_percentage": 80,
+        "matched_fields": [
+          "lead",
+          "stage",
+          "source",
+          "status"
+        ],
+        "missing_fields": [
+          "flow"
+        ],
+        "column_count": 71,
+        "row_count": 11846813,
+        "size_gb": 5.873,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "BCG_RTD_DB.DR_Leads_SM_20251120",
+          "match_percentage": 80,
+          "matched_fields": [
+            "lead",
+            "stage",
+            "source",
+            "status"
+          ],
+          "missing_fields": [
+            "flow"
+          ],
+          "column_count": 68,
+          "row_count": 10544239,
+          "size_gb": 4.789,
+          "days_since_modified": 62,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_Backup_20250925",
+          "match_percentage": 80,
+          "matched_fields": [
+            "lead",
+            "stage",
+            "source",
+            "status"
+          ],
+          "missing_fields": [
+            "flow"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 119,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_Backup_20251001",
+          "match_percentage": 80,
+          "matched_fields": [
+            "lead",
+            "stage",
+            "source",
+            "status"
+          ],
+          "missing_fields": [
+            "flow"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 113,
+          "is_fresh": false
+        },
+        {
+          "table": "Deprecated.Fact_Leads_Acc_Daily_Dtls_Snp_copy_20251027",
+          "match_percentage": 80,
+          "matched_fields": [
+            "lead",
+            "stage",
+            "source",
+            "status"
+          ],
+          "missing_fields": [
+            "flow"
+          ],
+          "column_count": 71,
+          "row_count": 8911044,
+          "size_gb": 4.501,
+          "days_since_modified": 86,
+          "is_fresh": false
+        },
+        {
+          "table": "Playground.ServiceOrders_PIT",
+          "match_percentage": 80,
+          "matched_fields": [
+            "lead",
+            "flow",
+            "source",
+            "status"
+          ],
+          "missing_fields": [
+            "stage"
+          ],
+          "column_count": 248,
+          "row_count": 6648605,
+          "size_gb": 9.075,
+          "days_since_modified": 62,
+          "is_fresh": false
+        }
+      ],
+      "required_fields": [
+        "lead",
+        "flow",
+        "stage",
+        "source",
+        "status"
+      ],
+      "missing_fields": [
+        "flow"
+      ]
+    },
+    {
+      "route": "/manager/daily-cadence",
+      "name": "Manager Daily Cadence",
+      "category": "Manager",
+      "status": "POOR_MATCH",
+      "best_match": {
+        "table": "S0_RNA.user_statistics",
+        "match_percentage": 40,
+        "matched_fields": [
+          "date",
+          "actions"
+        ],
+        "missing_fields": [
+          "team",
+          "metrics",
+          "issues"
+        ],
+        "column_count": 38,
+        "row_count": 304189822,
+        "size_gb": 94.169,
+        "days_since_modified": 0,
+        "is_fresh": true
+      },
+      "alternative_matches": [
+        {
+          "table": "S0.Raw_RTXSF_Case_Daily",
+          "match_percentage": 40,
+          "matched_fields": [
+            "date",
+            "team"
+          ],
+          "missing_fields": [
+            "metrics",
+            "actions",
+            "issues"
+          ],
+          "column_count": 102,
+          "row_count": 2939806,
+          "size_gb": 7.034,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.LeadExec_Export",
+          "match_percentage": 40,
+          "matched_fields": [
+            "date",
+            "team"
+          ],
+          "missing_fields": [
+            "metrics",
+            "actions",
+            "issues"
+          ],
+          "column_count": 168,
+          "row_count": 984245,
+          "size_gb": 4.55,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.LeadExec_Export",
+          "match_percentage": 40,
+          "matched_fields": [
+            "date",
+            "team"
+          ],
+          "missing_fields": [
+            "metrics",
+            "actions",
+            "issues"
+          ],
+          "column_count": 169,
+          "row_count": 984240,
+          "size_gb": 4.495,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S0.Raw_RTXSF_Opportunity_Daily",
+          "match_percentage": 40,
+          "matched_fields": [
+            "date",
+            "team"
+          ],
+          "missing_fields": [
+            "metrics",
+            "actions",
+            "issues"
+          ],
+          "column_count": 168,
+          "row_count": 195932,
+          "size_gb": 0.256,
+          "days_since_modified": 0,
+          "is_fresh": true
+        },
+        {
+          "table": "S1.Raw_RTXSF_Opportunity_Daily",
+          "match_percentage": 40,
+          "matched_fields": [
+            "date",
+            "team"
+          ],
+          "missing_fields": [
+            "metrics",
+            "actions",
+            "issues"
+          ],
+          "column_count": 167,
+          "row_count": 195932,
+          "size_gb": 0.256,
+          "days_since_modified": 0,
+          "is_fresh": true
+        }
+      ],
+      "required_fields": [
+        "date",
+        "team",
+        "metrics",
+        "actions",
+        "issues"
+      ],
+      "missing_fields": [
+        "team",
+        "metrics",
+        "issues"
+      ]
+    },
+    {
+      "route": "/manager/wig-scorecard",
+      "name": "WIG Scorecard",
+      "category": "Manager",
+      "status": "NO_MATCH",
+      "alternative_matches": [],
+      "required_fields": [
+        "wig",
+        "lead_measure",
+        "lag_measure",
+        "score"
+      ],
+      "missing_fields": [
+        "wig",
+        "lead_measure",
+        "lag_measure",
+        "score"
+      ]
+    }
+  ]
+}

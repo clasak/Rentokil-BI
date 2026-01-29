@@ -343,7 +343,7 @@ export function mapToSalesTracker(data: ParsedStartPacket): SalesTrackerMapping 
   }
 
   // Determine lead type based on sales rep info
-  const leadType: LeadType = data.sales.salesRepName ? 'Self-Gen' : ''
+  const leadType: LeadType = data.sales.salesRepName ? 'Creative' : 'Inbound'
 
   // Parse date
   const saleDate = data.sales.proposalDate || new Date().toISOString().split('T')[0]

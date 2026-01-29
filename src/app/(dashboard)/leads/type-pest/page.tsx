@@ -21,11 +21,13 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  Legend,
 } from 'recharts'
-import { generateMockLeadsByTypePest } from '@/lib/mock/leadsData'
 import { formatCurrency, formatPercent, formatNumber } from '@/lib/utils'
-import { Bug, TrendingUp, DollarSign, Target } from 'lucide-react'
+import { TrendingUp, DollarSign, Target } from 'lucide-react'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { PageHeader } from '@/components/layout/PageHeader'
+import type { LeadsByPestType } from '@/lib/bigquery/queries/leads'
+import type { LeadsByTypePest } from '@/types/leads'
 
 const PEST_COLORS: Record<string, string> = {
   'General Pest': '#3b82f6', // blue
@@ -35,10 +37,49 @@ const PEST_COLORS: Record<string, string> = {
   'Bed Bug': '#8b5cf6',      // violet
   'Mosquito': '#06b6d4',     // cyan
   'Commercial': '#6366f1',   // indigo
+  'Other': '#94a3b8',        // gray
+}
+
+// Average values by pest type for estimation (when BigQuery doesn't provide)
+const AVG_VALUES: Record<string, number> = {
+  'General Pest': 850,
+  'Termite': 3500,
+  'Rodent': 650,
+  'Wildlife': 1200,
+  'Bed Bug': 1800,
+  'Mosquito': 400,
+  'Commercial': 5500,
+  'Other': 750,
+}
+
+const EMPTY_LEADS_BY_TYPE_PEST: LeadsByTypePest[] = []
+
+function transformBigQueryToDisplay(bqData: LeadsByPestType[]): LeadsByTypePest[] {
+  const totalLeads = bqData.reduce((sum, d) => sum + d.lead_count, 0)
+
+  return bqData.map((d) => ({
+    pestType: d.pest_type,
+    leadCount: d.lead_count,
+    converted: d.converted,
+    avgValue: AVG_VALUES[d.pest_type] || AVG_VALUES['Other'],
+    marketShare: d.lead_count / totalLeads,
+  }))
 }
 
 export default function LeadsByTypePestPage() {
-  const data = useMemo(() => generateMockLeadsByTypePest(), [])
+  const {
+    data,
+    isLoading,
+    dataSource,
+    responseTime,
+    error,
+    refetch,
+  } = useBigQueryData<LeadsByPestType[], LeadsByTypePest[]>({
+    queryName: 'leads-by-pest-type',
+    filters: { daysBack: 30 },
+    defaultData: EMPTY_LEADS_BY_TYPE_PEST,
+    transformBigQueryData: transformBigQueryToDisplay,
+  })
 
   const totalLeads = useMemo(
     () => data.reduce((sum, d) => sum + d.leadCount, 0),
@@ -61,23 +102,26 @@ export default function LeadsByTypePestPage() {
         name: d.pestType,
         leads: d.leadCount,
         converted: d.converted,
-        fill: PEST_COLORS[d.pestType] || '#94a3b8',
+        fill: PEST_COLORS[d.pestType] || PEST_COLORS['Other'],
       })),
     [data]
   )
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Bug className="h-6 w-6" />
-          Leads by Pest Type
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Analyze lead distribution and conversion rates across pest categories
-        </p>
-      </div>
+      {/* Header with Breadcrumbs */}
+      <PageHeader
+        title="Leads by Pest Type"
+        breadcrumbs={[
+          { label: 'Leads', href: '/leads' },
+          { label: 'By Type & Pest' },
+        ]}
+        dataSource={dataSource}
+        responseTime={responseTime}
+        error={error}
+        onRefresh={refetch}
+        isLoading={isLoading}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -216,7 +260,7 @@ export default function LeadsByTypePestPage() {
                         <div
                           className="w-3 h-3 rounded-full"
                           style={{
-                            backgroundColor: PEST_COLORS[d.pestType] || '#94a3b8',
+                            backgroundColor: PEST_COLORS[d.pestType] || PEST_COLORS['Other'],
                           }}
                         />
                         <span>{d.pestType}</span>
@@ -267,7 +311,7 @@ export default function LeadsByTypePestPage() {
                       <div
                         className="w-3 h-3 rounded-full"
                         style={{
-                          backgroundColor: PEST_COLORS[d.pestType] || '#94a3b8',
+                          backgroundColor: PEST_COLORS[d.pestType] || PEST_COLORS['Other'],
                         }}
                       />
                       <span className="font-medium">{d.pestType}</span>

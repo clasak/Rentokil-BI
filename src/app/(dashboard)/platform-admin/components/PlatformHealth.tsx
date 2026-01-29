@@ -161,10 +161,10 @@ export function PlatformHealth() {
             />
             <MetricCard
               title="ETL Job Success Rate"
-              value={`${metrics.etlJobsSuccessful}/${metrics.etlJobsTotal}`}
-              status={metrics.etlJobsSuccessful / metrics.etlJobsTotal >= 0.99 ? 'good' : 'warning'}
+              value={metrics.etlJobsTotal > 0 ? `${metrics.etlJobsSuccessful}/${metrics.etlJobsTotal}` : 'No data'}
+              status={metrics.etlJobsTotal > 0 && metrics.etlJobsSuccessful / metrics.etlJobsTotal >= 0.99 ? 'good' : 'warning'}
               icon={CheckCircle}
-              description={`${((metrics.etlJobsSuccessful / metrics.etlJobsTotal) * 100).toFixed(1)}% success rate`}
+              description={metrics.etlJobsTotal > 0 ? `${((metrics.etlJobsSuccessful / metrics.etlJobsTotal) * 100).toFixed(1)}% success rate` : 'No jobs in last 24h'}
             />
             <MetricCard
               title="Avg Query Time"

@@ -1,17 +1,21 @@
 "use client"
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  getLeads,
-  getStageMetrics,
-  getHandoffMetrics,
-  getPipelineSummary,
   StageMetrics,
   HandoffMetrics
 } from '@/lib/lead-engine-data'
+import {
+  transformStageMetrics,
+  transformHandoffMetrics,
+  transformPipelineSummary,
+  type BQStageMetricsRow,
+  type BQHandoffMetricsRow,
+  type BQPipelineSummaryRow,
+} from '@/lib/bigquery/queries/lead-service-transformers'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { PipelineVisual, FunnelChart, StackedFunnelChart, HandoffCard, LeadSourceMatrix } from '@/components/lead-engine'
-import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -22,26 +26,62 @@ import {
 } from '@/components/ui/table'
 import {
   Users, Clock, AlertTriangle, TrendingUp, Workflow, ArrowRight,
-  Info, Mail, CheckCircle, XCircle, DollarSign, GitBranch
+  Info, Mail, CheckCircle, DollarSign, GitBranch
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
-export default function LeadServiceEnginePage() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [stageMetrics, setStageMetrics] = useState<StageMetrics[]>([])
-  const [handoffMetrics, setHandoffMetrics] = useState<HandoffMetrics[]>([])
-  const [summary, setSummary] = useState<ReturnType<typeof getPipelineSummary> | null>(null)
+// Empty data defaults
+const EMPTY_STAGE_METRICS: StageMetrics[] = []
+const EMPTY_HANDOFF_METRICS: HandoffMetrics[] = []
+const EMPTY_SUMMARY = {
+  totalLeads: 0,
+  totalPipelineValue: 0,
+  avgDealSize: 0,
+  avgLeadToServiceDays: 0,
+  bottleneckStage: 'N/A',
+  bottleneckSlaCompliance: 100,
+  atRiskLeads: 0,
+  criticalLeads: 0,
+  atRiskValue: 0,
+}
 
-  useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setStageMetrics(getStageMetrics())
-      setHandoffMetrics(getHandoffMetrics())
-      setSummary(getPipelineSummary())
-      setIsLoading(false)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [])
+export default function LeadServiceEnginePage() {
+  // BigQuery data fetching
+  const {
+    data: stageMetrics,
+    isLoading: stageLoading,
+    dataSource,
+    responseTime,
+    error,
+    refetch,
+  } = useBigQueryData<BQStageMetricsRow[], StageMetrics[]>({
+    queryName: 'lead-service-stage-metrics',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_STAGE_METRICS,
+    transformBigQueryData: transformStageMetrics,
+  })
+
+  const {
+    data: handoffMetrics,
+    isLoading: handoffLoading,
+  } = useBigQueryData<BQHandoffMetricsRow[], HandoffMetrics[]>({
+    queryName: 'lead-service-handoff-metrics',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_HANDOFF_METRICS,
+    transformBigQueryData: (data) => transformHandoffMetrics(data),
+  })
+
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+  } = useBigQueryData<BQPipelineSummaryRow, typeof EMPTY_SUMMARY>({
+    queryName: 'lead-service-pipeline-summary',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_SUMMARY,
+    transformBigQueryData: transformPipelineSummary,
+  })
+
+  const isLoading = stageLoading || handoffLoading || summaryLoading
 
   if (isLoading) {
     return (
@@ -60,48 +100,39 @@ export default function LeadServiceEnginePage() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <Breadcrumb items={[
-        { label: 'Command Center', href: '/' },
-        { label: 'Lead Service Engine' }
-      ]} />
+      {/* Page Header with Data Source Badge */}
+      <PageHeader
+        title="Master Lead Service Engine"
+        breadcrumbs={[
+          { label: 'Command Center', href: '/' },
+          { label: 'Lead Service Engine' }
+        ]}
+        dataSource={dataSource}
+        responseTime={responseTime}
+        error={error}
+        onRefresh={refetch}
+        isLoading={isLoading}
+      >
+        <Badge variant={totalAtRisk > 10 ? 'danger' : totalAtRisk > 5 ? 'warning' : 'success'} className="gap-1">
+          {totalAtRisk > 0 ? (
+            <>
+              <AlertTriangle className="h-3 w-3" />
+              {totalAtRisk} At Risk
+            </>
+          ) : (
+            <>
+              <CheckCircle className="h-3 w-3" />
+              Pipeline Healthy
+            </>
+          )}
+        </Badge>
+      </PageHeader>
 
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <Workflow className="h-7 w-7 text-rentokil-red" />
-            Master Lead Service Engine
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            End-to-end visibility from lead intake to service delivery
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={totalAtRisk > 10 ? 'danger' : totalAtRisk > 5 ? 'warning' : 'success'} className="gap-1">
-            {totalAtRisk > 0 ? (
-              <>
-                <AlertTriangle className="h-3 w-3" />
-                {totalAtRisk} At Risk
-              </>
-            ) : (
-              <>
-                <CheckCircle className="h-3 w-3" />
-                Pipeline Healthy
-              </>
-            )}
-          </Badge>
-        </div>
-      </div>
+      {/* Subtitle */}
+      <p className="text-sm text-gray-500 dark:text-gray-400 -mt-4">
+        End-to-end visibility from lead intake to service delivery
+      </p>
 
-      {/* Strategic Initiative Banner */}
-      <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-        <Info className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-blue-800 dark:text-blue-200">
-          <strong>Strategic Initiative Framework</strong> — Simulation data shown, ready for real Salesforce integration.
-          This dashboard visualizes the lead-to-service pipeline with emphasis on manual handoff bottlenecks.
-        </AlertDescription>
-      </Alert>
 
       {/* KPI Summary Cards - Now with Value Metrics (J2) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -109,7 +140,7 @@ export default function LeadServiceEnginePage() {
         <Card className="bg-gradient-to-br from-green-600 to-green-700 text-white">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <DollarSign className="h-8 w-8 opacity-80" />
+              <DollarSign className="h-6 w-6 opacity-80" />
               <div>
                 <div className="text-sm opacity-80">Pipeline Value</div>
                 <div className="text-2xl font-bold">{formatCurrency(summary?.totalPipelineValue || 0)}</div>
@@ -122,7 +153,7 @@ export default function LeadServiceEnginePage() {
         <Card className="bg-gradient-to-br from-rentokil-red to-rentokil-darkred text-white">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Users className="h-8 w-8 opacity-80" />
+              <Users className="h-6 w-6 opacity-80" />
               <div>
                 <div className="text-sm opacity-80">Avg Deal Size</div>
                 <div className="text-2xl font-bold">{formatCurrency(summary?.avgDealSize || 0)}</div>
@@ -135,7 +166,7 @@ export default function LeadServiceEnginePage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Clock className="h-8 w-8 text-blue-500" />
+              <Clock className="h-6 w-6 text-blue-500" />
               <div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">Avg Lead-to-Service</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -150,7 +181,7 @@ export default function LeadServiceEnginePage() {
         <Card className={summary && summary.bottleneckSlaCompliance < 70 ? 'border-red-300 dark:border-red-700' : ''}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Mail className="h-8 w-8 text-orange-500" />
+              <Mail className="h-6 w-6 text-orange-500" />
               <div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">Bottleneck Stage</div>
                 <div className="text-lg font-bold text-gray-900 dark:text-white">
@@ -167,7 +198,7 @@ export default function LeadServiceEnginePage() {
         <Card className={totalAtRisk > 5 ? 'border-yellow-300 dark:border-yellow-700' : ''}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="h-8 w-8 text-yellow-500" />
+              <AlertTriangle className="h-6 w-6 text-yellow-500" />
               <div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">At-Risk Value</div>
                 <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">

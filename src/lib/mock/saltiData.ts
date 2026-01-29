@@ -28,6 +28,16 @@ function getTestModeState(): { enabled: boolean; scenario: TestScenario } {
 }
 
 // =============================================================================
+// GEOGRAPHIC FILTER TYPE
+// =============================================================================
+
+export interface GeographicFilter {
+  market?: string    // Market code (e.g., 'ATL', 'FLA')
+  region?: string    // Region code (e.g., 'ATL-01')
+  branch?: string    // Branch code (e.g., 'ATL001')
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
@@ -168,35 +178,92 @@ function canAccessCategory(role: Role | undefined, allowedRoles: Role[]): boolea
 }
 
 // =============================================================================
-// SCALING FACTORS BY ROLE
+// SCALING FACTORS BY ROLE AND GEOGRAPHY
 // =============================================================================
 
-function getScaleFactor(role?: Role, userId?: string): number {
-  if (!role || !userId) return 1.0 // Full national view
+// Market share approximations (based on typical branch distribution)
+const MARKET_SHARES: Record<string, number> = {
+  'ATL': 0.15,  // Atlantic Market - 198 branches
+  'FLA': 0.10,  // Florida Market - 133 branches
+  'MID': 0.26,  // Midwest Market - 338 branches (largest)
+  'NE': 0.16,   // Northeast Market - 213 branches
+  'PAC': 0.14,  // Pacific Market - 183 branches
+  'SW': 0.11,   // Southwest Market - 142 branches
+  'TXC': 0.08,  // Texas Central Market - 98 branches
+}
+
+// Region share within market (typically 4-12 regions per market)
+const REGION_SCALE = 0.12  // ~1/8 of market average
+
+// Branch share within region (typically 20-30 branches per region)
+const BRANCH_SCALE = 0.04  // ~1/25 of region average
+
+function getGeographicScaleFactor(geo?: GeographicFilter): number {
+  if (!geo) return 1.0
+
+  // Branch level - most specific
+  if (geo.branch) {
+    const marketShare = geo.market ? (MARKET_SHARES[geo.market] || 0.14) : 0.14
+    return marketShare * REGION_SCALE * BRANCH_SCALE
+  }
+
+  // Region level
+  if (geo.region) {
+    const marketShare = geo.market ? (MARKET_SHARES[geo.market] || 0.14) : 0.14
+    return marketShare * REGION_SCALE
+  }
+
+  // Market level
+  if (geo.market && geo.market !== 'all') {
+    return MARKET_SHARES[geo.market] || 0.14
+  }
+
+  return 1.0 // All markets
+}
+
+function getScaleFactor(role?: Role, userId?: string, geo?: GeographicFilter): number {
+  // Start with geographic scale
+  let geoScale = getGeographicScaleFactor(geo)
+
+  if (!role || !userId) return geoScale // Geographic only
 
   // Get user for hierarchy info
   const user = getUserById(userId)
-  if (!user) return 1.0
+  if (!user) return geoScale
 
+  // Role-based scale (relative to what they'd normally see)
+  let roleScale = 1.0
   switch (role) {
     case 'exec':
-      return 1.0 // Full national
+      roleScale = 1.0 // Full view of whatever geography is selected
+      break
     case 'market_vp':
     case 'market_sales_director':
-      return 0.18 // ~1/6 of national (6 markets)
+      // If no geo filter, show their market (~1/6)
+      roleScale = geoScale < 1 ? 1.0 : 0.18
+      break
     case 'region_director':
     case 'region_sales_manager':
-      return 0.10 // ~1/10 of national (10 regions)
+      // If no geo filter, show their region (~1/10)
+      roleScale = geoScale < 1 ? 1.0 : 0.10
+      break
     case 'manager':
     case 'sales_manager':
     case 'ops_manager':
-      return 0.03 // ~1/30 of national (30 branches)
+      // If no geo filter, show their branch (~1/30)
+      roleScale = geoScale < 1 ? 1.0 : 0.03
+      break
     case 'rep':
     case 'technician':
-      return 0.008 // ~1 rep's worth
+      roleScale = geoScale < 1 ? 1.0 : 0.008
+      break
     default:
-      return 1.0
+      roleScale = 1.0
   }
+
+  // When a geographic filter is applied, use the larger of the two
+  // (user can see up to their permission level)
+  return geoScale < 1 ? Math.max(geoScale, roleScale * geoScale) : roleScale
 }
 
 // =============================================================================
@@ -266,7 +333,7 @@ const BASE_HR = {
 // GETTER FUNCTIONS
 // =============================================================================
 
-export function getLeadFunnelMetrics(role?: Role, userId?: string): LeadFunnelMetrics {
+export function getLeadFunnelMetrics(role?: Role, userId?: string, geo?: GeographicFilter): LeadFunnelMetrics {
   if (role && !canAccessCategory(role, SALES_ROLES)) {
     // Return zeros for roles that can't see this
     return {
@@ -286,7 +353,7 @@ export function getLeadFunnelMetrics(role?: Role, userId?: string): LeadFunnelMe
     }
   }
 
-  const scale = getScaleFactor(role, userId)
+  const scale = getScaleFactor(role, userId, geo)
   const testMode = getTestModeState()
 
   // Apply test scenario multiplier if enabled
@@ -320,7 +387,7 @@ export function getLeadFunnelMetrics(role?: Role, userId?: string): LeadFunnelMe
   }
 }
 
-export function getTargetKPIs(role?: Role, userId?: string): TargetKPIMetrics | null {
+export function getTargetKPIs(role?: Role, userId?: string, geo?: GeographicFilter): TargetKPIMetrics | null {
   if (role && !canAccessCategory(role, SALES_ROLES)) {
     return null
   }
@@ -342,8 +409,8 @@ export function getTargetKPIs(role?: Role, userId?: string): TargetKPIMetrics | 
   }
 
   // Target KPIs are rates/averages, don't scale by role
-  // But we could add variance for realism
-  const scale = getScaleFactor(role, userId)
+  // But we could add variance for realism based on geography
+  const scale = getScaleFactor(role, userId, geo)
 
   // Add slight variance for non-exec roles
   const variance = scale < 1 ? (Math.random() * 0.1 - 0.05) : 0
@@ -364,7 +431,7 @@ export function getTargetKPIs(role?: Role, userId?: string): TargetKPIMetrics | 
   }
 }
 
-export function getProductivityRates(role?: Role, userId?: string): ProductivityRates | null {
+export function getProductivityRates(role?: Role, userId?: string, geo?: GeographicFilter): ProductivityRates | null {
   if (role && !canAccessCategory(role, SALES_ROLES)) {
     return null
   }
@@ -384,7 +451,7 @@ export function getProductivityRates(role?: Role, userId?: string): Productivity
     }
   }
 
-  const funnel = getLeadFunnelMetrics(role, userId)
+  const funnel = getLeadFunnelMetrics(role, userId, geo)
 
   // Apply test scenario adjustments for fulfillment rate
   let fulfillmentRate = funnel.inspected_count > 0 ? 92.5 : 0
@@ -408,7 +475,7 @@ export function getProductivityRates(role?: Role, userId?: string): Productivity
   }
 }
 
-export function getSalesResultsMetrics(role?: Role, userId?: string): SalesResultsMetrics | null {
+export function getSalesResultsMetrics(role?: Role, userId?: string, geo?: GeographicFilter): SalesResultsMetrics | null {
   if (role && !canAccessCategory(role, SALES_ROLES)) {
     return null
   }
@@ -433,7 +500,7 @@ export function getSalesResultsMetrics(role?: Role, userId?: string): SalesResul
     }
   }
 
-  const scale = getScaleFactor(role, userId)
+  const scale = getScaleFactor(role, userId, geo)
 
   // Apply test scenario multipliers
   const revenueMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.revenue : 1
@@ -474,7 +541,7 @@ export function getSalesResultsMetrics(role?: Role, userId?: string): SalesResul
   }
 }
 
-export function getFiveTenTwoMetrics(role?: Role, userId?: string): FiveTenTwoMetrics | null {
+export function getFiveTenTwoMetrics(role?: Role, userId?: string, geo?: GeographicFilter): FiveTenTwoMetrics | null {
   if (role && !canAccessCategory(role, ALL_ROLES_WITH_512)) {
     return null
   }
@@ -496,16 +563,14 @@ export function getFiveTenTwoMetrics(role?: Role, userId?: string): FiveTenTwoMe
     }
   }
 
-  // For ops_manager, show technician metrics
   // For technician, show only their own
   // For others, show rep metrics
-
-  const isOps = role === 'ops_manager'
   const isTech = role === 'technician'
 
-  // Base metrics - these are averages so don't scale
-  // But add variance for individual roles
-  const variance = (role === 'rep' || role === 'technician') ? (Math.random() * 0.3 - 0.15) : 0
+  // Base metrics - these are averages so don't scale by role
+  // But add variance for individual roles and geography
+  const geoVariance = geo?.branch ? 0.15 : geo?.region ? 0.08 : geo?.market ? 0.04 : 0
+  const variance = (role === 'rep' || role === 'technician') ? (Math.random() * 0.3 - 0.15) : (Math.random() * geoVariance - geoVariance / 2)
 
   // Apply test scenario multiplier
   const ratesMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.rates : 1
@@ -547,7 +612,7 @@ export function getFiveTenTwoMetrics(role?: Role, userId?: string): FiveTenTwoMe
   }
 }
 
-export function getFinanceMetrics(role?: Role, userId?: string): FinanceMetrics | null {
+export function getFinanceMetrics(role?: Role, userId?: string, geo?: GeographicFilter): FinanceMetrics | null {
   if (role && !canAccessCategory(role, LEADERSHIP_ROLES)) {
     return null
   }
@@ -569,7 +634,7 @@ export function getFinanceMetrics(role?: Role, userId?: string): FinanceMetrics 
     }
   }
 
-  const scale = getScaleFactor(role, userId)
+  const scale = getScaleFactor(role, userId, geo)
 
   // Apply test scenario multiplier
   const revenueMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.revenue : 1
@@ -591,7 +656,7 @@ export function getFinanceMetrics(role?: Role, userId?: string): FinanceMetrics 
   }
 }
 
-export function getPortfolioMetrics(role?: Role, userId?: string): PortfolioMetrics | null {
+export function getPortfolioMetrics(role?: Role, userId?: string, geo?: GeographicFilter): PortfolioMetrics | null {
   if (role && !canAccessCategory(role, LEADERSHIP_ROLES)) {
     return null
   }
@@ -609,7 +674,7 @@ export function getPortfolioMetrics(role?: Role, userId?: string): PortfolioMetr
     }
   }
 
-  const scale = getScaleFactor(role, userId)
+  const scale = getScaleFactor(role, userId, geo)
 
   // Apply test scenario multiplier
   const revenueMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.revenue : 1
@@ -623,7 +688,7 @@ export function getPortfolioMetrics(role?: Role, userId?: string): PortfolioMetr
   }
 }
 
-export function getOperationalMetrics(role?: Role, userId?: string): OperationalMetrics | null {
+export function getOperationalMetrics(role?: Role, userId?: string, geo?: GeographicFilter): OperationalMetrics | null {
   if (role && !canAccessCategory(role, OPS_ROLES) && role !== 'technician') {
     return null
   }
@@ -640,9 +705,10 @@ export function getOperationalMetrics(role?: Role, userId?: string): Operational
   }
 
   // Operational metrics are rates, don't scale
-  // But add variance for technician viewing own
+  // But add variance for technician viewing own or geographic drill-down
   const isTech = role === 'technician'
-  const variance = isTech ? (Math.random() * 0.1 - 0.05) : 0
+  const geoVariance = geo?.branch ? 0.1 : geo?.region ? 0.05 : geo?.market ? 0.02 : 0
+  const variance = isTech ? (Math.random() * 0.1 - 0.05) : (Math.random() * geoVariance - geoVariance / 2)
 
   // Apply test scenario - for operational metrics, critical means worse rates
   let missRate = 3.2 * (1 + variance)
@@ -669,7 +735,7 @@ export function getOperationalMetrics(role?: Role, userId?: string): Operational
   }
 }
 
-export function getHRMetrics(role?: Role, userId?: string): HRMetrics | null {
+export function getHRMetrics(role?: Role, userId?: string, geo?: GeographicFilter): HRMetrics | null {
   if (role && !canAccessCategory(role, LEADERSHIP_ROLES)) {
     return null
   }
@@ -686,7 +752,7 @@ export function getHRMetrics(role?: Role, userId?: string): HRMetrics | null {
     }
   }
 
-  const scale = getScaleFactor(role, userId)
+  const scale = getScaleFactor(role, userId, geo)
 
   // Apply test scenario multiplier
   const countsMultiplier = testMode.enabled ? TEST_SCENARIOS[testMode.scenario].multipliers.counts : 1
@@ -715,35 +781,35 @@ export function getHRMetrics(role?: Role, userId?: string): HRMetrics | null {
 // HISTORICAL DATA
 // =============================================================================
 
-export function getLeadFunnelHistory(role?: Role, userId?: string): HistoricalDataPoint[] {
-  const current = getLeadFunnelMetrics(role, userId)
+export function getLeadFunnelHistory(role?: Role, userId?: string, geo?: GeographicFilter): HistoricalDataPoint[] {
+  const current = getLeadFunnelMetrics(role, userId, geo)
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-  return months.map((month, i) => ({
+  return months.map((month) => ({
     month,
     value: Math.round(current.sold_count * (0.85 + Math.random() * 0.3))
   }))
 }
 
-export function getSalesResultsHistory(role?: Role, userId?: string): HistoricalDataPoint[] {
-  const current = getSalesResultsMetrics(role, userId)
+export function getSalesResultsHistory(role?: Role, userId?: string, geo?: GeographicFilter): HistoricalDataPoint[] {
+  const current = getSalesResultsMetrics(role, userId, geo)
   if (!current) return []
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-  return months.map((month, i) => ({
+  return months.map((month) => ({
     month,
     value: Math.round(current.net_sales * (0.85 + Math.random() * 0.3))
   }))
 }
 
-export function getNetGainHistory(role?: Role, userId?: string): HistoricalDataPoint[] {
-  const current = getPortfolioMetrics(role, userId)
+export function getNetGainHistory(role?: Role, userId?: string, geo?: GeographicFilter): HistoricalDataPoint[] {
+  const current = getPortfolioMetrics(role, userId, geo)
   if (!current) return []
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-  return months.map((month, i) => ({
+  return months.map((month) => ({
     month,
     value: Math.round(current.net_gain * (0.9 + Math.random() * 0.2))
   }))
@@ -765,16 +831,16 @@ export interface SALTIDashboardData {
   hr: HRMetrics | null
 }
 
-export function getSALTIDashboardData(role?: Role, userId?: string): SALTIDashboardData {
+export function getSALTIDashboardData(role?: Role, userId?: string, geo?: GeographicFilter): SALTIDashboardData {
   return {
-    leadFunnel: getLeadFunnelMetrics(role, userId),
-    targetKPIs: getTargetKPIs(role, userId),
-    productivityRates: getProductivityRates(role, userId),
-    salesResults: getSalesResultsMetrics(role, userId),
-    fiveTenTwo: getFiveTenTwoMetrics(role, userId),
-    finance: getFinanceMetrics(role, userId),
-    portfolio: getPortfolioMetrics(role, userId),
-    operational: getOperationalMetrics(role, userId),
-    hr: getHRMetrics(role, userId)
+    leadFunnel: getLeadFunnelMetrics(role, userId, geo),
+    targetKPIs: getTargetKPIs(role, userId, geo),
+    productivityRates: getProductivityRates(role, userId, geo),
+    salesResults: getSalesResultsMetrics(role, userId, geo),
+    fiveTenTwo: getFiveTenTwoMetrics(role, userId, geo),
+    finance: getFinanceMetrics(role, userId, geo),
+    portfolio: getPortfolioMetrics(role, userId, geo),
+    operational: getOperationalMetrics(role, userId, geo),
+    hr: getHRMetrics(role, userId, geo)
   }
 }

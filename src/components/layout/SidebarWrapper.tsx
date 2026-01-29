@@ -20,10 +20,14 @@ interface SidebarWrapperProps {
  * - Check if user email is in admin list (via isAdminEmail)
  * - Store isAdmin state in Zustand
  * - Admin can toggle adminModeEnabled in settings to switch between admin and regular sidebar
+ *
+ * Role Preview:
+ * - When an admin is previewing a role, show the regular Sidebar with that role's navigation
+ * - This allows admins to see exactly what a user in that role would see
  */
 export function SidebarWrapper({ onNavigate, isMobile }: SidebarWrapperProps) {
   const [isClient, setIsClient] = useState(false)
-  const { isAdmin, setIsAdmin, adminModeEnabled } = useAppStore()
+  const { isAdmin, setIsAdmin, adminModeEnabled, isPreviewingRole, previewedRole } = useAppStore()
   const supabase = createClient()
 
   useEffect(() => {
@@ -34,18 +38,14 @@ export function SidebarWrapper({ onNavigate, isMobile }: SidebarWrapperProps) {
       try {
         const { data: { user }, error } = await supabase.auth.getUser()
         if (error) {
-          console.log('SidebarWrapper: Error getting user:', error)
           return
         }
         if (user?.email) {
           const userIsAdmin = isAdminEmail(user.email)
-          console.log('SidebarWrapper: Admin check -', { email: user.email, userIsAdmin })
           setIsAdmin(userIsAdmin)
-        } else {
-          console.log('SidebarWrapper: No user email found')
         }
       } catch (e) {
-        console.log('SidebarWrapper: Exception checking admin:', e)
+        // Silent error handling
       }
     }
     checkAdmin()
@@ -56,7 +56,13 @@ export function SidebarWrapper({ onNavigate, isMobile }: SidebarWrapperProps) {
     return <Sidebar onNavigate={onNavigate} isMobile={isMobile} />
   }
 
-  // Show AdminSidebar if user is admin AND has adminModeEnabled
+  // When admin is previewing a role, show the role's sidebar instead of admin sidebar
+  // This gives the admin the full experience of what that role sees
+  if (isAdmin && adminModeEnabled && isPreviewingRole && previewedRole) {
+    return <Sidebar onNavigate={onNavigate} isMobile={isMobile} previewRole={previewedRole} />
+  }
+
+  // Show AdminSidebar if user is admin AND has adminModeEnabled (and NOT previewing)
   if (isAdmin && adminModeEnabled) {
     return <AdminSidebar onNavigate={onNavigate} isMobile={isMobile} />
   }

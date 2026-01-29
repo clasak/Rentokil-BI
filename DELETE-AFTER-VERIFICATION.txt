@@ -1,0 +1,59 @@
+# Files to Delete After New Starts Consolidation is Verified
+
+## Old New Starts Pages (No Longer Needed)
+These pages have been replaced by the consolidated /new-starts page with role-based views.
+
+DELETE THESE FILES:
+- src/app/(dashboard)/ae/new-starts/page.tsx
+- src/app/(dashboard)/ops/new-starts/page.tsx
+
+KEEP THESE FILES:
+- src/app/(dashboard)/new-starts/page.tsx (NEW - consolidated router)
+- src/app/(dashboard)/new-starts/components/ (NEW - view components directory)
+- src/app/(dashboard)/ae/new-starts/new/page.tsx (KEEP - new start entry form)
+
+## Verification Steps Before Deletion
+
+1. Test AE view:
+   - Login as sales rep (rep role)
+   - Navigate to /new-starts
+   - Verify personal new starts load
+   - Verify "Log New Start" button links to /ae/new-starts/new
+
+2. Test Ops view:
+   - Login as ops manager
+   - Navigate to /new-starts
+   - Verify team new starts load
+   - Verify assignment features work
+
+3. Test Leadership view:
+   - Login as exec/director/manager
+   - Navigate to /new-starts
+   - Verify aggregated metrics load
+   - Verify sales rep breakdown table displays
+
+4. Test Admin Preview:
+   - Login as admin
+   - Enable preview mode
+   - Switch between rep, ops_manager, exec roles
+   - Verify correct view renders for each
+
+5. Check Navigation:
+   - Verify no broken links in sidebar
+   - Update sidebar links to /new-starts (Phase 2.5)
+
+## Deletion Command (Run after verification)
+
+rm src/app/\(dashboard\)/ae/new-starts/page.tsx
+rm src/app/\(dashboard\)/ops/new-starts/page.tsx
+
+## Commit Message
+
+git add .
+git commit -m "chore: Remove old new-starts pages after consolidation
+
+- Deleted /ae/new-starts/page.tsx (replaced by AENewStartsView component)
+- Deleted /ops/new-starts/page.tsx (replaced by OpsNewStartsView component)
+- All functionality preserved in /new-starts with role-based rendering
+- Refs: docs/NEW-STARTS-CONSOLIDATION-SUMMARY.md"
+

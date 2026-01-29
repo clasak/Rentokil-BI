@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppStore, ROLE_PERMISSIONS } from '@/store'
-import { getAccounts, getOpportunities, getInvoices, getMarkets } from '@/lib/data'
+import { getAccounts, getOpportunities, getInvoices } from '@/lib/data'
 import { getAEData } from '@/lib/sales-tracker-data'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { RippleButton } from '@/components/ui/ripple-button'
 import { Badge } from '@/components/ui/badge'
 import {
   Select,
@@ -29,10 +30,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {
-  Search, Bell, RefreshCw, User, Shield, Map,
+  Search, Bell, RefreshCw, User, Shield,
   Settings, HelpCircle, Sun, Moon, Monitor,
   AlertTriangle, CheckCircle, Clock, LogOut, Mail, Menu
 } from 'lucide-react'
+import { GlobalOrganizationFilter } from './GlobalOrganizationFilter'
 import { createClient } from '@/lib/supabase/client'
 
 interface HeaderProps {
@@ -69,12 +71,9 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
 
   const {
     settings,
-    filters,
     refreshData,
-    getCurrentUserScope,
     theme,
     setTheme,
-    setMarketFilter,
   } = useAppStore()
 
   // Load user info and recent searches
@@ -142,19 +141,6 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [searchOpen])
 
-  const scope = getCurrentUserScope()
-  const allMarkets = getMarkets()
-
-  // Get markets available to current user based on role scope
-  const availableMarkets = isClient
-    ? (scope.markets.length > 0
-        ? allMarkets.filter(m => scope.markets.includes(m.id))
-        : allMarkets) // Execs see all markets
-    : []
-
-  // Get currently selected market
-  const selectedMarketId = filters.marketIds?.[0] || 'all'
-
   const handleSearch = (query: string) => {
     setSearchQuery(query)
     if (query.length < 2) {
@@ -219,7 +205,7 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
             id: p.id,
             name: p.companyName,
             subtitle: `${p.service} • $${total.toLocaleString()}${p.sold ? ' • Sold' : p.dead ? ' • Dead' : ' • Open'}`,
-            href: '/ae/tracker/proposals'
+            href: '/ae/tracker'
           })
         })
     }
@@ -276,14 +262,22 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
     <TooltipProvider delayDuration={300}>
     <header className="h-14 sm:h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-3 sm:px-6 shadow-sm">
       {/* Mobile Menu Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="lg:hidden mr-2"
-        onClick={onMenuClick}
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden mr-2"
+            onClick={onMenuClick}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{mobileMenuOpen ? 'Close menu' : 'Open menu'}</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Search */}
       <div className="flex-1 max-w-xl">
@@ -292,19 +286,34 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               {/* Full search on desktop, icon only on mobile */}
-              <Input
-                placeholder="Search..."
-                className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hidden sm:block"
-                onFocus={() => setSearchOpen(true)}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="sm:hidden"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Search className="h-5 w-5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Input
+                    placeholder="Search... (⌘K)"
+                    className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hidden sm:block"
+                    onFocus={() => setSearchOpen(true)}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Search across accounts, opportunities, and invoices</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="sm:hidden"
+                    onClick={() => setSearchOpen(true)}
+                    aria-label="Open search"
+                  >
+                    <Search className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Search dashboards (⌘K)</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           </DialogTrigger>
           <DialogContent className="sm:max-w-xl">
@@ -392,60 +401,20 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
         </Dialog>
       </div>
 
-      {/* Center - Role Badge (hidden on mobile) */}
+      {/* Center - Role Badge and Organization Filter (hidden on mobile) */}
       <div className="hidden md:flex items-center gap-4 mx-6">
-        <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <Shield className="h-4 w-4 text-gray-600 dark:text-gray-400" />
           <span className="text-sm font-medium dark:text-gray-200">
             <span className="text-primary">{isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'Executive') : 'Loading...'}</span>
           </span>
-          <span className="text-gray-400">|</span>
-          <Map className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-          <span className="text-sm dark:text-gray-200">
-            {isClient ? scope.scope : 'Loading...'}
-          </span>
         </div>
 
-        {/* Market Selector */}
-        {isClient && availableMarkets.length > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <Select
-                  value={selectedMarketId}
-                  onValueChange={(value) => {
-                    if (value === 'all') {
-                      setMarketFilter([])
-                    } else {
-                      setMarketFilter([value])
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-[180px] bg-white dark:bg-gray-800">
-                    <div className="flex items-center gap-2">
-                      <Map className="h-4 w-4 text-primary" />
-                      <SelectValue placeholder="All Markets" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        All Markets
-                      </div>
-                    </SelectItem>
-                    {availableMarkets.map((market) => (
-                      <SelectItem key={market.id} value={market.id}>
-                        {market.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Filter data by market</p>
-            </TooltipContent>
-          </Tooltip>
+        {/* Global Organization Filter (Market -> Region -> Branch) */}
+        {isClient && (
+          <div className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <GlobalOrganizationFilter compact />
+          </div>
         )}
       </div>
 
@@ -487,7 +456,12 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Change color theme</p>
+              <div className="space-y-1">
+                <p className="font-medium">Color Theme</p>
+                <p className="text-xs text-gray-400">
+                  Current: {isClient ? theme.charAt(0).toUpperCase() + theme.slice(1) : 'Loading...'}
+                </p>
+              </div>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -496,19 +470,26 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
         <div className="hidden sm:block">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
+              <RippleButton
                 variant="outline"
                 size="icon"
                 onClick={() => {
                   refreshData()
                   window.location.reload()
                 }}
+                className="relative"
               >
                 <RefreshCw className="h-4 w-4" />
-              </Button>
+                <span className="absolute -bottom-0.5 right-0.5 text-[9px] font-mono text-gray-400 dark:text-gray-500">
+                  R
+                </span>
+              </RippleButton>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Refresh data</p>
+              <div className="space-y-1">
+                <p className="font-medium">Refresh All Data (R)</p>
+                <p className="text-xs text-gray-400">Reload dashboard and clear cache</p>
+              </div>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -518,14 +499,17 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
+                <Button variant="ghost" size="icon" className="relative" aria-label="View notifications">
                   <Bell className="h-5 w-5" />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                 </Button>
               </DialogTrigger>
             </TooltipTrigger>
             <TooltipContent>
-              <p>View notifications</p>
+              <div className="space-y-1">
+                <p className="font-medium">Notifications</p>
+                <p className="text-xs text-gray-400">Alerts, updates, and system messages</p>
+              </div>
             </TooltipContent>
           </Tooltip>
           <DialogContent className="sm:max-w-md">
@@ -572,13 +556,16 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="Open profile menu">
                   <User className="h-5 w-5" />
                 </Button>
               </DialogTrigger>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Your profile</p>
+              <div className="space-y-1">
+                <p className="font-medium">Profile & Settings</p>
+                <p className="text-xs text-gray-400">Manage your account and preferences</p>
+              </div>
             </TooltipContent>
           </Tooltip>
           <DialogContent className="sm:max-w-sm">

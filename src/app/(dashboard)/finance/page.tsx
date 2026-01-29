@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useAppStore } from '@/store'
+import { useEffectiveRole } from '@/hooks/useEffectiveRole'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { getInvoices, filterByRole } from '@/lib/data'
 import { calculateKPIValues, getARAgingBreakdown, getActionItems } from '@/lib/kpi-calculations'
 import { KPICard } from '@/components/features/KPICard'
 import { ActionList } from '@/components/features/ActionList'
 import { ChartTooltip } from '@/components/features/ChartTooltip'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,36 +25,123 @@ import {
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { DollarSign, Clock, ChevronRight, AlertTriangle, TrendingUp } from 'lucide-react'
 import { Invoice, KPIValue } from '@/types'
-import { Breadcrumb } from '@/components/ui/breadcrumb'
+import type { ARSummary, ARAging as BigQueryARAging } from '@/lib/bigquery/queries/finance'
+
+// Types for page display
+interface FinanceDisplayData {
+  arSummary: ARSummary
+  arAgingByBucket: Array<{
+    bucket: string
+    amount: number
+    count: number
+    fill: string
+  }>
+}
+
+// Transform BigQuery AR data to display format
+function transformBigQueryData(bqData: BigQueryARAging[]): FinanceDisplayData {
+  // Group by aging bucket and sum amounts
+  const bucketMap = new Map<string, { amount: number; count: number }>()
+
+  bqData.forEach(row => {
+    const bucket = row.aging_bucket
+    const existing = bucketMap.get(bucket) || { amount: 0, count: 0 }
+    bucketMap.set(bucket, {
+      amount: existing.amount + row.total_amount,
+      count: existing.count + row.invoice_count,
+    })
+  })
+
+  // Create AR aging chart data with proper bucket ordering
+  const bucketOrder = ['Current', '1-30', '31-60', '61-90', '90+']
+  const arAgingByBucket = bucketOrder
+    .filter(bucket => bucketMap.has(bucket))
+    .map(bucket => {
+      const data = bucketMap.get(bucket)!
+      // Map bucket names for display
+      const displayBucket = bucket === 'Current' ? '0-30' : bucket
+      return {
+        bucket: displayBucket,
+        amount: data.amount,
+        count: data.count,
+        fill: bucket === 'Current' || bucket === '1-30' ? '#22c55e' :
+              bucket === '31-60' ? '#f59e0b' :
+              bucket === '61-90' ? '#f97316' : '#ef4444'
+      }
+    })
+
+  // Calculate summary totals
+  const currentAmount = bucketMap.get('Current')?.amount || 0
+  const pastDue_1_30 = bucketMap.get('1-30')?.amount || 0
+  const pastDue_31_60 = bucketMap.get('31-60')?.amount || 0
+  const pastDue_61_90 = bucketMap.get('61-90')?.amount || 0
+  const pastDue_90_plus = bucketMap.get('90+')?.amount || 0
+  const totalAR = currentAmount + pastDue_1_30 + pastDue_31_60 + pastDue_61_90 + pastDue_90_plus
+  const totalPastDue = pastDue_1_30 + pastDue_31_60 + pastDue_61_90 + pastDue_90_plus
+
+  return {
+    arSummary: {
+      current_amount: currentAmount,
+      past_due_1_30: pastDue_1_30,
+      past_due_31_60: pastDue_31_60,
+      past_due_61_90: pastDue_61_90,
+      past_due_90_plus: pastDue_90_plus,
+      total_ar: totalAR,
+      total_past_due: totalPastDue,
+    },
+    arAgingByBucket,
+  }
+}
+
+// Empty data constants
+const EMPTY_FINANCE_DATA: FinanceDisplayData = {
+  arSummary: {
+    current_amount: 0,
+    past_due_1_30: 0,
+    past_due_31_60: 0,
+    past_due_61_90: 0,
+    past_due_90_plus: 0,
+    total_ar: 0,
+    total_past_due: 0,
+  },
+  arAgingByBucket: [],
+}
 
 export default function FinancePage() {
   const { settings } = useAppStore()
+  const effectiveRole = useEffectiveRole()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [kpiValues, setKpiValues] = useState<Map<string, KPIValue>>(new Map())
-  const [arAging, setArAging] = useState<any[]>([])
   const [actions, setActions] = useState<any[]>([])
+
+  // BigQuery integration for AR data
+  const {
+    data: financeData,
+    isLoading,
+    dataSource,
+    responseTime,
+    error,
+    refetch,
+  } = useBigQueryData<BigQueryARAging[], FinanceDisplayData>({
+    queryName: 'ar-aging',
+    filters: {},
+    defaultData: EMPTY_FINANCE_DATA,
+    transformBigQueryData,
+  })
 
   useEffect(() => {
     let invs = getInvoices()
     setInvoices(invs)
     // Pass role and userId to filter KPI data to user's scope
-    setKpiValues(calculateKPIValues(settings.role, settings.userId))
-    setArAging(getARAgingBreakdown(settings.role, settings.userId))
-    setActions(getActionItems(settings.role, settings.userId).filter(a => a.type === 'collection_priority'))
-  }, [settings])
+    setKpiValues(calculateKPIValues(effectiveRole, settings.userId))
+    setActions(getActionItems(effectiveRole, settings.userId).filter(a => a.type === 'collection_priority'))
+  }, [settings, effectiveRole])
 
   const financeKpis = ['revenue_mtd', 'ar_aging', 'dso', 'nrr', 'margin_proxy']
 
-  // AR Aging chart data
-  const arAgingChart = arAging.map(bucket => ({
-    bucket: bucket.bucket,
-    amount: bucket.amount,
-    count: bucket.count,
-    fill: bucket.bucket === '0-30' ? '#22c55e' :
-          bucket.bucket === '31-60' ? '#f59e0b' :
-          bucket.bucket === '61-90' ? '#f97316' :
-          '#ef4444'
-  }))
+  // Use BigQuery AR data or fallback to mock
+  const arAgingChart = financeData?.arAgingByBucket || []
+  const arSummary = financeData?.arSummary
 
   // Revenue trend - simulated
   const revenueTrend = kpiValues.get('revenue_mtd')?.trend || []
@@ -66,29 +156,29 @@ export default function FinancePage() {
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 15)
 
-  // Summary stats
-  const totalAR = invoices.filter(i => ['open', 'overdue', 'disputed'].includes(i.status))
+  // Summary stats - use BigQuery data if available
+  const totalAR = arSummary?.total_ar ?? invoices.filter(i => ['open', 'overdue', 'disputed'].includes(i.status))
     .reduce((sum, i) => sum + i.amount, 0)
-  const totalOverdue = invoices.filter(i => i.status === 'overdue')
+  const totalOverdue = arSummary?.total_past_due ?? invoices.filter(i => i.status === 'overdue')
     .reduce((sum, i) => sum + i.amount, 0)
   const paidMTD = invoices.filter(i => i.status === 'paid')
     .reduce((sum, i) => sum + i.amount, 0)
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <Breadcrumb items={[
-        { label: 'Command Center', href: '/' },
-        { label: 'Finance' }
-      ]} />
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Finance</h1>
-          <p className="text-sm text-gray-500">Revenue, AR aging, and collections</p>
-        </div>
-      </div>
+      {/* Header with Breadcrumbs */}
+      <PageHeader
+        title="Finance"
+        breadcrumbs={[
+          { label: 'Command Center', href: '/' },
+          { label: 'Finance' },
+        ]}
+        dataSource={dataSource}
+        responseTime={responseTime}
+        error={error}
+        onRefresh={refetch}
+        isLoading={isLoading}
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">

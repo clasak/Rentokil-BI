@@ -31,7 +31,7 @@ export function LearnMoreLink({
         className={combinedStyles}
       >
         {children}
-        <ExternalLink size={12} className="inline-block ml-1" />
+        <ExternalLink className="w-3 h-3 inline-block ml-1" />
       </a>
     )
   }

@@ -408,7 +408,7 @@ export default function LeadFlowsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <GitBranch className="h-7 w-7 text-rentokil-red" />
+            <GitBranch className="h-6 w-6 text-rentokil-red" />
             Lead Journey Flows
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -439,7 +439,7 @@ export default function LeadFlowsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Target className="h-8 w-8 text-blue-500" />
+              <Target className="h-6 w-6 text-blue-500" />
               <div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
                   {Math.round(overallStats.averageMatchRate * 100)}%
@@ -453,7 +453,7 @@ export default function LeadFlowsPage() {
         <Card className={criticalFlows.length > 0 ? 'border-red-200 dark:border-red-800' : ''}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="h-8 w-8 text-red-500" />
+              <AlertTriangle className="h-6 w-6 text-red-500" />
               <div>
                 <div className="text-2xl font-bold text-red-600">
                   {overallStats.criticalFlowCount}
@@ -467,7 +467,7 @@ export default function LeadFlowsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-500" />
+              <CheckCircle className="h-6 w-6 text-green-500" />
               <div>
                 <div className="text-2xl font-bold text-green-600">
                   {overallStats.perfectFlowCount}
@@ -481,7 +481,7 @@ export default function LeadFlowsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Database className="h-8 w-8 text-purple-500" />
+              <Database className="h-6 w-6 text-purple-500" />
               <div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
                   {overallStats.totalFlows}

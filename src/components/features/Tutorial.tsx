@@ -351,7 +351,7 @@ export const ROLE_TUTORIALS: Record<Role, { name: string; welcome: string; steps
         title: 'Sales Tracker',
         description: 'Track your proposals and closed sales. This mirrors your sales tracker spreadsheet.',
         tips: ['Add new proposals as you create them', 'Mark deals as won when closed'],
-        route: '/ae/tracker/totals',
+        route: '/ae/tracker',
         position: 'center',
         highlight: true
       },
@@ -359,7 +359,7 @@ export const ROLE_TUTORIALS: Record<Role, { name: string; welcome: string; steps
         elementId: 'proposal-list',
         title: 'Proposals',
         description: 'See all your open proposals. Track status, value, and expected close dates.',
-        route: '/ae/tracker/proposals',
+        route: '/ae/tracker',
         position: 'center',
         highlight: true
       },
@@ -624,7 +624,7 @@ function TutorialSpotlight({
 
       {/* Tutorial card */}
       <div style={getCalloutStyle()} className="animate-in fade-in zoom-in-95 duration-300">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-2 border-rentokil-red overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-md shadow-2xl border-2 border-rentokil-red overflow-hidden">
           {/* Progress bar */}
           <div className="h-1.5 bg-gray-200 dark:bg-gray-700 flex">
             {Array.from({ length: totalSteps }).map((_, i) => (
@@ -762,7 +762,7 @@ function HelpDialog({
     <>
       <div className="fixed inset-0 bg-black/50 z-[10100]" onClick={onClose} />
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl max-h-[80vh] z-[10101] animate-in fade-in zoom-in-95 duration-200">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div className="bg-white dark:bg-gray-900 rounded-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
           {/* Header */}
           <div className="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">

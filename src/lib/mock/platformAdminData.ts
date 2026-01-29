@@ -5,7 +5,7 @@
 // TEST MODE - Set to true to inject stress-test data that triggers all alerts
 // This helps test UI protection mechanisms, error states, and alert handling
 // ============================================================================
-export const TEST_MODE = true  // Toggle this to switch between normal and stress-test data
+export const TEST_MODE = false  // Toggle this to switch between normal and stress-test data
 
 export interface PlatformHealthMetrics {
   pipelineUptime: number

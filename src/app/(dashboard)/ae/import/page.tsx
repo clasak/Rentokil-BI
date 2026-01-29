@@ -111,7 +111,7 @@ export default function ImportQuotePage() {
       addProposal(currentMonth, proposalData)
 
       toastSuccess('Proposal Added', `${parsedDraft.accountName} added to proposals`)
-      router.push('/ae/tracker/proposals')
+      router.push('/ae/tracker')
     } catch (err) {
       toastError('Error', err instanceof Error ? err.message : 'Failed to add proposal')
     } finally {

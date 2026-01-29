@@ -44,7 +44,7 @@ function parseEnvironment(env: string | undefined): BigQueryEnvironment {
   if (env === 'production' || env === 'staging' || env === 'dev') {
     return env
   }
-  return 'dev' // Default to dev for safety
+  return 'production' // Default to production for deployed apps
 }
 
 /**
@@ -65,8 +65,8 @@ function getEnvironment(): BigQueryEnvironment {
   if (process.env.NODE_ENV === 'production') return 'production'
   if (process.env.NODE_ENV === 'test') return 'staging'
 
-  // 4. Default to development
-  return 'dev'
+  // 4. Default to production (local dev should set BIGQUERY_ENVIRONMENT=dev in .env.local)
+  return 'production'
 }
 
 /**
@@ -100,7 +100,7 @@ export const BIGQUERY_CONFIG = {
 
   // All datasets discovered from bidata-sharedus-dev
   datasets: {
-    leads: ['Leads_S1', 'Leads_S2', 'Leads_S3'],
+    leads: ['S0_TMX', 'Leads_S2', 'Leads_S3'],
     sales: ['S4_Reports', 'SalesReporting_RNA_PPNW'],
     rna: ['S0_RNA', 'S0_RNA_Cleaned', 'S1', 'S1_Cleaned'],
     tmx: ['S0_TMX', 'S0_TMX_Cleaned', 'S1_TMX', 'S2_TMX'],

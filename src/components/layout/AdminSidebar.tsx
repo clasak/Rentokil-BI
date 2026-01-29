@@ -2,73 +2,57 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import {
   LayoutDashboard, Shield, Users, Eye, Activity, Settings,
   ChevronLeft, ChevronRight, X, Database, Workflow, ClipboardCheck,
   AlertTriangle, BarChart3, UserCog, Gauge, FileText, GitBranch,
-  Book, Calendar, CalendarDays, ShieldCheck, Target
+  Book, Calendar, CalendarDays, ShieldCheck, Target, ChevronDown,
+  TrendingUp, Wrench, DollarSign, Building, Bug, UserX, Layers, Briefcase, BookOpen
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Role } from '@/types'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Role, User } from '@/types'
 import { ROLE_PERMISSIONS } from '@/store'
+import {
+  ADMIN_NAV,
+  ROLE_PREVIEW_NAV,
+  ROLE_ROUTES,
+  GOVERNANCE_NAV,
+  SETTINGS_NAV,
+  getRoleLabel,
+  type NavItem,
+} from '@/lib/navigation-config'
 
 interface AdminSidebarProps {
   onNavigate?: () => void
   isMobile?: boolean
 }
 
-// Admin-specific navigation
-const adminNav = [
-  { name: 'Admin Dashboard', href: '/admin', icon: Shield },
-  { name: 'Platform Admin', href: '/platform-admin', icon: ShieldCheck },
-  { name: 'SALTI Dashboard', href: '/salti', icon: Target },
-  { name: 'Platform Health', href: '/platform-health', icon: Activity },
-  { name: 'User Adoption', href: '/user-adoption', icon: Users },
-  { name: 'Data Quality', href: '/data-quality', icon: ClipboardCheck },
-  { name: 'Anomalies', href: '/anomalies', icon: AlertTriangle },
-]
-
-// Role preview navigation - allows admins to preview different role dashboards
-const rolePreviewNav = [
-  { name: 'Executive', role: 'exec' as Role, icon: LayoutDashboard },
-  { name: 'Market VP', role: 'market_vp' as Role, icon: BarChart3 },
-  { name: 'Region Director', role: 'region_director' as Role, icon: UserCog },
-  { name: 'Branch Manager', role: 'manager' as Role, icon: Gauge },
-  { name: 'Account Executive', role: 'rep' as Role, icon: FileText },
-  { name: 'Technician', role: 'technician' as Role, icon: Workflow },
-]
-
-// Governance section (same as regular sidebar)
-const governance = [
-  { name: 'Governance', href: '/governance', icon: Shield },
-  { name: 'Data Dictionary', href: '/governance/data-dictionary', icon: Book },
-  { name: 'Data Standards', href: '/governance/data-standards', icon: ClipboardCheck },
-  { name: 'Data Quality', href: '/governance/data-quality', icon: Shield },
-  { name: 'RTX Discovery', href: '/governance/rtx-discovery', icon: Database },
-  { name: 'Field Lineage', href: '/governance/field-lineage', icon: GitBranch },
-  { name: 'WBR', href: '/wbr', icon: Calendar },
-  { name: 'QBR', href: '/qbr', icon: CalendarDays },
-]
-
-const settings = [
-  { name: 'Settings', href: '/settings', icon: Settings },
-]
-
 export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const {
     sidebarCollapsed,
     setSidebarCollapsed,
     isPreviewingRole,
     previewedRole,
     setPreviewingRole,
-    exitRolePreview
+    setPreviewingRoleWithOrg,
+    setPreviewedEmployee,
+    exitRolePreview,
+    setRole,
+    currentUser
   } = useAppStore()
   const [isClient, setIsClient] = useState(false)
 
@@ -85,11 +69,11 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
     }
   }
 
-  const NavItem = ({ item }: { item: { name: string; href: string; icon: typeof LayoutDashboard } }) => {
+  const NavItem = ({ item }: { item: NavItem }) => {
     const isActive = pathname === item.href ||
       (item.href !== '/' && item.href !== '/admin' && pathname.startsWith(item.href.split('?')[0]))
 
-    return (
+    const linkElement = (
       <Link
         href={item.href}
         onClick={handleNavClick}
@@ -112,18 +96,60 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
         )}
       </Link>
     )
+
+    // Wrap with tooltip when sidebar is collapsed
+    if (isCollapsed) {
+      return (
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            {linkElement}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <div className="space-y-1">
+              <p className="font-medium">{item.name}</p>
+              {item.description && (
+                <p className="text-xs text-gray-400">{item.description}</p>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      )
+    }
+
+    return linkElement
   }
 
-  const RolePreviewItem = ({ item }: { item: typeof rolePreviewNav[0] }) => {
+  const RolePreviewItem = ({ item }: { item: typeof ROLE_PREVIEW_NAV[0] }) => {
     const isActive = isPreviewingRole && previewedRole === item.role
 
-    return (
+    const buttonElement = (
       <button
         onClick={() => {
           if (isActive) {
+            // Exit preview and go back to admin dashboard
             exitRolePreview()
+            setRole('exec')
+            router.push('/admin')
           } else {
-            setPreviewingRole(item.role)
+            // Set the role in settings first
+            setRole(item.role)
+
+            // If currentUser exists, use their actual data for preview
+            // This allows admins to preview as themselves with real BigQuery data
+            if (currentUser) {
+              // Create preview user from currentUser but with the previewed role
+              const previewUser: User = {
+                ...currentUser,
+                role: item.role,
+                title: ROLE_PERMISSIONS[item.role]?.label || item.role,
+              }
+              setPreviewedEmployee(previewUser)
+            } else {
+              // No current user data, use synthetic preview user
+              setPreviewingRole(item.role)
+            }
+
+            router.push(ROLE_ROUTES[item.role])
           }
           handleNavClick()
         }}
@@ -149,14 +175,36 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
         )}
       </button>
     )
+
+    // Wrap with tooltip when sidebar is collapsed
+    if (isCollapsed) {
+      return (
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            {buttonElement}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <div className="space-y-1">
+              <p className="font-medium">{item.name}</p>
+              <p className="text-xs text-gray-400">
+                Preview dashboard as {getRoleLabel(item.role)}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      )
+    }
+
+    return buttonElement
   }
 
   return (
-    <div className={cn(
-      'flex flex-col h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 transition-all duration-300',
-      isCollapsed ? 'w-16' : 'w-64'
-    )}>
-      {/* Logo with Admin Badge */}
+    <TooltipProvider>
+      <div className={cn(
+        'flex flex-col h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 transition-all duration-300',
+        isCollapsed ? 'w-16' : 'w-64'
+      )}>
+        {/* Logo with Admin Badge */}
       <div className={cn(
         'flex items-center px-4 border-b dark:border-gray-700',
         isCollapsed ? 'justify-center h-16' : 'justify-between h-24'
@@ -199,6 +247,7 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
             size="icon"
             onClick={onNavigate}
             className="ml-auto"
+            aria-label="Close sidebar"
           >
             <X className="h-5 w-5" />
           </Button>
@@ -214,7 +263,7 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
               Admin Console
             </div>
           )}
-          {adminNav.map((item) => (
+          {ADMIN_NAV.map((item) => (
             <NavItem key={item.name} item={item} />
           ))}
         </nav>
@@ -228,9 +277,14 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
               Role Preview
             </div>
           )}
-          {rolePreviewNav.map((item) => (
+          {ROLE_PREVIEW_NAV.map((item) => (
             <RolePreviewItem key={item.role} item={item} />
           ))}
+          {!isCollapsed && (
+            <div className="px-3 py-2 mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
+              Preview a role to see RTX reports and user-facing navigation
+            </div>
+          )}
         </nav>
 
         <Separator className="my-4 mx-2" />
@@ -242,7 +296,7 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
               Governance
             </div>
           )}
-          {governance.map((item) => (
+          {GOVERNANCE_NAV.map((item) => (
             <NavItem key={item.name} item={item} />
           ))}
         </nav>
@@ -250,7 +304,7 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
         <Separator className="my-4 mx-2" />
 
         <nav className="space-y-1 px-2">
-          {settings.map((item) => (
+          {SETTINGS_NAV.map((item) => (
             <NavItem key={item.name} item={item} />
           ))}
         </nav>
@@ -266,7 +320,7 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
           {isPreviewingRole && previewedRole && (
             <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
               <Eye className="h-3 w-3" />
-              Previewing: {ROLE_PERMISSIONS[previewedRole]?.label || previewedRole}
+              Previewing: {getRoleLabel(previewedRole)}
             </div>
           )}
         </div>
@@ -280,6 +334,7 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
             size="sm"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="w-full justify-center"
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {sidebarCollapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -289,6 +344,7 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
           </Button>
         </div>
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

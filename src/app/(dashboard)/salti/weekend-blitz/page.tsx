@@ -10,12 +10,70 @@ import {
   RefreshCw, Zap, Target, Users, Calendar,
   DollarSign, TrendingUp, CheckCircle2, Clock
 } from 'lucide-react'
-import { generateMockWeekendBlitz } from '@/lib/mock/saltiExtendedData'
 import type { WeekendBlitzCampaign } from '@/types/salti-extended'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadialBarChart, RadialBar, Legend
 } from 'recharts'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import type { SALTIWeekendBlitz } from '@/lib/bigquery/queries/salti'
+
+// Transform BigQuery data to page format
+function transformBigQueryData(bqData: SALTIWeekendBlitz[]): WeekendBlitzCampaign[] {
+  // Group by date to create campaigns
+  const groupedByDate = bqData.reduce((acc, d) => {
+    const dateKey = d.blitz_date
+    if (!acc[dateKey]) {
+      acc[dateKey] = {
+        appointments_scheduled: 0,
+        appointments_completed: 0,
+        proposals_generated: 0,
+        sales_closed: 0,
+        rep_count: 0,
+      }
+    }
+    acc[dateKey].appointments_scheduled += d.appointments_scheduled
+    acc[dateKey].appointments_completed += d.appointments_completed
+    acc[dateKey].proposals_generated += d.proposals_generated
+    acc[dateKey].sales_closed += d.sales_closed
+    acc[dateKey].rep_count++
+    return acc
+  }, {} as Record<string, { appointments_scheduled: number; appointments_completed: number; proposals_generated: number; sales_closed: number; rep_count: number }>)
+
+  return Object.entries(groupedByDate).slice(0, 5).map(([dateStr, data], index) => {
+    const blitzDate = new Date(dateStr)
+    const endDate = new Date(blitzDate)
+    endDate.setDate(endDate.getDate() + 1)
+
+    const leadGoal = Math.max(data.appointments_scheduled, 50)
+    const appointmentGoal = Math.max(Math.round(data.appointments_scheduled * 0.8), 40)
+    const salesGoal = Math.max(Math.round(data.sales_closed * 1.2), 10)
+    const revenueGoal = salesGoal * 2500
+
+    return {
+      id: `blitz-${index + 1}`,
+      name: `Weekend Blitz ${blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      startDate: blitzDate,
+      endDate: endDate,
+      status: (index === 0 ? 'active' : index < 2 ? 'completed' : 'upcoming') as 'upcoming' | 'active' | 'completed',
+      leadGoal,
+      appointmentGoal,
+      salesGoal,
+      revenueGoal,
+      leadsGenerated: data.appointments_scheduled,
+      appointmentsSet: data.appointments_completed,
+      salesClosed: data.sales_closed,
+      revenueGenerated: data.sales_closed * 2500,
+      totalReps: Math.max(data.rep_count, 25),
+      activeReps: data.rep_count,
+      leadAttainment: data.appointments_scheduled / leadGoal,
+      appointmentAttainment: data.appointments_completed / appointmentGoal,
+      salesAttainment: data.sales_closed / salesGoal,
+      revenueAttainment: (data.sales_closed * 2500) / revenueGoal,
+    }
+  })
+}
 
 const STATUS_CONFIG = {
   upcoming: { color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: Clock },
@@ -24,26 +82,33 @@ const STATUS_CONFIG = {
 }
 
 export default function WeekendBlitzPage() {
-  const [campaigns, setCampaigns] = useState<WeekendBlitzCampaign[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [selectedCampaign, setSelectedCampaign] = useState<WeekendBlitzCampaign | null>(null)
 
+  // Empty default data
+  const EMPTY_CAMPAIGNS: WeekendBlitzCampaign[] = []
+
+  const {
+    data: campaigns,
+    isLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<SALTIWeekendBlitz[], WeekendBlitzCampaign[]>({
+    queryName: 'salti-weekend-blitz',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_CAMPAIGNS,
+    transformBigQueryData,
+  })
+
+  // Set selected campaign when data loads
   useEffect(() => {
-    setIsLoading(true)
-    const data = generateMockWeekendBlitz()
-    setCampaigns(data)
-    setSelectedCampaign(data[0] || null)
-    setIsLoading(false)
-  }, [])
+    if (campaigns.length > 0 && !selectedCampaign) {
+      setSelectedCampaign(campaigns[0])
+    }
+  }, [campaigns, selectedCampaign])
 
   const handleRefresh = () => {
-    setIsLoading(true)
-    setTimeout(() => {
-      const data = generateMockWeekendBlitz(`refresh-${Date.now()}`)
-      setCampaigns(data)
-      setSelectedCampaign(data[0] || null)
-      setIsLoading(false)
-    }, 500)
+    refetch()
   }
 
   const attainmentGaugeData = useMemo(() => {
@@ -109,6 +174,7 @@ export default function WeekendBlitzPage() {
           <Button variant="outline" size="icon" onClick={handleRefresh}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
         </div>
       </div>
 

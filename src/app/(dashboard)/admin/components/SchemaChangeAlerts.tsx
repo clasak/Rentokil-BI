@@ -16,6 +16,7 @@ import {
   SchemaChangeAlert, SchemaChangeType, SchemaChangeStatus, ImpactLevel
 } from '@/lib/platform-admin-data'
 import { formatDistanceToNow } from 'date-fns'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface SchemaChangeAlertsProps {
   alerts: SchemaChangeAlert[]
@@ -101,20 +102,27 @@ export function SchemaChangeAlerts({ alerts }: SchemaChangeAlertsProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[150px]">Source</TableHead>
-                <TableHead className="w-[140px]">Change Type</TableHead>
-                <TableHead className="w-[150px]">Field</TableHead>
-                <TableHead>Impact</TableHead>
-                <TableHead className="w-[100px]">Status</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {alerts.map((alert) => (
+        {alerts.length === 0 ? (
+          <EmptyState
+            icon={Database}
+            title="No Schema Changes Detected"
+            description="No schema changes have been detected in the last 30 days. All source system schemas are stable."
+          />
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[150px]">Source</TableHead>
+                  <TableHead className="w-[140px]">Change Type</TableHead>
+                  <TableHead className="w-[150px]">Field</TableHead>
+                  <TableHead>Impact</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {alerts.map((alert) => (
                 <>
                   <TableRow
                     key={alert.id}
@@ -199,10 +207,11 @@ export function SchemaChangeAlerts({ alerts }: SchemaChangeAlertsProps) {
                     </TableRow>
                   )}
                 </>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { getKPIBySlug } from '@/lib/kpis'
 import { calculateKPIValues, getReconciliation, getVarianceDrivers, getActionItems } from '@/lib/kpi-calculations'
 import { useAppStore } from '@/store'
+import { useEffectiveRole } from '@/hooks/useEffectiveRole'
 import { KPIValue, ReconciliationItem, VarianceDriver, ActionItem } from '@/types'
 import { LineageModal } from '@/components/features/LineageModal'
 import { VarianceNarrative } from '@/components/features/VarianceNarrative'
@@ -30,11 +31,48 @@ import {
   ArrowLeft, Database, TrendingUp, Target, AlertTriangle,
   CheckCircle, Info, ExternalLink, RefreshCw
 } from 'lucide-react'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import type { KPIDetail as BQKPIDetail } from '@/lib/bigquery/queries/executive'
+
+// BigQuery display types
+interface KPIDetailDisplay {
+  currentValue: number
+  priorValue: number
+  targetValue: number
+  variancePct: number
+  yoyChangePct: number
+  trend: string
+}
+
+// Transform BigQuery data
+function transformBigQueryData(bqData: BQKPIDetail[]): KPIDetailDisplay {
+  const first = bqData[0]
+  return {
+    currentValue: first?.current_value || 0,
+    priorValue: first?.prior_value || 0,
+    targetValue: first?.target_value || 0,
+    variancePct: first?.variance_pct || 0,
+    yoyChangePct: first?.yoy_change_pct || 0,
+    trend: first?.trend_direction || 'flat',
+  }
+}
+
+// Empty default state (no mock data - BigQuery only)
+const EMPTY_KPI_DETAIL: KPIDetailDisplay = {
+  currentValue: 0,
+  priorValue: 0,
+  targetValue: 0,
+  variancePct: 0,
+  yoyChangePct: 0,
+  trend: 'flat',
+}
 
 export default function KPIDetailPage() {
   const params = useParams()
   const slug = params.slug as string
   const { settings } = useAppStore()
+  const effectiveRole = useEffectiveRole()
 
   const [kpiValue, setKpiValue] = useState<KPIValue | null>(null)
   const [reconciliation, setReconciliation] = useState<ReconciliationItem | null>(null)
@@ -45,15 +83,29 @@ export default function KPIDetailPage() {
 
   const definition = getKPIBySlug(slug)
 
+  // BigQuery integration
+  const {
+    data: bqKPI,
+    isLoading: isBQLoading,
+    dataSource,
+    responseTime,
+    refetch: refetchBQ,
+  } = useBigQueryData<BQKPIDetail[], KPIDetailDisplay>({
+    queryName: 'kpi-detail',
+    filters: { kpiSlug: slug, daysBack: 30 },
+    defaultData: EMPTY_KPI_DETAIL,
+    transformBigQueryData,
+  })
+
   useEffect(() => {
     setIsLoading(true)
     const timer = setTimeout(() => {
       // Pass role and userId to filter KPI data to user's scope
-      const values = calculateKPIValues(settings.role, settings.userId)
+      const values = calculateKPIValues(effectiveRole, settings.userId)
       setKpiValue(values.get(slug) || null)
-      setReconciliation(getReconciliation(slug, settings.role, settings.userId))
+      setReconciliation(getReconciliation(slug, effectiveRole, settings.userId))
       setDrivers(getVarianceDrivers(slug))
-      setActions(getActionItems(settings.role, settings.userId).filter(a => {
+      setActions(getActionItems(effectiveRole, settings.userId).filter(a => {
         if (slug === 'stalled_opps') return a.type === 'stalled_opp'
         if (slug === 'retention_risk') return a.type === 'at_risk_account'
         if (slug === 'ar_aging') return a.type === 'collection_priority'
@@ -64,7 +116,7 @@ export default function KPIDetailPage() {
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [slug, settings.refreshSeed, settings.role, settings.userId])
+  }, [slug, settings.refreshSeed, effectiveRole, settings.userId])
 
   if (!definition) {
     return (
@@ -162,6 +214,10 @@ export default function KPIDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetchBQ} disabled={isBQLoading}>
+            <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
+          </Button>
           <Button id="lineage-button" variant="outline" onClick={() => setLineageOpen(true)} className="gap-2">
             <Database className="h-4 w-4" />
             View Lineage

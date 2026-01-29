@@ -42,25 +42,67 @@ import {
   type DataSource,
 } from '@/lib/data-dictionary'
 
-// Source system metadata
+// Source system metadata - Real Rentokil source systems
 const SOURCE_SYSTEMS: Record<DataSource, { name: string; icon: typeof Database; color: string; description: string }> = {
   rtx_data_hub: {
     name: 'RTX Data Hub',
     icon: Server,
+    color: 'bg-red-600',
+    description: 'Enterprise data warehouse - unified views across all systems'
+  },
+  invoca: {
+    name: 'Invoca',
+    icon: Server,
+    color: 'bg-indigo-500',
+    description: 'Inbound call tracking - call recordings, outcomes, attribution'
+  },
+  five9: {
+    name: 'Five9',
+    icon: Server,
+    color: 'bg-violet-500',
+    description: 'Call center platform - agent interactions, dispositions'
+  },
+  lead_exec: {
+    name: 'Lead Exec',
+    icon: Users,
     color: 'bg-blue-500',
-    description: 'Enterprise data warehouse - primary source of truth'
+    description: 'Lead management - MQL routing, assignments, stages'
+  },
+  sales_exec: {
+    name: 'Sales Exec',
+    icon: Briefcase,
+    color: 'bg-emerald-500',
+    description: 'Sales pipeline - SQLs, opportunities, proposals, deals'
   },
   salesforce: {
     name: 'Salesforce',
     icon: Cloud,
     color: 'bg-sky-500',
-    description: 'CRM system - opportunities, accounts, contacts'
+    description: 'CRM system - accounts, contacts, commercial sales'
   },
   pestpac: {
     name: 'PestPac',
     icon: Briefcase,
     color: 'bg-green-500',
-    description: 'Field service management - routes, services, equipment'
+    description: 'Field service management - routes, services, technicians'
+  },
+  winning_formula: {
+    name: 'Winning Formula',
+    icon: Users,
+    color: 'bg-amber-500',
+    description: 'Field sales activities - inspections, proposals, direct sales'
+  },
+  xactly: {
+    name: 'Xactly',
+    icon: Calculator,
+    color: 'bg-indigo-600',
+    description: 'Compensation management - commissions, incentives'
+  },
+  workday: {
+    name: 'Workday',
+    icon: Users,
+    color: 'bg-purple-500',
+    description: 'HR system - employee data, org hierarchy, terminations'
   },
   start_packet_pdf: {
     name: 'Start Packet PDF',
@@ -71,17 +113,11 @@ const SOURCE_SYSTEMS: Record<DataSource, { name: string; icon: typeof Database; 
   calculated: {
     name: 'Calculated',
     icon: Calculator,
-    color: 'bg-purple-500',
+    color: 'bg-gray-500',
     description: 'Derived metrics computed in the BI platform'
   },
-  workday: {
-    name: 'Workday',
-    icon: Users,
-    color: 'bg-pink-500',
-    description: 'HR system - employee data, org hierarchy'
-  },
-  sap: {
-    name: 'SAP',
+  jde: {
+    name: 'JDE',
     icon: FileSpreadsheet,
     color: 'bg-yellow-500',
     description: 'ERP system - financial data, GL'
@@ -269,7 +305,7 @@ export default function FieldLineagePage() {
 
             {/* BI Platform */}
             <div className="flex flex-col items-center gap-2 px-6">
-              <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl border border-primary/30">
+              <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg border border-primary/30">
                 <Database className="h-8 w-8 text-primary" />
               </div>
               <p className="text-sm font-medium dark:text-gray-100">Rentokil BI</p>

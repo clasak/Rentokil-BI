@@ -1794,10 +1794,8 @@ function inferLeadType(draft: SalesforceQuoteDraft): LeadType {
   if (draft.leadType) {
     const lt = draft.leadType.toLowerCase()
     if (lt.includes('inbound') || lt.includes('in bound')) return 'Inbound'
-    if (lt.includes('outbound')) return 'Outbound'
-    if (lt.includes('referral')) return 'Referral'
-    if (lt.includes('self-gen') || lt.includes('selfgen')) return 'Self-Gen'
-    if (lt.includes('canvass')) return 'Canvass'
+    if (lt.includes('tap')) return 'TAP'
+    if (lt.includes('creative') || lt.includes('outbound') || lt.includes('canvass')) return 'Creative'
   }
   // Default to Inbound for Salesforce quotes
   return 'Inbound'

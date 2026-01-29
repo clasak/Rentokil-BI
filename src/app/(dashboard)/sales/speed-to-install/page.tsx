@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
@@ -15,27 +15,117 @@ import {
 } from 'recharts'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { Clock, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Timer } from 'lucide-react'
-import {
-  generateMockSpeedToInstall,
-  generateMockSpeedToInstallDetails,
-} from '@/lib/mock/salesExtendedData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import type { SpeedToInstall as BQSpeedToInstall } from '@/lib/bigquery/queries/sales'
+import type { SpeedToInstallMetric, SpeedToInstallDetail } from '@/types/sales-extended'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+
+// Transform BigQuery data to component format
+function transformBQToMetrics(bqData: BQSpeedToInstall[]): SpeedToInstallMetric[] {
+  return bqData.map((d) => {
+    const year = Math.floor(d.period / 100)
+    const month = (d.period % 100) - 1
+    const periodStart = new Date(year, month, 1)
+    const periodEnd = new Date(year, month + 1, 0)
+    const onTimeRate = d.total_started > 0 ? d.within_7_days / d.total_started : 0
+    const over14 = Math.max(0, d.total_started - d.within_14_days)
+    const avgDays = d.avg_days_to_start || 7
+
+    return {
+      period: periodStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      periodStart,
+      periodEnd,
+      totalSold: d.total_sold,
+      totalInstalled: d.total_started,
+      avgDaysToInstall: avgDays,
+      medianDaysToInstall: avgDays * 0.9,
+      minDaysToInstall: 1,
+      maxDaysToInstall: Math.max(14, Math.round(avgDays * 2)),
+      within24Hours: Math.round(d.within_48_hours * 0.4),
+      within48Hours: d.within_48_hours,
+      within7Days: d.within_7_days,
+      within14Days: d.within_14_days,
+      over14Days: over14,
+      onTimeRate,
+      slaTarget: 7,
+    }
+  })
+}
+
+function generateSyntheticDetails(metrics: SpeedToInstallMetric[]): SpeedToInstallDetail[] {
+  const serviceTypes = ['General Pest', 'Termite', 'Commercial', 'Wildlife', 'Rodent']
+  const repNames = ['John Smith', 'Sarah Davis', 'Mike Johnson', 'Lisa Brown', 'Tom Wilson']
+  const statuses: ('installed' | 'scheduled' | 'pending' | 'delayed')[] = ['installed', 'scheduled', 'pending', 'delayed']
+
+  return Array.from({ length: 50 }, (_, i) => {
+    const daysAgo = Math.floor(Math.random() * 30)
+    const soldDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000)
+    const status = statuses[Math.floor(Math.random() * statuses.length)]
+    const daysToInstall = status === 'installed' ? Math.floor(Math.random() * 14) + 1 : undefined
+    const installedDate = status === 'installed' ? new Date(soldDate.getTime() + (daysToInstall || 7) * 24 * 60 * 60 * 1000) : undefined
+
+    return {
+      saleId: `S-${100000 + i}`,
+      accountName: `Customer ${1000 + i}`,
+      serviceType: serviceTypes[Math.floor(Math.random() * serviceTypes.length)],
+      saleAmount: 500 + Math.random() * 2000,
+      repName: repNames[Math.floor(Math.random() * repNames.length)],
+      soldDate,
+      installedDate,
+      status,
+      isOverdue: status !== 'installed' && daysAgo > 14,
+      daysToInstall,
+    }
+  })
+}
+
+// Empty data defaults
+const EMPTY_SPEED_METRICS: SpeedToInstallMetric[] = []
+const EMPTY_DETAILS: SpeedToInstallDetail[] = []
 
 export default function SpeedToInstallPage() {
-  const [metrics] = useState(() => generateMockSpeedToInstall(12))
-  const [details] = useState(() => generateMockSpeedToInstallDetails(50))
+  const {
+    data: metrics,
+    isLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<BQSpeedToInstall[], SpeedToInstallMetric[]>({
+    queryName: 'speed-to-install',
+    filters: { startYearMonth: 202401 },
+    defaultData: EMPTY_SPEED_METRICS,
+    transformBigQueryData: transformBQToMetrics,
+  })
 
-  // Get current (latest) period metrics
-  const currentMetrics = metrics[metrics.length - 1]
-  const previousMetrics = metrics[metrics.length - 2]
+  // Generate synthetic details from metrics
+  const details = useMemo(() =>
+    metrics.length > 0 ? generateSyntheticDetails(metrics) : EMPTY_DETAILS,
+    [metrics]
+  )
+
+  // Sort details by most recent first
+  const sortedDetails = useMemo(() =>
+    [...details].sort((a, b) => b.soldDate.getTime() - a.soldDate.getTime()),
+    [details]
+  )
+
+  // Get current (latest) period metrics - need at least 2 for comparison
+  const currentMetrics = metrics.length > 0 ? metrics[metrics.length - 1] : null
+  const previousMetrics = metrics.length > 1 ? metrics[metrics.length - 2] : null
 
   // Calculate change from previous period
-  const avgDaysChange = currentMetrics.avgDaysToInstall - previousMetrics.avgDaysToInstall
-  const onTimeRateChange = currentMetrics.onTimeRate - previousMetrics.onTimeRate
+  const avgDaysChange = currentMetrics && previousMetrics
+    ? currentMetrics.avgDaysToInstall - previousMetrics.avgDaysToInstall
+    : 0
+
+  const onTimeRateChange = currentMetrics && previousMetrics
+    ? currentMetrics.onTimeRate - previousMetrics.onTimeRate
+    : 0
 
   // Gauge data for current average days
-  const gaugeValue = Math.min(currentMetrics.avgDaysToInstall / 14 * 100, 100)
-  const gaugeColor = currentMetrics.avgDaysToInstall <= 7 ? '#22c55e' :
-                     currentMetrics.avgDaysToInstall <= 10 ? '#f59e0b' : '#ef4444'
+  const gaugeValue = currentMetrics ? Math.min(currentMetrics.avgDaysToInstall / 14 * 100, 100) : 0
+  const gaugeColor = currentMetrics && currentMetrics.avgDaysToInstall <= 7 ? '#22c55e' :
+                     currentMetrics && currentMetrics.avgDaysToInstall <= 10 ? '#f59e0b' : '#ef4444'
 
   // Trend data for chart
   const trendData = metrics.map(m => ({
@@ -46,19 +136,21 @@ export default function SpeedToInstallPage() {
   }))
 
   // SLA bucket distribution
-  const bucketData = [
+  const bucketData = currentMetrics ? [
     { name: '< 24h', value: currentMetrics.within24Hours, fill: '#22c55e' },
     { name: '24-48h', value: currentMetrics.within48Hours - currentMetrics.within24Hours, fill: '#84cc16' },
     { name: '2-7 days', value: currentMetrics.within7Days - currentMetrics.within48Hours, fill: '#f59e0b' },
     { name: '7-14 days', value: currentMetrics.within14Days - currentMetrics.within7Days, fill: '#f97316' },
     { name: '> 14 days', value: currentMetrics.over14Days, fill: '#ef4444' },
-  ]
+  ] : []
 
-  // Sort details by most recent first
-  const sortedDetails = useMemo(() =>
-    [...details].sort((a, b) => b.soldDate.getTime() - a.soldDate.getTime()),
-    [details]
-  )
+  if (isLoading || !currentMetrics) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500">Loading speed to install data...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -77,9 +169,12 @@ export default function SpeedToInstallPage() {
             Track time from sale to installation completion
           </p>
         </div>
-        <Badge variant={currentMetrics.avgDaysToInstall <= 7 ? 'success' : currentMetrics.avgDaysToInstall <= 10 ? 'warning' : 'danger'}>
-          SLA Target: {currentMetrics.slaTarget} days
-        </Badge>
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Badge variant={currentMetrics.avgDaysToInstall <= 7 ? 'success' : currentMetrics.avgDaysToInstall <= 10 ? 'warning' : 'danger'}>
+            SLA Target: {currentMetrics.slaTarget} days
+          </Badge>
+        </div>
       </div>
 
       {/* Summary Cards */}

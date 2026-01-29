@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, Suspense } from 'react'
-import { useAppStore } from '@/store'
+import { useEffectiveRole } from '@/hooks/useEffectiveRole'
 import {
   ExecutiveCommandCenter,
   RepCommandCenter,
@@ -9,39 +9,17 @@ import {
   SalesManagerCommandCenter,
   OpsManagerCommandCenter,
 } from '@/components/dashboard'
-import { Skeleton } from '@/components/ui/skeleton'
-
-// Loading component for Suspense boundary
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-6 w-32" />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map(i => (
-          <Skeleton key={i} className="h-32" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Skeleton className="h-64 lg:col-span-2" />
-        <Skeleton className="h-64" />
-      </div>
-    </div>
-  )
-}
+import { DashboardSkeleton } from '@/components/ui/skeleton-loader'
 
 export default function CommandCenterPage() {
   const [mounted, setMounted] = useState(false)
-  const { settings } = useAppStore()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Use default role during SSR to prevent hydration mismatch
-  const role = mounted ? settings.role : 'exec'
+  // Use effective role (supports admin preview mode)
+  const role = useEffectiveRole(mounted)
 
   // Leadership roles see the executive dashboard
   // exec, market_vp, market_sales_director, region_director, region_sales_manager, manager

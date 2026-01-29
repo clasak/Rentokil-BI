@@ -27,6 +27,7 @@ import { formatCurrency, formatPercent } from '@/lib/utils'
 import { format } from 'date-fns'
 import { Target, TrendingUp, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
 import { Scenario, ForecastPoint, ForecastAssumption, BacktestResult } from '@/types'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 
 export default function ForecastPage() {
   const { settings, setScenario } = useAppStore()
@@ -79,9 +80,11 @@ export default function ForecastPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Forecast</h1>
-          <p className="text-sm text-gray-500">8-week revenue forecast with scenarios</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">8-week revenue forecast with scenarios</p>
         </div>
         <div id="scenario-selector" className="flex items-center gap-4">
+          {/* Forecast uses local scenario simulation - show accurate badge */}
+          <DataSourceBadge status="mock" />
           <Select value={settings.scenario} onValueChange={(v) => setScenario(v as Scenario)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Scenario" />

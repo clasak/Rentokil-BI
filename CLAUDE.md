@@ -6,41 +6,121 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm install        # Install dependencies
-npm run dev        # Start dev server (http://localhost:3000)
+npm run dev        # Start dev server (http://localhost:3000) with cache fix
+npm run dev:raw    # Start dev server directly (no cache fix wrapper)
 npm run dev:clean  # Clear .next cache and start dev server
 npm run build      # Production build
+npm run build:clean # Clear cache and production build
+npm start          # Start production server (after build)
 npm run lint       # Run ESLint
 npm run clean      # Clear .next and node_modules cache
+npm run reset      # Clear cache and restart dev server
+npm run audit      # Run dashboard audit script (npx tsx scripts/audit-dashboard.ts)
+npm run pre-demo   # Run pre-demo checks (npx tsx scripts/pre-demo-check.ts)
 ```
+
+**Note**: No testing framework is configured. There are no unit or integration tests.
 
 ## Architecture Overview
 
-**Next.js 14 App Router** BI dashboard for Rentokil pest control. Uses **synthetic deterministic data** (seeded random generation) with optional Supabase/RTX backend.
+**Next.js 14 App Router** BI dashboard for Rentokil pest control. Uses **live BigQuery data** with empty default states (no mock fallback).
 
-### Data Flow
+### Data Flow (BigQuery-Primary)
 
 ```
-/src/lib/kpis.ts (KPI definitions - single source of truth)
-       ↓
-/src/lib/kpi-calculations.ts (value calculations with role-based filtering)
-       ↓
-/src/lib/data.ts (synthetic data: accounts, opportunities, invoices, service events)
-       ↓
-/src/services/ (abstraction layer - swap mock ↔ Supabase ↔ RTX via env)
-       ↓
-/src/store/index.ts (Zustand state: role, scenario, filters, theme)
-       ↓
-React components consume via useAppStore()
+BigQuery Production (bidata-sharedus-production)
+       │
+       ├── S4 (Unified Views) - Leads, Branch hierarchy
+       ├── S0_TMX (TMX Data) - Leads, Employees, Inspections
+       ├── W3_Contract_Checker - Contracts, Sales
+       ├── BCG_RTD_DB (70 tables, 596M rows) - Analytics
+       └── Reports - AR/Finance
+              │
+              ▼
+/src/lib/bigquery/queries/*.ts (26 query modules)
+              │
+              ▼
+/api/bigquery/query (POST - centralized query API)
+              │
+              ▼
+useBigQueryData() hook with role-based filtering
+              │
+              ▼
+Dashboard Components (43+ pages)
 ```
 
-### Service Layer (`/src/services/`)
+### BigQuery Integration
+
+**All dashboard pages use BigQuery-only** - no mock data fallback. Pages show empty states while loading or on error.
+
+**Environment Auto-Detection** (priority order):
+1. `BIGQUERY_ENVIRONMENT` env var (explicit override)
+2. `VERCEL_ENV` (`production` → production, `preview` → staging)
+3. `NODE_ENV` (`production` → production, `test` → staging)
+4. Default: `production` (set `BIGQUERY_ENVIRONMENT=dev` in `.env.local` for local dev)
+
+**Project IDs**:
+- Production: `bidata-sharedus-production`
+- Staging: `bidata-sharedus-staging`
+- Dev: `bidata-sharedus-dev`
+
+**Authentication**:
+- Local dev: `gcloud auth application-default login`
+- Production: Service account or Workload Identity
+
+### BigQuery Data Pattern (Current Standard)
 
 ```typescript
-import { services } from '@/services'
-await services.accounts.getAll()
+// BigQuery-only pattern with defaultData (no mock fallback)
+const EMPTY_DATA: DisplayType = {
+  items: [],
+  total: 0,
+}
+
+const {
+  data,
+  isLoading,
+  dataSource,
+  responseTime,
+  error,
+  refetch,
+} = useBigQueryData<BQType, DisplayType>({
+  queryName: 'query-name',        // Must match API registry key
+  filters: { market: marketId },
+  defaultData: EMPTY_DATA,        // Empty state, NOT mock data
+  transformBigQueryData: (raw) => transformToUI(raw),
+  includeOrgFilters: true,        // Auto-inject market/region/branch
+  includeRoleFilters: true,       // Auto-inject user-specific filters
+})
 ```
 
-Provider selection via `NEXT_PUBLIC_DATA_SOURCE` env: `mock` | `rtx` | `salesforce` | `hybrid`
+### Query API Registry
+
+All BigQuery queries are routed through `/api/bigquery/query` POST endpoint. Query names must be registered in `src/app/api/bigquery/query/route.ts`:
+
+```typescript
+const QUERY_REGISTRY: Record<string, QueryFn> = {
+  'leads-by-pest-type': getLeadsByPestType,
+  'bcg-sales-analytics': getBCGSalesAnalytics,
+  'data-freshness': getDataFreshness,
+  // ... 100+ registered queries
+}
+```
+
+### BigQuery Query Modules (26 files)
+
+| Module | Tables | Purpose |
+|--------|--------|---------|
+| `leads.ts` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | Lead funnel, trends, rankings |
+| `sales.ts` | W3_Contract_Checker.T0_unf_Contract_All | Sales today, backlog, speed-to-install |
+| `salti.ts` | S0_TMX.tmx_lead | SALTI dashboard (8 queries) |
+| `finance.ts` | Reports.VwUnf_dim_ar_detail | AR aging, collections |
+| `termite.ts` | S0.raw_RNA_PNIDetails_Daily | PNI inspections, renewals |
+| `bcg-analytics.ts` | BCG_RTD_DB.DR_* | 16 queries from 70-table dataset |
+| `lead-service.ts` | S0_TMX.tmx_lead | Lead Service Engine pipeline |
+| `executive.ts` | Multiple | Command center KPIs |
+| `organization.ts` | S4.Dim_Branch_BranchID_NA_T1_Vw | Market/Region/Branch hierarchy |
+| `data-freshness.ts` | Multiple | ETL pipeline SLA tracking |
 
 ### Role Hierarchy (10 roles)
 
@@ -56,57 +136,108 @@ exec → market_vp / market_sales_director → region_director / region_sales_ma
 - **rep**: Account Executive routes (`/ae/*`)
 - **technician**: Technician routes (`/tech/*`)
 
+### BigQuery Column Registry
+
+**NEW**: Comprehensive column-level documentation for BigQuery tables.
+
+**Location**: `/src/lib/bigquery/columns/`
+
+Provides detailed metadata for 50+ most-used BigQuery columns across critical tables. Each column documented with:
+- Technical specs (type, nullability, precision)
+- Business purpose and ownership
+- Common SQL usage patterns (filters, joins, aggregations)
+- Sample values and validation rules
+- Data governance (PII flags, sensitivity)
+- Source system lineage
+
+**Quick Reference**:
+
+```typescript
+import { getColumnMetadata, searchColumns, getTableColumns } from '@/lib/bigquery/columns'
+
+// Get single column metadata
+const sellDate = getColumnMetadata('W3_Contract_Checker', 'T0_unf_Contract_All', 'SellDate')
+console.log(sellDate?.description)       // "Date when the contract was sold/closed"
+console.log(sellDate?.commonFilters)     // ["SellDate >= DATE_SUB(...)", ...]
+console.log(sellDate?.businessOwner)     // "Sales Operations"
+
+// Get all columns for a table
+const contractCols = getTableColumns('W3_Contract_Checker', 'T0_unf_Contract_All')
+Object.keys(contractCols.columns)  // ["SellDate", "StartDate", "ContractValue", ...]
+
+// Search across all columns
+const dateCols = searchColumns('date')   // Find all date-related columns
+```
+
+**Documented Tables** (52 columns across 3 tables):
+
+| Dataset | Table | Columns | Status |
+|---------|-------|---------|--------|
+| W3_Contract_Checker | T0_unf_Contract_All | 18 | ✅ Sales lifecycle tracking |
+| S4 | Fact_Leads_Acc_Daily_Dtls_Snp | 17 | ✅ Lead funnel metrics |
+| S0_TMX | tmx_lead | 17 | ✅ SALTI lead pipeline |
+
+**See**: `/src/lib/bigquery/columns/README.md` for full documentation and examples.
+
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `/src/lib/kpis.ts` | KPI definitions (add new KPIs here) |
-| `/src/lib/kpi-calculations.ts` | KPI calculation logic |
-| `/src/store/index.ts` | Zustand store (role, scenario, theme) |
+| `/src/lib/bigquery/queries/index.ts` | Central export for all 100+ query functions |
+| `/src/app/api/bigquery/query/route.ts` | Query API with 100+ registered queries |
+| `/src/hooks/useBigQueryData.ts` | Hook for BigQuery data with role filtering |
+| `/src/lib/bigquery/role-filters.ts` | Role-based query filter injection |
+| `/src/lib/bigquery/client.ts` | BigQuery client with environment auto-detection |
+| `/src/store/index.ts` | Zustand store (role, filters, theme, test mode) |
 | `/src/components/layout/Sidebar.tsx` | Navigation (role-based visibility) |
-| `/src/middleware.ts` | Auth checks, route protection |
+| `/src/components/layout/AdminSidebar.tsx` | Admin navigation with role preview menu (all 10 roles) |
+| `/src/middleware.ts` | Auth checks, route protection, onboarding flow |
+| `/src/hooks/useEffectiveRole.ts` | Returns previewed role for admin or actual role |
 | `/src/lib/admin.ts` | Admin email list and access control |
-| `/src/lib/mock/platformAdminData.ts` | Platform Admin mock data (TEST_MODE toggle) |
-| `/src/lib/mock/saltiData.ts` | SALTI Dashboard mock data (47 KPIs) |
+
+### Authentication
+
+**Supabase Auth** with magic link (OTP) flow. Falls back to demo mode if Supabase not configured.
+
+```typescript
+import { useAuth } from '@/components/providers/AuthProvider'
+const { user, profile, loading, signIn, signOut } = useAuth()
+```
+
+**Middleware flow** (`/src/middleware.ts`):
+1. No Supabase configured → demo mode (allow all)
+2. Not authenticated → redirect to `/login`
+3. Admin email → skip onboarding, set `onboarding_complete` cookie
+4. No profile → redirect to `/onboarding`
+5. Has profile → allow access
 
 ### Admin Access
 
-Admin emails are defined in `/src/lib/admin.ts`:
-
-```typescript
-export const ADMIN_EMAILS = [
-  'cody.lytle@rentokil.com',
-  'cody.lytle@prestox.com',
-]
-```
-
-**Admin privileges:**
+Admin emails are defined in `/src/lib/admin.ts`. Admin privileges:
 - Skip onboarding (auto-assigned exec role)
 - Access to `/admin` page with role simulation, test mode controls
-- Admin link visible in sidebar
+- Role preview mode (view dashboard as any role)
 
-### SALTI Dashboard
+### Role Preview Pattern
 
-The SALTI Dashboard at `/admin` (SALTI tab) contains **47 KPIs in 9 categories**:
+```typescript
+import { useEffectiveRole } from '@/hooks/useEffectiveRole'
+const role = useEffectiveRole(mounted)  // Returns previewedRole if admin is previewing
+```
 
-| Category | KPIs | Component |
-|----------|------|-----------|
-| Lead Funnel | MQL, SQL, Scheduled, Inspected, Proposed, Sold, conversion rates | `SALTILeadFunnel.tsx` |
-| Target KPIs | Revenue vs target, proposal goals, close rates | `SALTITargetKPIGauge.tsx` |
-| 5-10-2 | Daily activity metrics (5 calls, 10 emails, 2 visits) | `SALTIFiveTenTwo.tsx` |
-| Sales Results | Won/lost deals, avg deal size, cycle time | `SALTISalesResults.tsx` |
-| Portfolio | Account health, churn risk, expansion opportunities | `SALTIPortfolio.tsx` |
-| HR Metrics | Headcount, turnover, training completion | `SALTIHRMetrics.tsx` |
+### Organization Data Pattern
 
-Mock data: `/src/lib/mock/saltiData.ts`
+```typescript
+import { useOrganizationData } from '@/hooks/useOrganizationData'
+const { markets, regions, branches, isLoading } = useOrganizationData()
+// Returns BigQuery-sourced org hierarchy for cascading Market → Region → Branch filters
+```
 
 ---
 
 ## Critical Patterns
 
 ### Hydration Fix (Required for Zustand persisted state)
-
-Components using persisted Zustand state need hydration guards to avoid React errors 418/423/425:
 
 ```typescript
 export function MyComponent() {
@@ -120,20 +251,34 @@ export function MyComponent() {
 }
 ```
 
-### KPI Calculation Pitfalls
+### Adding a New BigQuery Query
 
+1. Create query function in `/src/lib/bigquery/queries/your-module.ts`:
 ```typescript
-// WRONG - circular target (variance always meaningless)
-const target = actual * 1.05
+export async function getYourData(options: QueryOptions): Promise<YourType[]> {
+  const sql = `SELECT ... FROM \`${PROJECT}.dataset.table\` WHERE ...`
+  const result = await bigQueryClient.query<YourType>(sql)
+  return result.rows
+}
+```
 
-// CORRECT - fixed target based on business logic
-const target = accounts.length * 1400
+2. Export from `/src/lib/bigquery/queries/index.ts`
 
-// WRONG - mixing count goals with revenue
-const progress = revenue / proposalCountGoal
+3. Register in `/src/app/api/bigquery/query/route.ts`:
+```typescript
+const QUERY_REGISTRY = {
+  'your-query-name': getYourData,
+  // ...
+}
+```
 
-// CORRECT - use revenue quota
-const progress = revenue / monthlyRevenueQuota
+4. Use in component:
+```typescript
+const { data } = useBigQueryData({
+  queryName: 'your-query-name',
+  defaultData: EMPTY_STATE,
+  transformBigQueryData: (raw) => transform(raw),
+})
 ```
 
 ### Chart Styling (Recharts)
@@ -157,22 +302,131 @@ don't → don&apos;t
 "quote" → &quot;quote&quot;
 ```
 
+### Tooltip Pattern (Radix UI)
+
+All interactive elements should have tooltips for better UX. Use the standardized tooltip component:
+
+```typescript
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+
+// Wrap component with TooltipProvider (usually at parent level)
+<TooltipProvider>
+  <Tooltip delayDuration={0}>  {/* 0 for instant, 300 for delayed */}
+    <TooltipTrigger asChild>
+      <Button>Your Button</Button>
+    </TooltipTrigger>
+    <TooltipContent>
+      <p>Helpful tooltip text</p>
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+```
+
+**When to add tooltips:**
+- Sidebar navigation icons (when collapsed)
+- Status badges (explain what Good/Warning/Critical means)
+- Trend arrows (show prior/current values and interpretation)
+- Icon buttons without text labels
+- Data source badges (explain Live/Demo/Loading/Error states)
+- Complex metrics (show calculation methodology)
+
+### Error State Pattern
+
+All error states must provide clear context and recovery actions:
+
+```typescript
+// Error display with recovery actions
+<div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+  <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+    <AlertTriangle className="h-4 w-4" />
+    <span className="font-semibold">Error Title</span>
+  </div>
+
+  <div className="space-y-3">
+    {/* Error message */}
+    <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+      {errorMessage}
+    </div>
+
+    {/* Context (optional) */}
+    <div className="grid grid-cols-2 gap-3 text-xs">
+      <div>
+        <span className="text-gray-500">Context Label:</span>
+        <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">Context Value</p>
+      </div>
+    </div>
+
+    {/* Recovery actions */}
+    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+      <Button variant="outline" size="sm" onClick={retryAction}>
+        <RefreshCw className="h-3 w-3 mr-1.5" />
+        Retry
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => window.open(logsUrl, '_blank')}>
+        <FileText className="h-3 w-3 mr-1.5" />
+        View Logs
+        <ExternalLink className="h-3 w-3 ml-1" />
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => window.location.href = mailtoLink}>
+        <Mail className="h-3 w-3 mr-1.5" />
+        Contact Support
+      </Button>
+    </div>
+  </div>
+</div>
+```
+
+**Error state requirements:**
+- Prominent visual indicator (red background, AlertTriangle icon)
+- Clear error message in monospace font
+- Contextual information (what failed, when, affected resources)
+- 2-4 actionable recovery buttons:
+  - Retry operation
+  - View logs/details (deep link to admin console)
+  - Contact support (pre-filled mailto with error details)
+- Consistent styling with dark mode support
+
 ---
 
 ## Adding Features
+
+**New BigQuery-Connected Page:**
+1. Create page in `/src/app/(dashboard)/your-route/page.tsx`
+2. Define empty default state constant (e.g., `EMPTY_DATA`)
+3. Use `useBigQueryData` hook with registered query name
+4. Add transform function for BQ data → display format
+5. Add to sidebar in `/src/components/layout/Sidebar.tsx` with role visibility
 
 **New KPI:**
 1. Add definition to `/src/lib/kpis.ts`
 2. Add calculation to `/src/lib/kpi-calculations.ts`
 
-**New Route:**
-1. Create page in `/src/app/(dashboard)/your-route/page.tsx`
-2. Add to sidebar in `/src/components/layout/Sidebar.tsx` with role visibility
+---
 
-**New Google Sheets Integration:**
-1. Types in `/src/types/` matching CSV columns exactly
-2. Data generation in `/src/lib/`
-3. Role-appropriate pages in `/src/app/`
+## Route Consolidations & Redirects
+
+**IMPORTANT**: Some dashboard pages have been consolidated from multiple routes into single pages with tabs.
+
+### Sales Tracker (Consolidated Jan 2026)
+
+**Current Route**: `/ae/tracker` (single page with tabs)
+
+**Old Routes** (redirected in `next.config.js`):
+- `/ae/tracker/proposals` → `/ae/tracker` (Proposals tab)
+- `/ae/tracker/sales` → `/ae/tracker` (Sales tab)
+- `/ae/tracker/totals` → `/ae/tracker` (Totals tab)
+
+**DO NOT**:
+- Create separate pages for proposals/sales/totals routes
+- Remove redirects from `next.config.js` without replacing them
+- Split the consolidated page back into separate pages without updating all references
+
+**If modifying routes**:
+1. Update `next.config.js` redirects
+2. Update `src/hooks/useRecentPages.ts` PAGE_TITLES mapping
+3. Update navigation links in `src/components/layout/Sidebar.tsx`
+4. Add migration comment in the page file
+5. Test all old routes still redirect correctly
 
 ---
 
@@ -182,11 +436,17 @@ don't → don&apos;t
 |----------|--------|---------|
 | `/api/health` | GET | App health status |
 | `/api/kpis` | GET | All KPIs (supports `?role=` and `?top10=true`) |
-| `/api/reconcile` | GET/POST | KPI reconciliation with tolerance rules |
-| `/api/rtx/health` | GET | RTX Data Hub connection status |
-| `/api/rtx/discover` | POST | Schema discovery (requires auth) |
+| `/api/bigquery/query` | POST | Execute named queries (100+ registered) |
+| `/api/bigquery/health` | GET | BigQuery connection status |
+| `/api/bigquery/health-check` | GET | Detailed BigQuery health with dataset access |
 
-See `/docs/api-reference.md` for full endpoint documentation.
+**POST /api/bigquery/query body:**
+```json
+{
+  "query": "leads-by-pest-type",
+  "filters": { "market": "NE", "daysBack": 30 }
+}
+```
 
 ---
 
@@ -195,26 +455,40 @@ See `/docs/api-reference.md` for full endpoint documentation.
 Copy `.env.example` to `.env.local`:
 
 ```bash
-NEXT_PUBLIC_DATA_SOURCE=mock          # mock | rtx | salesforce | hybrid
-NEXT_PUBLIC_SUPABASE_URL=             # Supabase project URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=        # Supabase anon key
-RTX_API_ENDPOINT=                     # RTX Data Hub URL (if using rtx/hybrid)
-RTX_API_KEY=                          # RTX API key
+# Supabase Auth
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+# BigQuery (optional - auto-detects from Vercel/NODE_ENV if not set)
+BIGQUERY_ENVIRONMENT=dev              # production | staging | dev
+BIGQUERY_PROJECT_ID=                  # Override auto-detected project ID
+GOOGLE_APPLICATION_CREDENTIALS=       # Path to service account key (if not using ADC)
+BIGQUERY_LOCATION=US
+
+# Maps
 NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=      # For technician route maps
 ```
 
 ---
 
-## Testing Platform Admin UI
+## BigQuery Datasets Used
 
-The Platform Admin console at `/platform-admin` has a stress-test mode:
+| Dataset | Purpose | Key Tables |
+|---------|---------|------------|
+| `S4` | Unified views | Fact_Leads_Acc_Daily_Dtls_Snp, Dim_Branch_BranchID_NA_T1_Vw |
+| `S0_TMX` | TMX data | tmx_lead (2.2M), tmx_employee (1.2M), Inspections (3.3M) |
+| `W3_Contract_Checker` | Contracts | T0_unf_Contract_All (7.8M) |
+| `BCG_RTD_DB` | Analytics | DR_Leads, DR_ContractSales, DR_Cancels (70 tables, 596M rows) |
+| `Reports` | Finance | VwUnf_dim_ar_detail, VwUnf_ar_amount |
 
-```typescript
-// /src/lib/mock/platformAdminData.ts
-export const TEST_MODE = true  // Toggle to inject stress-test data
-```
+---
 
-When `TEST_MODE = true`, all alert states trigger: SLA breaches, critical anomalies, schema changes, failed jobs.
+## localStorage Keys
+
+| Key | Values | Purpose |
+|-----|--------|---------|
+| `rentokil-bi-store` | JSON | Zustand persisted state (role, theme, sidebar, test mode) |
+| `onboarding_complete` | `true` | Cookie set by middleware after profile exists |
 
 ---
 
@@ -222,11 +496,26 @@ When `TEST_MODE = true`, all alert states trigger: SLA breaches, critical anomal
 
 | Doc | Purpose |
 |-----|---------|
+| `/README.md` | Demo script with stakeholder questions & answers |
+| `/docs/bigquery-integration-status.md` | BigQuery table/page mapping status |
 | `/docs/rtx-deployment-guide.md` | RTX monitoring system deployment |
 | `/docs/database-schema.md` | Supabase migration schemas |
 | `/docs/alpha-test-matrix.md` | Test matrix with acceptance criteria |
 | `/docs/executive-demo-script.md` | 10-12 minute demo walkthrough |
-| `/n8n/README.md` | n8n AI agent workflows setup |
+
+---
+
+## Mobile Builds (Capacitor)
+
+```bash
+npm run cap:init           # Initialize Capacitor (one-time setup)
+npm run cap:add:ios        # Add iOS platform
+npm run cap:add:android    # Add Android platform
+npm run cap:sync           # Build web and sync to native platforms
+npm run cap:build          # Alias for cap:sync
+npm run cap:open:ios       # Open iOS project in Xcode
+npm run cap:open:android   # Open Android project in Android Studio
+```
 
 ---
 

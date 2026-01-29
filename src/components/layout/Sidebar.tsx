@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -13,287 +13,59 @@ import {
   ClipboardCheck, Workflow, Lock, X, Database,
   ChevronDown, Bug, Clock, Layers, BarChart3, BookOpen,
   Briefcase, Building, AlertTriangle, RefreshCw, UserX,
-  Percent, FileBarChart, Receipt, LineChart, PieChart
+  Percent, FileBarChart, Receipt, LineChart, PieChart, Star,
+  History, Trash2, Eye
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import { isAdminEmail } from '@/lib/admin'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Role } from '@/types'
-
-// Collapsible nav section interface
-interface NavSection {
-  name: string
-  icon: React.ComponentType<{ className?: string }>
-  children: NavItem[]
-  allowedRoles: Role[]
-}
-
-interface NavItem {
-  name: string
-  href: string
-  icon?: React.ComponentType<{ className?: string }>
-}
+import { useRecentPages } from '@/hooks/useRecentPages'
+import {
+  RTX_SECTIONS,
+  GOVERNANCE_NAV,
+  SETTINGS_NAV,
+  hasPermission,
+  getRoleLabel,
+  getNavigationForRole,
+  type NavSection,
+  type NavItem,
+} from '@/lib/navigation-config'
+import { NavCollapsibleSection } from './NavCollapsibleSection'
 
 interface SidebarProps {
   onNavigate?: () => void
   isMobile?: boolean
+  previewRole?: Role
+  isPreview?: boolean
 }
 
-// Executive navigation (no daily cadence - they don't need branch-level detail)
-const executiveNav = [
-  { name: 'Command Center', href: '/', icon: LayoutDashboard },
-  { name: 'Sales', href: '/sales', icon: TrendingUp },
-  { name: 'Operations', href: '/ops', icon: Wrench },
-  { name: 'Finance', href: '/finance', icon: DollarSign },
-  { name: 'People', href: '/people', icon: Users },
-  { name: 'Forecast', href: '/forecast', icon: Target },
-  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
-]
-
-// Market VP / Market Sales Director navigation (includes market-level daily rollup)
-const marketVPNav = [
-  { name: 'Command Center', href: '/', icon: LayoutDashboard },
-  { name: 'Daily Rollup', href: '/market/daily', icon: CalendarDays },
-  { name: 'Sales', href: '/sales', icon: TrendingUp },
-  { name: 'Operations', href: '/ops', icon: Wrench },
-  { name: 'Finance', href: '/finance', icon: DollarSign },
-  { name: 'People', href: '/people', icon: Users },
-  { name: 'Forecast', href: '/forecast', icon: Target },
-  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
-]
-
-// Region Director / Region Sales Manager navigation (includes region-level daily rollup)
-const regionDirectorNav = [
-  { name: 'Command Center', href: '/', icon: LayoutDashboard },
-  { name: 'Daily Rollup', href: '/region/daily', icon: CalendarDays },
-  { name: 'Weekly WIG', href: '/region/weekly-wig', icon: ClipboardCheck },
-  { name: 'Sales', href: '/sales', icon: TrendingUp },
-  { name: 'Operations', href: '/ops', icon: Wrench },
-  { name: 'Finance', href: '/finance', icon: DollarSign },
-  { name: 'People', href: '/people', icon: Users },
-  { name: 'Forecast', href: '/forecast', icon: Target },
-  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
-]
-
-// Operations Manager specific navigation
-const opsManagerNav = [
-  { name: 'Command Center', href: '/', icon: LayoutDashboard },
-  { name: 'Operations', href: '/ops', icon: Wrench },
-  { name: 'New Starts', href: '/ops/new-starts', icon: Truck },
-  { name: 'Sales', href: '/sales', icon: TrendingUp },
-  { name: 'Finance', href: '/finance', icon: DollarSign },
-  { name: 'Forecast', href: '/forecast', icon: Target },
-  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
-]
-
-// Account Executive navigation
-// Note: Proposals and Sales are sub-tabs within Sales Tracker, not separate nav items
-const aeNav = [
-  { name: 'My Dashboard', href: '/ae', icon: LayoutDashboard },
-  { name: 'Import Quote', href: '/ae/import', icon: Upload },
-  { name: 'Sales Tracker', href: '/ae/tracker/totals', icon: Target },
-  { name: 'New Starts', href: '/ae/new-starts', icon: Truck },
-]
-
-// Branch Manager navigation
-const branchManagerNav = [
-  { name: 'Command Center', href: '/', icon: LayoutDashboard },
-  { name: 'Daily Cadence', href: '/manager/daily-cadence', icon: CalendarDays },
-  { name: 'WIG Scorecard', href: '/manager/wig-scorecard', icon: Target },
-  { name: 'Sales', href: '/sales', icon: TrendingUp },
-  { name: 'Operations', href: '/ops', icon: Wrench },
-  { name: 'Forecast', href: '/forecast', icon: Target },
-  { name: 'Lead Service Engine', href: '/lead-service-engine', icon: Workflow },
-]
-
-// Technician navigation
-const techNav = [
-  { name: 'My Schedule', href: '/tech', icon: Calendar },
-  { name: 'Service Tickets', href: '/tech/tickets', icon: ClipboardList },
-  { name: 'Route', href: '/tech/route', icon: Truck },
-]
-
-const governance = [
-  { name: 'Governance', href: '/governance', icon: ShieldCheck },
-  { name: 'Platform Admin', href: '/platform-admin', icon: Shield },
-  { name: 'Data Dictionary', href: '/governance/data-dictionary', icon: Book },
-  { name: 'Data Standards', href: '/governance/data-standards', icon: ClipboardCheck },
-  { name: 'Data Quality', href: '/governance/data-quality', icon: Shield },
-  { name: 'RTX Discovery', href: '/governance/rtx-discovery', icon: Database },
-  { name: 'Field Lineage', href: '/governance/field-lineage', icon: GitBranch },
-  { name: 'WBR', href: '/wbr', icon: Calendar },
-  { name: 'QBR', href: '/qbr', icon: CalendarDays },
-]
-
-const settings = [
-  { name: 'Settings', href: '/settings', icon: Settings },
-]
-
-// RTX Power BI Feature Parity - Collapsible Sections
-const rtxSections: NavSection[] = [
-  {
-    name: 'Leads',
-    icon: Target,
-    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager'],
-    children: [
-      { name: 'Journey Tracking', href: '/leads/journey', icon: GitBranch },
-      { name: 'Type & Pest', href: '/leads/type-pest' },
-      { name: 'Trends', href: '/leads/trends' },
-      { name: 'Rankings', href: '/leads/rankings' },
-      { name: 'Cancels', href: '/leads/cancels' },
-      { name: 'Geographic', href: '/leads/geographic' },
-      { name: 'Glossary', href: '/governance?module=leads', icon: BookOpen },
-    ],
-  },
-  {
-    name: 'SALTI',
-    icon: Briefcase,
-    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager'],
-    children: [
-      { name: 'Daily Check-In', href: '/salti/daily-check-in' },
-      { name: 'Productivity', href: '/salti/productivity' },
-      { name: 'Proposal Pipeline', href: '/salti/proposal-pipeline' },
-      { name: 'YoY Trends', href: '/salti/yoy-trends' },
-      { name: 'Funnel Fallout', href: '/salti/funnel-fallout' },
-      { name: 'Sales Ladders', href: '/salti/sales-ladders' },
-      { name: 'Weekend Blitz', href: '/salti/weekend-blitz' },
-      { name: 'Glossary', href: '/governance?module=salti', icon: BookOpen },
-    ],
-  },
-  {
-    name: 'Sales',
-    icon: TrendingUp,
-    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
-    children: [
-      { name: 'Speed to Install', href: '/sales/speed-to-install' },
-      { name: "Today's Sales", href: '/sales/today' },
-      { name: 'Backlog', href: '/sales/backlog' },
-      { name: 'Canceled Agreements', href: '/sales/canceled-agreements' },
-      { name: 'Start Rate', href: '/sales/start-rate' },
-      { name: 'Glossary', href: '/governance?module=sales', icon: BookOpen },
-    ],
-  },
-  {
-    name: 'Finance',
-    icon: DollarSign,
-    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager'],
-    children: [
-      { name: 'Projections', href: '/finance/projections' },
-      { name: 'P&L Detail', href: '/finance/pnl' },
-      { name: 'AR Aging', href: '/finance/ar' },
-      { name: 'Glossary', href: '/governance?module=finance', icon: BookOpen },
-    ],
-  },
-  {
-    name: 'Termite',
-    icon: Bug,
-    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'ops_manager'],
-    children: [
-      { name: 'PNI', href: '/termite/pni' },
-      { name: 'Renewals', href: '/termite/renewals' },
-      { name: 'Glossary', href: '/governance?module=termite', icon: BookOpen },
-    ],
-  },
-  {
-    name: 'Workforce',
-    icon: Users,
-    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'ops_manager'],
-    children: [
-      { name: 'Tech Productivity', href: '/workforce/tech-productivity' },
-      { name: 'Glossary', href: '/governance?module=workforce', icon: BookOpen },
-    ],
-  },
-  {
-    name: 'HR',
-    icon: UserX,
-    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager'],
-    children: [
-      { name: 'Retention Detail', href: '/hr/retention' },
-      { name: 'Glossary', href: '/governance?module=hr', icon: BookOpen },
-    ],
-  },
-  {
-    name: 'Cross-Functional',
-    icon: Layers,
-    allowedRoles: ['exec', 'market_vp', 'market_sales_director', 'region_director'],
-    children: [
-      { name: 'Lead to Revenue', href: '/cross-functional' },
-      { name: 'Glossary', href: '/governance?module=cross-functional', icon: BookOpen },
-    ],
-  },
-]
-
-// Get navigation based on role
-function getNavigationForRole(role: Role) {
-  switch (role) {
-    case 'rep':
-      return { main: aeNav, showGovernance: false }
-    case 'technician':
-      return { main: techNav, showGovernance: false }
-    case 'ops_manager':
-      return { main: opsManagerNav, showGovernance: true }
-    case 'manager':
-      return { main: branchManagerNav, showGovernance: true }
-    case 'sales_manager':
-      return { main: executiveNav, showGovernance: true }
-    case 'region_sales_manager':
-    case 'region_director':
-      return { main: regionDirectorNav, showGovernance: true }
-    case 'market_sales_director':
-    case 'market_vp':
-      return { main: marketVPNav, showGovernance: true }
-    case 'exec':
-      return { main: executiveNav, showGovernance: true }
-    default:
-      return { main: executiveNav, showGovernance: true }
-  }
-}
-
-// Get display label for role
-function getRoleLabel(role: Role): string {
-  switch (role) {
-    case 'exec':
-      return 'Executive'
-    case 'market_vp':
-      return 'Market VP'
-    case 'market_sales_director':
-      return 'Market Sales Director'
-    case 'region_director':
-      return 'Region Director'
-    case 'region_sales_manager':
-      return 'Region Sales Manager'
-    case 'manager':
-      return 'Branch Manager'
-    case 'sales_manager':
-      return 'Sales Manager'
-    case 'ops_manager':
-      return 'Operations Manager'
-    case 'rep':
-      return 'Account Executive'
-    case 'technician':
-      return 'Technician'
-    default:
-      return 'User'
-  }
-}
-
-export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
+export function Sidebar({ onNavigate, isMobile, previewRole, isPreview = false }: SidebarProps) {
   const pathname = usePathname()
-  const { sidebarCollapsed, setSidebarCollapsed, settings: appSettings } = useAppStore()
+  const { sidebarCollapsed, setSidebarCollapsed, settings: appSettings, isAdmin: storeIsAdmin, exitRolePreview } = useAppStore()
   const [isClient, setIsClient] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
-  const supabase = createClient()
+  const [recentPagesExpanded, setRecentPagesExpanded] = useState(false)
+  const { recentPages, clearRecent, mounted: recentMounted } = useRecentPages()
 
-  // Toggle section expansion
-  const toggleSection = (sectionName: string) => {
+  // Use store's isAdmin (set by AuthProvider) - only trust it after client mount
+  // When previewing a role, hide admin sections to show exactly what that role sees
+  const isAdmin = isClient ? storeIsAdmin : false
+  const isRolePreviewActive = !!previewRole
+
+  // Toggle section expansion (memoized)
+  const toggleSection = useCallback((sectionName: string) => {
     setExpandedSections(prev => ({
       ...prev,
       [sectionName]: !prev[sectionName]
     }))
-  }
+  }, [])
 
   // Check if any child route is active in a section
   const isSectionActive = (section: NavSection) => {
@@ -305,165 +77,118 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
 
   // Auto-expand sections with active routes
   useEffect(() => {
-    const activeSection = rtxSections.find(section => isSectionActive(section))
+    const activeSection = RTX_SECTIONS.find(section => isSectionActive(section))
     if (activeSection && !expandedSections[activeSection.name]) {
       setExpandedSections(prev => ({
         ...prev,
         [activeSection.name]: true
       }))
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   useEffect(() => {
     setIsClient(true)
-
-    // Check if user is admin
-    const checkAdmin = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser()
-        if (error) {
-          console.log('Sidebar: Error getting user:', error)
-          return
-        }
-        if (user?.email) {
-          const isUserAdmin = isAdminEmail(user.email)
-          console.log('Sidebar: Admin check -', { email: user.email, isUserAdmin })
-          setIsAdmin(isUserAdmin)
-        } else {
-          console.log('Sidebar: No user email found')
-        }
-      } catch (e) {
-        console.log('Sidebar: Exception checking admin:', e)
-      }
-    }
-    checkAdmin()
-  }, [supabase])
+  }, [])
 
   // Use default values during SSR to avoid hydration mismatch
-  const currentRole = isClient ? appSettings.role : 'exec'
+  // In preview mode, use the previewRole instead of the user's actual role
+  const currentRole = previewRole || (isClient ? appSettings.role : 'exec')
   const currentDemoMode = isClient ? appSettings.demoMode : 'bi_leadership'
-  const { main: navigation, showGovernance } = getNavigationForRole(currentRole)
+  const navigationResult = getNavigationForRole(currentRole)
+  const navigation = navigationResult?.mainNav || []
+
+  // Debug logging
+  if (typeof window !== 'undefined' && !navigation) {
+    console.error('[Sidebar] Navigation is undefined:', { currentRole, navigationResult })
+  }
 
   // On mobile, never collapse - always show full width
-  const isCollapsed = isMobile ? false : sidebarCollapsed
+  // In preview mode, never collapse to show full navigation
+  const isCollapsed = isMobile || isPreview ? false : sidebarCollapsed
 
-  const handleNavClick = () => {
+  // Handle navigation click (memoized)
+  const handleNavClick = useCallback((e?: React.MouseEvent) => {
+    // In preview mode, prevent navigation
+    if (isPreview && e) {
+      e.preventDefault()
+      return
+    }
     if (onNavigate) {
       onNavigate()
     }
-  }
+  }, [isPreview, onNavigate])
 
-  const NavItem = ({ item }: { item: typeof executiveNav[0] }) => {
+  const NavItem = ({ item }: { item: NavItem }) => {
     const isActive = pathname === item.href ||
       (item.href !== '/' && pathname.startsWith(item.href))
 
-    return (
-      <Link
-        href={item.href}
-        onClick={handleNavClick}
-        className={cn(
-          'nav-item group',
-          isActive && 'nav-item-active',
-          isCollapsed && 'justify-center px-2'
-        )}
-      >
+    const itemContent = (
+      <>
         <item.icon className={cn(
           'h-5 w-5 flex-shrink-0',
-          isActive ? 'text-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
+          isActive && !isPreview ? 'text-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
         )} />
         {!isCollapsed && (
           <span className={cn(
-            isActive ? 'text-primary' : 'text-gray-700 dark:text-gray-200'
+            isActive && !isPreview ? 'text-primary' : 'text-gray-700 dark:text-gray-200'
           )}>
             {item.name}
           </span>
         )}
+      </>
+    )
+
+    const className = cn(
+      'nav-item group',
+      isActive && !isPreview && 'nav-item-active',
+      isCollapsed && 'justify-center px-2',
+      isPreview && 'cursor-default'
+    )
+
+    const linkElement = isPreview ? (
+      <div className={className}>
+        {itemContent}
+      </div>
+    ) : (
+      <Link
+        href={item.href}
+        onClick={handleNavClick}
+        className={className}
+      >
+        {itemContent}
       </Link>
     )
-  }
 
-  // Collapsible section for RTX Power BI nav
-  const CollapsibleSection = ({ section }: { section: NavSection }) => {
-    const isExpanded = expandedSections[section.name] || false
-    const sectionIsActive = isSectionActive(section)
-    const SectionIcon = section.icon
-
-    // Filter sections by role
-    if (!section.allowedRoles.includes(currentRole)) {
-      return null
+    // Wrap with tooltip when sidebar is collapsed
+    if (isCollapsed) {
+      return (
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            {linkElement}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <div className="space-y-1">
+              <p className="font-medium">{item.name}</p>
+              {item.description && (
+                <p className="text-xs text-gray-400">{item.description}</p>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      )
     }
 
-    return (
-      <div className="space-y-1">
-        <button
-          onClick={() => toggleSection(section.name)}
-          className={cn(
-            'nav-item group w-full justify-between',
-            sectionIsActive && 'bg-gray-100 dark:bg-gray-800',
-            isCollapsed && 'justify-center px-2'
-          )}
-        >
-          <div className="flex items-center gap-3">
-            <SectionIcon className={cn(
-              'h-5 w-5 flex-shrink-0',
-              sectionIsActive ? 'text-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
-            )} />
-            {!isCollapsed && (
-              <span className={cn(
-                'text-sm font-medium',
-                sectionIsActive ? 'text-primary' : 'text-gray-700 dark:text-gray-200'
-              )}>
-                {section.name}
-              </span>
-            )}
-          </div>
-          {!isCollapsed && (
-            <ChevronDown className={cn(
-              'h-4 w-4 text-gray-400 transition-transform duration-200',
-              isExpanded && 'transform rotate-180'
-            )} />
-          )}
-        </button>
-        {!isCollapsed && isExpanded && (
-          <div className="ml-4 pl-4 border-l border-gray-200 dark:border-gray-700 space-y-1">
-            {section.children.map((child) => {
-              const isChildActive = pathname === child.href ||
-                (child.href !== '/' && !child.href.includes('?') && pathname.startsWith(child.href))
-              const ChildIcon = child.icon
-
-              return (
-                <Link
-                  key={child.href}
-                  href={child.href}
-                  onClick={handleNavClick}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors',
-                    isChildActive
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  )}
-                >
-                  {ChildIcon && (
-                    <ChildIcon className={cn(
-                      'h-4 w-4',
-                      isChildActive ? 'text-primary' : 'text-gray-400'
-                    )} />
-                  )}
-                  {child.name}
-                </Link>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    )
+    return linkElement
   }
 
+
   return (
-    <div className={cn(
-      'flex flex-col h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 transition-all duration-300',
-      isCollapsed ? 'w-16' : 'w-64'
-    )}>
+    <TooltipProvider>
+      <div className={cn(
+        'flex flex-col h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 transition-all duration-300',
+        isCollapsed ? 'w-16' : 'w-64'
+      )}>
       {/* Logo */}
       <div className={cn(
         'flex items-center px-4 border-b dark:border-gray-700',
@@ -485,7 +210,7 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
                 The Experts in Pest Control
               </text>
             </svg>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Business Intelligence</p>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Sales & Operations Intelligence</p>
           </div>
         )}
         {isCollapsed && (
@@ -500,6 +225,7 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
             size="icon"
             onClick={onNavigate}
             className="ml-auto"
+            aria-label="Close sidebar"
           >
             <X className="h-5 w-5" />
           </Button>
@@ -508,14 +234,84 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
 
       {/* Navigation */}
       <ScrollArea className="flex-1 py-4">
+        {/* Recently Viewed Section */}
+        {!isPreview && recentMounted && recentPages.length > 0 && !isCollapsed && (
+          <>
+            <div
+              className="px-2 mb-1"
+              onMouseEnter={() => setRecentPagesExpanded(true)}
+              onMouseLeave={() => setRecentPagesExpanded(false)}
+            >
+              <button
+                onClick={() => setRecentPagesExpanded(!recentPagesExpanded)}
+                className="flex items-center justify-between w-full px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded transition-colors group"
+              >
+                <div className="flex items-center gap-1.5">
+                  <ChevronDown className={cn(
+                    'h-3 w-3 text-gray-400 transition-transform duration-200',
+                    recentPagesExpanded && 'transform rotate-180'
+                  )} />
+                  <History className="h-3 w-3 text-gray-400" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Recent
+                  </span>
+                  <span className="text-xs text-gray-400">({recentPages.length})</span>
+                </div>
+                {recentPagesExpanded && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      clearRecent()
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-opacity"
+                    aria-label="Clear recent pages"
+                  >
+                    <Trash2 className="h-3 w-3 text-gray-400" />
+                  </button>
+                )}
+              </button>
+              {recentPagesExpanded && (
+                <nav className="space-y-0.5 mt-1">
+                  {recentPages.slice(0, 5).map((page) => {
+                    const isActive = pathname === page.path
+                    return (
+                      <Link
+                        key={page.path}
+                        href={page.path}
+                        onClick={handleNavClick}
+                        className={cn(
+                          'flex items-center gap-2 px-2 py-1.5 text-xs rounded transition-colors',
+                          isActive
+                            ? 'bg-primary/10 text-primary font-medium'
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        )}
+                        title={page.title}
+                      >
+                        <Clock className={cn(
+                          'h-3 w-3 flex-shrink-0',
+                          isActive ? 'text-primary' : 'text-gray-400'
+                        )} />
+                        <span className="truncate">{page.title}</span>
+                      </Link>
+                    )
+                  })}
+                </nav>
+              )}
+            </div>
+            <Separator className="my-2 mx-2" />
+          </>
+        )}
+
         <nav className="space-y-1 px-2">
-          {navigation.map((item) => (
+          {navigation && Array.isArray(navigation) && navigation.map((item) => (
             <NavItem key={item.name} item={item} />
           ))}
         </nav>
 
         {/* RTX Power BI Feature Parity - Collapsible Sections */}
-        {showGovernance && (
+        {/* Show if: user is admin OR has rtxReports permission */}
+        {/* Hide when: previewing (static) OR previewing a role (global) */}
+        {(isAdmin || hasPermission(currentRole, 'rtxReports')) && !isPreview && !isRolePreviewActive && (
           <>
             <Separator className="my-4 mx-2" />
             {!isCollapsed && (
@@ -526,14 +322,26 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
               </div>
             )}
             <nav className="space-y-1 px-2">
-              {rtxSections.map((section) => (
-                <CollapsibleSection key={section.name} section={section} />
+              {RTX_SECTIONS.map((section) => (
+                <NavCollapsibleSection
+                  key={section.name}
+                  section={section}
+                  currentRole={currentRole}
+                  isCollapsed={isCollapsed}
+                  isExpanded={expandedSections[section.name] || false}
+                  onToggle={toggleSection}
+                  isPreview={isPreview}
+                  onNavigate={handleNavClick}
+                />
               ))}
             </nav>
           </>
         )}
 
-        {showGovernance && (
+        {/* Governance Section - Admin Console, RTX Discovery, QBR, WBR (ADMIN ONLY) */}
+        {/* Show for all admins regardless of role */}
+        {/* Hide when: previewing (static) OR previewing a role (global) */}
+        {isAdmin && !isPreview && !isRolePreviewActive && (
           <>
             <Separator className="my-4 mx-2" />
             {!isCollapsed && (
@@ -544,7 +352,7 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
               </div>
             )}
             <nav className="space-y-1 px-2">
-              {governance.map((item) => (
+              {GOVERNANCE_NAV.map((item) => (
                 <NavItem key={item.name} item={item} />
               ))}
             </nav>
@@ -554,10 +362,10 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
         <Separator className="my-4 mx-2" />
 
         <nav className="space-y-1 px-2">
-          {settings.map((item) => (
+          {SETTINGS_NAV.map((item) => (
             <NavItem key={item.name} item={item} />
           ))}
-          {isAdmin && (
+          {isAdmin && !isPreview && !isRolePreviewActive && (
             <NavItem item={{ name: 'Admin', href: '/admin', icon: Lock }} />
           )}
         </nav>
@@ -566,30 +374,61 @@ export function Sidebar({ onNavigate, isMobile }: SidebarProps) {
       {/* Role Indicator */}
       {!isCollapsed && (
         <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Your Role</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+            {isPreview ? 'Preview Role' : 'Your Role'}
+          </div>
           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
             {getRoleLabel(currentRole)}
           </div>
+          {isPreview && (
+            <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              Preview Mode
+            </div>
+          )}
         </div>
       )}
 
-      {/* Collapse Button - only on desktop */}
-      {!isMobile && (
-        <div className="p-2 border-t dark:border-gray-700">
+      {/* Exit Preview Button - shown when in preview mode and user is admin */}
+      {!isCollapsed && isClient && storeIsAdmin && previewRole && (
+        <div className="p-2 border-t dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="w-full justify-center"
+            onClick={exitRolePreview}
+            className="w-full justify-center gap-2 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-medium"
           >
-            {sidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
+            <Eye className="h-4 w-4" />
+            Exit Preview
           </Button>
         </div>
       )}
-    </div>
+
+      {/* Collapse Button - only on desktop, not in preview mode */}
+      {!isMobile && !isPreview && (
+        <div className="p-2 border-t dark:border-gray-700">
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="w-full justify-center"
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {sidebarCollapsed ? (
+                  <ChevronRight className="h-4 w-4" />
+                ) : (
+                  <ChevronLeft className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>{sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+      </div>
+    </TooltipProvider>
   )
 }

@@ -22,9 +22,43 @@ import { formatCurrency, formatPercent } from '@/lib/utils'
 import { format, startOfQuarter, endOfQuarter, subQuarters } from 'date-fns'
 import {
   Download, Calendar, TrendingUp, Target, CheckCircle,
-  AlertTriangle, ArrowUp, ArrowDown, Minus
+  AlertTriangle, ArrowUp, ArrowDown, Minus, RefreshCw
 } from 'lucide-react'
 import { KPIValue } from '@/types'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import type { ExecutiveCommandCenter } from '@/lib/bigquery/queries/executive'
+
+// BigQuery display types
+interface QBRDisplayData {
+  revenue: number
+  pipeline: number
+  winRate: number
+  serviceRisk: number
+}
+
+// Transform BigQuery data
+function transformBigQueryData(bqData: ExecutiveCommandCenter[]): QBRDisplayData {
+  const revenueMetric = bqData.find(m => m.metric === 'Revenue')
+  const pipelineMetric = bqData.find(m => m.metric === 'New Leads')
+  const winRateMetric = bqData.find(m => m.metric === 'Win Rate')
+  const callbackMetric = bqData.find(m => m.metric === 'Callbacks')
+
+  return {
+    revenue: revenueMetric?.value || 0,
+    pipeline: pipelineMetric?.value || 0,
+    winRate: winRateMetric?.value || 0,
+    serviceRisk: callbackMetric ? 100 - (callbackMetric.value / callbackMetric.target) * 100 : 85,
+  }
+}
+
+// Empty default data
+const EMPTY_QBR_DATA: QBRDisplayData = {
+  revenue: 0,
+  pipeline: 0,
+  winRate: 0,
+  serviceRisk: 0,
+}
 
 export default function QBRPage() {
   const { settings } = useAppStore()
@@ -33,6 +67,20 @@ export default function QBRPage() {
   const printRef = useRef<HTMLDivElement>(null)
 
   const markets = getMarkets()
+
+  // BigQuery integration
+  const {
+    data: bqQBR,
+    isLoading: isBQLoading,
+    dataSource,
+    responseTime,
+    refetch: refetchBQ,
+  } = useBigQueryData<ExecutiveCommandCenter[], QBRDisplayData>({
+    queryName: 'executive-command-center',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_QBR_DATA,
+    transformBigQueryData,
+  })
 
   useEffect(() => {
     // Pass role and userId to filter KPI data to user's scope
@@ -114,14 +162,20 @@ export default function QBRPage() {
       <div className="flex items-center justify-between no-print">
         <div>
           <h1 className="text-2xl font-bold">Quarterly Business Review</h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {currentQuarter} | {format(quarterStart, 'MMMM d')} - {format(quarterEnd, 'MMMM d, yyyy')}
           </p>
         </div>
-        <Button onClick={exportPDF} className="gap-2">
-          <Download className="h-4 w-4" />
-          Export PDF
-        </Button>
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetchBQ} disabled={isBQLoading} suppressHydrationWarning>
+            <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} suppressHydrationWarning />
+          </Button>
+          <Button onClick={exportPDF} className="gap-2">
+            <Download className="h-4 w-4" />
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       {/* Printable Content */}

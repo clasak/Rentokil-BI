@@ -16,26 +16,47 @@ import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   Users, UserPlus, Eye, TrendingUp, TrendingDown,
   Download, GitBranch, Search, Moon, Presentation,
-  RefreshCw, Calendar, BarChart3, Clock, Activity
+  RefreshCw, Calendar, BarChart3, Clock, Activity, AlertCircle, Info
 } from 'lucide-react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell
+  CartesianGrid, Tooltip, LineChart, Line
 } from 'recharts'
-import { getUserAdoptionMetrics, UserAdoptionMetrics } from '@/lib/platform-admin-data'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { UserAdoptionMetrics } from '@/lib/bigquery/queries/user-adoption'
+
+// Empty state (no mock fallback - BigQuery only)
+const EMPTY_METRICS: UserAdoptionMetrics = {
+  activeUsers: 0,
+  totalUsers: 0,
+  newUsersThisWeek: 0,
+  mostViewedDashboards: [],
+  featureUsage: [],
+  trackingAvailable: false,
+  lastUpdated: new Date(),
+}
 
 export default function UserAdoptionPage() {
-  const [metrics, setMetrics] = useState<UserAdoptionMetrics | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
   const [dateRange, setDateRange] = useState('30d')
 
   useEffect(() => {
-    setIsLoading(true)
-    setTimeout(() => {
-      setMetrics(getUserAdoptionMetrics())
-      setIsLoading(false)
-    }, 300)
-  }, [dateRange])
+    setMounted(true)
+  }, [])
+
+  // Fetch user adoption metrics
+  const {
+    data: metrics,
+    isLoading,
+    error,
+    refetch,
+  } = useBigQueryData<UserAdoptionMetrics, UserAdoptionMetrics>({
+    queryName: 'user-adoption-summary',
+    defaultData: EMPTY_METRICS,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
 
   const getFeatureIcon = (feature: string) => {
     switch (feature) {
@@ -54,7 +75,11 @@ export default function UserAdoptionPage() {
     }
   }
 
-  if (isLoading || !metrics) {
+  if (!mounted) {
+    return null
+  }
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -62,38 +87,32 @@ export default function UserAdoptionPage() {
     )
   }
 
-  const adoptionRate = (metrics.activeUsers / metrics.totalUsers) * 100
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <div className="text-center">
+          <p className="text-lg font-medium">Error Loading User Adoption</p>
+          <p className="text-sm text-muted-foreground mt-1">{error}</p>
+        </div>
+        <Button onClick={refetch} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    )
+  }
 
-  // Mock data for charts
-  const usersByRole = [
-    { role: 'Executive', count: 12, color: '#3b82f6' },
-    { role: 'Market VP', count: 6, color: '#6366f1' },
-    { role: 'Region Dir', count: 18, color: '#8b5cf6' },
-    { role: 'Manager', count: 45, color: '#a855f7' },
-    { role: 'Sales Rep', count: 52, color: '#d946ef' },
-    { role: 'Technician', count: 14, color: '#ec4899' },
-  ]
+  const adoptionRate = metrics.totalUsers > 0
+    ? (metrics.activeUsers / metrics.totalUsers) * 100
+    : 0
 
-  const loginActivity = [
-    { day: 'Mon', sessions: 145 },
-    { day: 'Tue', sessions: 167 },
-    { day: 'Wed', sessions: 158 },
-    { day: 'Thu', sessions: 172 },
-    { day: 'Fri', sessions: 134 },
-    { day: 'Sat', sessions: 23 },
-    { day: 'Sun', sessions: 18 },
-  ]
-
-  const hourlyUsage = [
-    { hour: '6am', users: 12 },
-    { hour: '8am', users: 45 },
-    { hour: '10am', users: 89 },
-    { hour: '12pm', users: 67 },
-    { hour: '2pm', users: 92 },
-    { hour: '4pm', users: 78 },
-    { hour: '6pm', users: 34 },
-    { hour: '8pm', users: 15 },
-  ]
+  // Calculate feature usage percentages
+  const maxFeatureUsage = Math.max(...metrics.featureUsage.map(f => f.usageCount), 1)
+  const featureUsageWithPercent = metrics.featureUsage.map(f => ({
+    ...f,
+    usagePercent: Math.round((f.usageCount / maxFeatureUsage) * 100),
+  }))
 
   return (
     <div className="space-y-6">
@@ -116,40 +135,46 @@ export default function UserAdoptionPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[160px]">
-              <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Date Range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 Days</SelectItem>
-              <SelectItem value="30d">Last 30 Days</SelectItem>
-              <SelectItem value="90d">Last 90 Days</SelectItem>
-              <SelectItem value="ytd">Year to Date</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
+          <Button variant="outline" onClick={refetch}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
           </Button>
         </div>
       </div>
 
+      {/* Tracking Disclaimer */}
+      {!metrics.trackingAvailable && (
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+              <div>
+                <p className="font-medium text-blue-900 dark:text-blue-100">
+                  Partial Data - Dashboard Tracking Not Yet Instrumented
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  User counts are from Workday employee data. Dashboard view tracking and feature usage will be available once ops_events instrumentation is complete.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm text-muted-foreground">Active Users</div>
-                <div className="text-3xl font-bold">{metrics.activeUsers}</div>
+                <div className="text-3xl font-bold">{metrics.activeUsers.toLocaleString()}</div>
               </div>
               <Users className="h-10 w-10 text-primary opacity-50" />
             </div>
             <Progress value={adoptionRate} className="h-2 mt-3" />
             <div className="text-xs text-muted-foreground mt-2">
-              {adoptionRate.toFixed(1)}% of {metrics.totalUsers} total
+              {adoptionRate.toFixed(1)}% of {metrics.totalUsers.toLocaleString()} total
             </div>
           </CardContent>
         </Card>
@@ -160,14 +185,13 @@ export default function UserAdoptionPage() {
               <div>
                 <div className="text-sm text-green-600 dark:text-green-400">New This Week</div>
                 <div className="text-3xl font-bold text-green-700 dark:text-green-300">
-                  +{metrics.newUsersThisWeek}
+                  +{metrics.newUsersThisWeek.toLocaleString()}
                 </div>
               </div>
               <UserPlus className="h-10 w-10 text-green-500 opacity-50" />
             </div>
-            <div className="text-xs text-green-600 dark:text-green-400 mt-3 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              6% increase from last week
+            <div className="text-xs text-green-600 dark:text-green-400 mt-3">
+              New employee records from Workday
             </div>
           </CardContent>
         </Card>
@@ -176,216 +200,138 @@ export default function UserAdoptionPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-muted-foreground">Avg. Session</div>
-                <div className="text-3xl font-bold">12.4 min</div>
-              </div>
-              <Clock className="h-10 w-10 text-primary opacity-50" />
-            </div>
-            <div className="text-xs text-green-600 mt-3 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              Above 10 min target
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-muted-foreground">Weekly Sessions</div>
-                <div className="text-3xl font-bold">817</div>
+                <div className="text-sm text-muted-foreground">Total Users</div>
+                <div className="text-3xl font-bold">{metrics.totalUsers.toLocaleString()}</div>
               </div>
               <Activity className="h-10 w-10 text-primary opacity-50" />
             </div>
             <div className="text-xs text-muted-foreground mt-3">
-              Avg 5.6 sessions/user
+              From tmx_employee table
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Users by Role */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Users by Role
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={usersByRole} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="role" width={80} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    cursor={false}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-                            <div className="font-medium">{payload[0].payload.role}</div>
-                            <div className="text-lg font-bold">{payload[0].value} users</div>
-                          </div>
-                        )
-                      }
-                      return null
-                    }}
-                  />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                    {usersByRole.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Login Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Weekly Login Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={loginActivity}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip
-                    cursor={false}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-                            <div className="font-medium">{payload[0].payload.day}</div>
-                            <div className="text-lg font-bold">{payload[0].value} sessions</div>
-                          </div>
-                        )
-                      }
-                      return null
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="sessions"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={{ fill: '#3b82f6', strokeWidth: 2 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Dashboard Usage & Feature Adoption */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Most Viewed Dashboards */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-500" />
-              Most Viewed Dashboards
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {metrics.mostViewedDashboards.map((dashboard, index) => (
-                <div
-                  key={dashboard.name}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-muted-foreground w-6">
-                      #{index + 1}
-                    </span>
-                    <span className="font-medium">{dashboard.name}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold">{dashboard.views.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">{dashboard.uniqueUsers} users</div>
-                  </div>
+      {/* Dashboard Usage */}
+      {metrics.trackingAvailable && metrics.mostViewedDashboards.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Most Viewed Dashboards */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-green-500" />
+                Most Viewed Dashboards
+              </CardTitle>
+              <CardDescription>Last 30 days</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {metrics.mostViewedDashboards.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Eye className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No dashboard view data available</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="space-y-3">
+                  {metrics.mostViewedDashboards.map((dashboard, index) => (
+                    <div
+                      key={dashboard.name}
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-muted-foreground w-6">
+                          #{index + 1}
+                        </span>
+                        <span className="font-medium">{dashboard.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{dashboard.views.toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">views</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Needs Attention */}
+          {/* Feature Usage */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Feature Adoption</CardTitle>
+              <CardDescription>Usage statistics for platform features</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {featureUsageWithPercent.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No feature usage data available</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {featureUsageWithPercent.map((feature) => {
+                    const Icon = getFeatureIcon(feature.feature)
+                    return (
+                      <div
+                        key={feature.feature}
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="h-5 w-5 text-primary" />
+                          <span className="font-medium">{feature.feature}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="font-semibold">{feature.usageCount.toLocaleString()}</div>
+                            <div className="text-xs text-muted-foreground">uses</div>
+                          </div>
+                          <div className="w-20">
+                            <Progress value={feature.usagePercent} className="h-2" />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Empty State for Tracking Not Available */}
+      {!metrics.trackingAvailable && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-amber-500" />
-              Needs Attention
-            </CardTitle>
-            <CardDescription>Low-engagement dashboards</CardDescription>
+            <CardTitle className="text-base">Dashboard & Feature Analytics</CardTitle>
+            <CardDescription>Detailed usage tracking coming soon</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {metrics.leastViewedDashboards.map((dashboard) => (
-                <div
-                  key={dashboard.name}
-                  className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
-                >
-                  <span className="font-medium text-amber-800 dark:text-amber-300">
-                    {dashboard.name}
-                  </span>
-                  <div className="text-right">
-                    <div className="font-semibold text-amber-700 dark:text-amber-300">
-                      {dashboard.views}
-                    </div>
-                    <div className="text-xs text-amber-600 dark:text-amber-400">
-                      {dashboard.uniqueUsers} users
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <p className="text-xs text-muted-foreground mt-2">
-                Consider reviewing these dashboards for user experience improvements
+            <div className="text-center py-12">
+              <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-lg font-medium text-muted-foreground mb-2">
+                Dashboard Tracking Not Yet Available
+              </p>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                To enable detailed analytics, instrument page_view events in ops_events table.
+                Once configured, this section will show most viewed dashboards, feature usage,
+                and engagement metrics.
               </p>
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
-      {/* Feature Usage */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Feature Adoption</CardTitle>
-          <CardDescription>Usage statistics for platform features</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {metrics.featureUsage.map((feature) => {
-              const Icon = getFeatureIcon(feature.feature)
-              return (
-                <div
-                  key={feature.feature}
-                  className="p-4 bg-muted/50 rounded-lg text-center"
-                >
-                  <Icon className="h-6 w-6 mx-auto text-primary mb-3" />
-                  <div className="font-medium text-sm">{feature.feature}</div>
-                  <div className="text-2xl font-bold text-primary mt-1">
-                    {feature.usagePercent}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {feature.usageCount.toLocaleString()} uses
-                  </div>
-                  <Progress value={feature.usagePercent} className="h-1.5 mt-3" />
-                </div>
-              )
-            })}
+      {/* Data Source Info */}
+      <Card className="border-dashed">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Activity className="h-4 w-4" />
+            <span>
+              Data from S0_TMX.tmx_employee (1.2M+ rows)
+              {metrics.trackingAvailable && ' and Supabase ops_events'}
+              {' • '}
+              Last updated: {new Date(metrics.lastUpdated).toLocaleTimeString()}
+            </span>
           </div>
         </CardContent>
       </Card>

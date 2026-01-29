@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageSkeleton } from '@/components/ui/skeleton-loader'
 import {
   Select,
   SelectContent,
@@ -34,6 +35,7 @@ import { useRouter } from 'next/navigation'
 import { getDataSourceStatus } from '@/services'
 import { createClient } from '@/lib/supabase/client'
 import { isAdminEmail } from '@/lib/admin'
+import { useOrganizationData } from '@/hooks/useOrganizationData'
 
 // Platform Admin Components
 import { PlatformHealth } from './components/PlatformHealth'
@@ -51,15 +53,15 @@ import { SALTISalesResults } from './components/SALTISalesResults'
 import { SALTIPortfolio } from './components/SALTIPortfolio'
 import { SALTIHRMetrics } from './components/SALTIHRMetrics'
 
-// Platform Admin Data
-import {
-  getPlatformHealthMetrics,
-  getDataFreshnessSLAs,
-  getUserAdoptionMetrics,
-  getDataQualityScorecard,
-  getSchemaChangeAlerts,
-  getAnomalyAlerts,
-} from '@/lib/platform-admin-data'
+// BigQuery Components
+import { BigQueryDataSourceToggle } from './components/BigQueryDataSourceToggle'
+import { BigQueryHealthCheck } from './components/BigQueryHealthCheck'
+
+// Role Preview
+import { RolePreview } from './components/RolePreview'
+
+// Types for BigQuery data freshness
+import type { DataFreshnessSLA, DataFreshnessSummary } from '@/lib/bigquery/queries/data-freshness'
 
 // SALTI Dashboard Data
 import {
@@ -86,6 +88,16 @@ interface LoginEvent {
   created_at: string
 }
 
+interface DataSummary {
+  markets: number
+  regions: number
+  branches: number
+  users: number
+  accounts: number
+  opportunities: number
+  lastUpdated: string
+}
+
 // Role to route mapping for navigation after role switch
 const ROLE_ROUTES: Record<Role, string> = {
   exec: '/',
@@ -109,6 +121,11 @@ export default function AdminPage() {
   const [loadingEvents, setLoadingEvents] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const [dataSummary, setDataSummary] = useState<DataSummary | null>(null)
+  const [loadingDataSummary, setLoadingDataSummary] = useState(false)
+  const [dataSummaryError, setDataSummaryError] = useState<string | null>(null)
+  const [freshnessData, setFreshnessData] = useState<DataFreshnessSLA[]>([])
+  const [loadingFreshness, setLoadingFreshness] = useState(false)
   const supabase = createClient()
 
   const {
@@ -125,30 +142,121 @@ export default function AdminPage() {
     testScenario,
     setTestModeEnabled,
     setTestScenario,
+    isPreviewingRole,
+    previewedRole,
+    setPreviewingRole,
+    setPreviewingRoleWithOrg,
+    exitRolePreview,
+    adminModeEnabled,
   } = useAppStore()
+
+  // Get real organization data for role previews
+  const { markets: orgMarkets, regions: orgRegions, branches: orgBranches } = useOrganizationData()
 
   const markets = getMarkets()
   const users = getUsers()
   const scope = mounted ? getCurrentUserScope() : { markets: [], branches: [], scope: 'Loading...' }
   const dataSourceStatus = getDataSourceStatus()
+  const schemaAlerts: any[] = [] // TODO: Fetch from schema monitoring API when available
 
   // Handle role change with navigation to appropriate dashboard
+  // When admin switches role, set both the role AND previewing state so navigation updates
   const handleRoleChange = (role: Role) => {
     setRole(role)
+
+    // Use real org data from BigQuery if available for more accurate previews
+    const hasOrgData = orgMarkets.length > 0
+    if (hasOrgData) {
+      // Get sample real org codes for the preview
+      const sampleMarket = orgMarkets[0]?.market_code
+      const sampleRegion = orgRegions.find(r => r.market_code === sampleMarket)?.region_code
+      const sampleBranch = orgBranches.find(b => b.region_code === sampleRegion)?.branch_code
+
+      setPreviewingRoleWithOrg(role, {
+        market: sampleMarket,
+        region: sampleRegion,
+        branch: sampleBranch,
+      })
+    } else {
+      // Fall back to default preview user with sample codes
+      setPreviewingRole(role)
+    }
+
     router.push(ROLE_ROUTES[role])
   }
 
-  // Platform Admin Data
-  const healthMetrics = getPlatformHealthMetrics()
-  const freshnessData = getDataFreshnessSLAs()
-  const adoptionMetrics = getUserAdoptionMetrics()
-  const qualityDimensions = getDataQualityScorecard()
-  const schemaAlerts = getSchemaChangeAlerts()
-  const anomalyAlerts = getAnomalyAlerts()
+  // Exit role preview and return to admin view
+  const handleExitRolePreview = () => {
+    exitRolePreview()
+    setRole('exec')
+    router.push('/admin')
+  }
+
+  // Platform Admin Data - Now using BigQuery hooks
+  // Note: These hooks are called unconditionally after mounted check below
+  const [healthMetrics, setHealthMetrics] = useState<any>(null)
+  const [adoptionMetrics, setAdoptionMetrics] = useState<any>(null)
+  const [anomalyAlerts, setAnomalyAlerts] = useState<any[]>([])
+
+  // Fetch health metrics
+  useEffect(() => {
+    if (!mounted) return
+
+    const fetchHealthMetrics = async () => {
+      try {
+        const response = await fetch('/api/bigquery/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: 'platform-health-metrics' }),
+        })
+        const result = await response.json()
+        if (result.success && result.data) {
+          setHealthMetrics(result.data)
+        }
+      } catch (e) {
+        console.log('Failed to fetch health metrics:', e)
+      }
+    }
+
+    const fetchAdoptionMetrics = async () => {
+      try {
+        const response = await fetch('/api/bigquery/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: 'user-adoption-summary' }),
+        })
+        const result = await response.json()
+        if (result.success && result.data) {
+          setAdoptionMetrics(result.data)
+        }
+      } catch (e) {
+        console.log('Failed to fetch adoption metrics:', e)
+      }
+    }
+
+    const fetchAnomalyAlerts = async () => {
+      try {
+        const response = await fetch('/api/bigquery/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: 'anomaly-alerts' }),
+        })
+        const result = await response.json()
+        if (result.success && result.data) {
+          setAnomalyAlerts(result.data)
+        }
+      } catch (e) {
+        console.log('Failed to fetch anomaly alerts:', e)
+      }
+    }
+
+    fetchHealthMetrics()
+    fetchAdoptionMetrics()
+    fetchAnomalyAlerts()
+  }, [mounted])
 
   // Calculate summary stats for alert banner
   const criticalCount = anomalyAlerts.filter(a => a.severity === 'critical' && !a.acknowledged).length
-  const newSchemaChanges = schemaAlerts.filter(a => a.status === 'new').length
   const slaBreaches = freshnessData.filter(s => s.status === 'breached').length
 
   useEffect(() => {
@@ -176,6 +284,50 @@ export default function AdminPage() {
     }
   }
 
+  const fetchDataSummary = async () => {
+    setLoadingDataSummary(true)
+    setDataSummaryError(null)
+    try {
+      const response = await fetch('/api/bigquery/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'data-summary' }),
+      })
+      const result = await response.json()
+      if (result.success && result.data) {
+        setDataSummary(result.data)
+      } else {
+        setDataSummaryError(result.error || 'Failed to fetch data summary')
+      }
+    } catch (e) {
+      console.error('Failed to fetch data summary:', e)
+      setDataSummaryError('Network error fetching data summary')
+    } finally {
+      setLoadingDataSummary(false)
+    }
+  }
+
+  const fetchDataFreshness = async () => {
+    setLoadingFreshness(true)
+    try {
+      const response = await fetch('/api/bigquery/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'data-freshness' }),
+      })
+      const result = await response.json()
+      if (result.success && result.data?.sources) {
+        setFreshnessData(result.data.sources)
+      } else if (result.success && Array.isArray(result.data)) {
+        setFreshnessData(result.data)
+      }
+    } catch (e) {
+      console.error('Failed to fetch data freshness:', e)
+    } finally {
+      setLoadingFreshness(false)
+    }
+  }
+
   useEffect(() => {
     const checkAdmin = async () => {
       try {
@@ -187,6 +339,8 @@ export default function AdminPage() {
 
           if (isUserAdmin) {
             fetchLoginEvents()
+            fetchDataSummary()
+            fetchDataFreshness()
           }
         }
       } catch (e) {
@@ -206,6 +360,7 @@ export default function AdminPage() {
   const handleRefresh = () => {
     setLastRefresh(new Date())
     fetchLoginEvents()
+    fetchDataSummary()
   }
 
   const formatRelativeTime = (dateString: string) => {
@@ -240,11 +395,7 @@ export default function AdminPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    )
+    return <PageSkeleton />
   }
 
   if (!isAdmin) {
@@ -294,8 +445,33 @@ export default function AdminPage() {
         </Button>
       </div>
 
+      {/* Role Preview Banner */}
+      {isPreviewingRole && previewedRole && (
+        <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center gap-3">
+            <Eye className="h-5 w-5 text-blue-500" />
+            <div>
+              <span className="font-medium text-blue-800 dark:text-blue-300">
+                Previewing Role: {ROLE_PERMISSIONS[previewedRole]?.label || previewedRole}
+              </span>
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                Navigation and dashboard views reflect this role&apos;s experience
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={handleExitRolePreview}
+            variant="outline"
+            className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300"
+          >
+            <Shield className="h-4 w-4" />
+            Exit Preview
+          </Button>
+        </div>
+      )}
+
       {/* Alert Summary Bar */}
-      {(criticalCount > 0 || newSchemaChanges > 0 || slaBreaches > 0) && (
+      {(criticalCount > 0 || slaBreaches > 0) && (
         <div className="flex items-center gap-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
           <div className="flex-1">
@@ -303,7 +479,6 @@ export default function AdminPage() {
             <span className="text-red-700 dark:text-red-400 ml-2">
               {[
                 criticalCount > 0 && `${criticalCount} critical anomalies`,
-                newSchemaChanges > 0 && `${newSchemaChanges} schema changes`,
                 slaBreaches > 0 && `${slaBreaches} SLA breaches`,
               ].filter(Boolean).join(' • ')}
             </span>
@@ -364,30 +539,51 @@ export default function AdminPage() {
           <PlatformHealth metrics={healthMetrics} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <DataFreshnessSLATracker slaData={freshnessData} />
-            <DataQualityScorecard dimensions={qualityDimensions} />
+            <DataFreshnessSLATracker slaData={freshnessData} isLoading={loadingFreshness} onRefresh={fetchDataFreshness} />
+            <DataQualityScorecard />
           </div>
         </TabsContent>
 
         {/* Tab 2: Roles - Quick Role Switch & Role-Based Access Simulation */}
         <TabsContent value="roles" className="space-y-6">
           {/* Quick Role Switch */}
-          <Card className="border-2 border-primary/20">
+          <Card className={`border-2 ${isPreviewingRole ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : 'border-primary/20'}`}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Quick Role Switch
-              </CardTitle>
-              <CardDescription>
-                Instantly switch between roles to test different user experiences
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5" />
+                    Quick Role Switch
+                    {isPreviewingRole && previewedRole && (
+                      <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        Previewing: {ROLE_PERMISSIONS[previewedRole]?.label}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    Instantly switch between roles to test different user experiences
+                  </CardDescription>
+                </div>
+                {isPreviewingRole && (
+                  <Button
+                    onClick={handleExitRolePreview}
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Exit
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <TooltipProvider delayDuration={300}>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   {(Object.keys(ROLE_PERMISSIONS) as Role[]).map((role) => {
                     const Icon = getRoleIcon(role)
-                    const isActive = settings.role === role
+                    // Check both settings.role and previewedRole for active state
+                    const isActive = isPreviewingRole ? previewedRole === role : settings.role === role
                     return (
                       <Tooltip key={role}>
                         <TooltipTrigger asChild>
@@ -438,7 +634,7 @@ export default function AdminPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium mb-2 dark:text-gray-100">Role</label>
-                  <Select value={settings.role} onValueChange={(v) => handleRoleChange(v as Role)}>
+                  <Select value={isPreviewingRole && previewedRole ? previewedRole : settings.role} onValueChange={(v) => handleRoleChange(v as Role)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
@@ -456,7 +652,7 @@ export default function AdminPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    {ROLE_PERMISSIONS[settings.role].description}
+                    {ROLE_PERMISSIONS[isPreviewingRole && previewedRole ? previewedRole : settings.role].description}
                   </p>
                 </div>
 
@@ -468,7 +664,7 @@ export default function AdminPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {users
-                        .filter(u => u.role === settings.role)
+                        .filter(u => u.role === settings.role && u.id && u.id.trim() !== '')
                         .slice(0, 10)
                         .map(user => (
                           <SelectItem key={user.id} value={user.id}>
@@ -485,7 +681,9 @@ export default function AdminPage() {
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <div className="text-gray-500 dark:text-gray-400">Role</div>
-                    <div className="font-medium dark:text-gray-100">{ROLE_PERMISSIONS[settings.role].label}</div>
+                    <div className="font-medium dark:text-gray-100">
+                      {ROLE_PERMISSIONS[isPreviewingRole && previewedRole ? previewedRole : settings.role].label}
+                    </div>
                   </div>
                   <div>
                     <div className="text-gray-500 dark:text-gray-400">Markets</div>
@@ -500,28 +698,36 @@ export default function AdminPage() {
 
               <div>
                 <div className="text-sm font-medium mb-2 dark:text-gray-100">Permissions</div>
-                <div className="flex flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">View:</span>
-                    {ROLE_PERMISSIONS[settings.role].canView.map(v => (
-                      <Badge key={v} variant="outline" className="text-xs">{v.replace('_', ' ')}</Badge>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Edit:</span>
-                    {ROLE_PERMISSIONS[settings.role].canEdit.map(e => (
-                      <Badge key={e} variant="secondary" className="text-xs">{e.replace('_', ' ')}</Badge>
-                    ))}
-                  </div>
-                </div>
+                {(() => {
+                  const activeRole = isPreviewingRole && previewedRole ? previewedRole : settings.role
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">View:</span>
+                        {ROLE_PERMISSIONS[activeRole].canView.map(v => (
+                          <Badge key={v} variant="outline" className="text-xs">{v.replace('_', ' ')}</Badge>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Edit:</span>
+                        {ROLE_PERMISSIONS[activeRole].canEdit.map(e => (
+                          <Badge key={e} variant="secondary" className="text-xs">{e.replace('_', ' ')}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </CardContent>
           </Card>
+
+          {/* Role Sidebar Preview */}
+          <RolePreview />
         </TabsContent>
 
         {/* Tab 3: SLAs */}
         <TabsContent value="slas">
-          <DataFreshnessSLATracker slaData={freshnessData} />
+          <DataFreshnessSLATracker slaData={freshnessData} isLoading={loadingFreshness} onRefresh={fetchDataFreshness} />
         </TabsContent>
 
         {/* Tab 4: Adoption */}
@@ -531,7 +737,7 @@ export default function AdminPage() {
 
         {/* Tab 5: Quality */}
         <TabsContent value="quality">
-          <DataQualityScorecard dimensions={qualityDimensions} />
+          <DataQualityScorecard />
         </TabsContent>
 
         {/* Tab 6: Schema */}
@@ -541,7 +747,7 @@ export default function AdminPage() {
 
         {/* Tab 7: Anomalies */}
         <TabsContent value="anomalies">
-          <AnomalyDetection alerts={anomalyAlerts} />
+          <AnomalyDetection />
         </TabsContent>
 
         {/* Tab 8: Demo - Simulation Mode & Presenter Mode */}
@@ -789,6 +995,12 @@ export default function AdminPage() {
 
         {/* Tab 9: Data Sources */}
         <TabsContent value="datasources" className="space-y-6">
+          {/* BigQuery Data Source Toggle */}
+          <BigQueryDataSourceToggle />
+
+          {/* BigQuery Health Check */}
+          <BigQueryHealthCheck />
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -826,30 +1038,86 @@ export default function AdminPage() {
           {/* Data Summary */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Data Summary
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Data Summary
+                  {dataSummary && (
+                    <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                      Live from BigQuery
+                    </Badge>
+                  )}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={fetchDataSummary}
+                  disabled={loadingDataSummary}
+                  className="gap-2"
+                >
+                  {loadingDataSummary ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              {dataSummaryError && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  Using mock data - BigQuery: {dataSummaryError}
+                </p>
+              )}
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
-                  <div className="text-2xl font-bold dark:text-gray-100">{markets.length}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Markets</div>
+              {loadingDataSummary && !dataSummary ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
-                  <div className="text-2xl font-bold dark:text-gray-100">{users.length}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Users</div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                    <div className="text-2xl font-bold dark:text-gray-100">
+                      {dataSummary ? dataSummary.markets.toLocaleString() : markets.length}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Markets</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                    <div className="text-2xl font-bold dark:text-gray-100">
+                      {dataSummary ? dataSummary.regions.toLocaleString() : '-'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Regions</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                    <div className="text-2xl font-bold dark:text-gray-100">
+                      {dataSummary ? dataSummary.branches.toLocaleString() : '-'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Branches</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                    <div className="text-2xl font-bold dark:text-gray-100">
+                      {dataSummary ? dataSummary.users.toLocaleString() : users.length}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Users</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                    <div className="text-2xl font-bold dark:text-gray-100">
+                      {dataSummary ? dataSummary.accounts.toLocaleString() : '-'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Accounts</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                    <div className="text-2xl font-bold dark:text-gray-100">
+                      {dataSummary ? dataSummary.opportunities.toLocaleString() : '-'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Opportunities</div>
+                  </div>
                 </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
-                  <div className="text-2xl font-bold dark:text-gray-100">1,500</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Accounts</div>
+              )}
+              {dataSummary && (
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
+                  Last updated: {new Date(dataSummary.lastUpdated).toLocaleString()}
                 </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
-                  <div className="text-2xl font-bold dark:text-gray-100">2,500</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Opportunities</div>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

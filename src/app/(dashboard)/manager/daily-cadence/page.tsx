@@ -4,15 +4,7 @@ import { useState, useEffect } from 'react'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Table,
   TableBody,
@@ -21,51 +13,72 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Calendar,
-  Save,
   Users,
   Target,
   DollarSign,
   TrendingUp,
-  CheckCircle,
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
   Download,
+  RefreshCw,
 } from 'lucide-react'
-import {
-  initializeDailySalesData,
-  getDailyEntries,
-  getBranches,
-  getBranchesByRegion,
-  addDailyEntry,
-  getRegionSummary,
-  getBranchDashboardStats,
-  DEFAULT_DAILY_GOALS,
-} from '@/lib/daily-sales-data'
-import {
-  Branch,
-  RegionCode,
-  DailySalesMetrics,
-  DailySalesEntry,
-} from '@/types/daily-sales-cadence'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import { useOrganizationData } from '@/hooks/useOrganizationData'
+import type { BranchDaily } from '@/lib/bigquery/queries/branch'
 
-const REGIONS: { code: RegionCode; name: string }[] = [
-  { code: 'R16', name: 'Region 16 - Arkansas/Kansas' },
-  { code: 'R23', name: 'Region 23 - Oklahoma/Kansas' },
-  { code: 'R24', name: 'Region 24 - Illinois/Indiana' },
-  { code: 'R52', name: 'Region 52 - Texas East' },
-  { code: 'R54', name: 'Region 54 - Texas Central/West' },
-]
+// BigQuery display types
+interface BranchDailyMetrics {
+  branch_id: string
+  branch_name: string
+  leads: number
+  sales: number
+  close_rate: number
+}
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-  }).format(value)
+interface CadenceDisplayData {
+  branches: BranchDailyMetrics[]
+  totals: {
+    totalLeads: number
+    totalSales: number
+    avgCloseRate: number
+    branchCount: number
+  }
+}
+
+// Empty default data
+const EMPTY_CADENCE_DATA: CadenceDisplayData = {
+  branches: [],
+  totals: {
+    totalLeads: 0,
+    totalSales: 0,
+    avgCloseRate: 0,
+    branchCount: 0,
+  },
+}
+
+// Transform BigQuery data
+function transformBigQueryData(bqData: BranchDaily[]): CadenceDisplayData {
+  if (!bqData || bqData.length === 0) return EMPTY_CADENCE_DATA
+
+  const branches = bqData.map(row => ({
+    branch_id: row.branch_id,
+    branch_name: row.branch_name,
+    leads: row.leads,
+    sales: row.sales,
+    close_rate: row.close_rate,
+  }))
+
+  const totals = {
+    totalLeads: bqData.reduce((sum, b) => sum + b.leads, 0),
+    totalSales: bqData.reduce((sum, b) => sum + b.sales, 0),
+    avgCloseRate: bqData.reduce((sum, b) => sum + b.close_rate, 0) / bqData.length,
+    branchCount: bqData.length,
+  }
+
+  return { branches, totals }
 }
 
 function formatDate(date: Date): string {
@@ -93,122 +106,59 @@ function getWeekDates(weekOffset: number = 0): { start: Date; end: Date; dates: 
   return { start: monday, end: friday, dates }
 }
 
-interface DailyInput {
-  branchCode: string
-  date: string
-  pccInField: string
-  tapLeads: string
-  inspPrp: string
-  lobsPrp: string
-  lobsSold: string
-  dollarsSold: string
-  nextDayConf: string
-  pcNoTcConversions: boolean
-}
-
 export default function DailyCadencePage() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [selectedRegion, setSelectedRegion] = useState<RegionCode>('R16')
+  const [mounted, setMounted] = useState(false)
+  const [selectedRegion, setSelectedRegion] = useState<string>('')
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()))
   const [weekOffset, setWeekOffset] = useState(0)
-  const [showTapLeads, setShowTapLeads] = useState(true)
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [existingEntries, setExistingEntries] = useState<DailySalesEntry[]>([])
-  const [inputs, setInputs] = useState<Record<string, DailyInput>>({})
-  const [saving, setSaving] = useState<Record<string, boolean>>({})
+
+  // Get regions from BigQuery organization data
+  const { regions, isLoading: regionsLoading } = useOrganizationData()
+
+  // Calculate days back from selected date
+  const daysBackFromDate = Math.max(
+    1,
+    Math.floor((new Date().getTime() - new Date(selectedDate).getTime()) / (1000 * 60 * 60 * 24))
+  )
+
+  // BigQuery integration - fetch branch daily metrics
+  const {
+    data: cadenceData,
+    isLoading: isBQLoading,
+    dataSource,
+    responseTime,
+    refetch: refetchBQ,
+  } = useBigQueryData<BranchDaily[], CadenceDisplayData>({
+    queryName: 'branch-daily',
+    filters: {
+      region: selectedRegion,
+      daysBack: daysBackFromDate + 1, // +1 to ensure we get the selected date
+    },
+    defaultData: EMPTY_CADENCE_DATA,
+    transformBigQueryData,
+    includeOrgFilters: false, // We're manually setting region
+  })
 
   useEffect(() => {
-    initializeDailySalesData()
-    setIsLoading(false)
+    setMounted(true)
   }, [])
 
+  // Set initial region once data loads
   useEffect(() => {
-    const regionBranches = getBranchesByRegion(selectedRegion)
-    setBranches(regionBranches)
-
-    // Load existing entries for the selected date
-    const entries = getDailyEntries().filter(e => e.date === selectedDate)
-    setExistingEntries(entries)
-
-    // Initialize inputs from existing entries
-    const newInputs: Record<string, DailyInput> = {}
-    regionBranches.forEach(branch => {
-      const existing = entries.find(e => e.branchCode === branch.code)
-      newInputs[branch.code] = {
-        branchCode: branch.code,
-        date: selectedDate,
-        pccInField: existing?.metrics.pccInField?.toString() || '',
-        tapLeads: existing?.metrics.tapLeads?.toString() || '',
-        inspPrp: existing?.metrics.inspPrp?.toString() || '',
-        lobsPrp: existing?.metrics.lobsPrp?.toString() || '',
-        lobsSold: existing?.metrics.lobsSold?.toString() || '',
-        dollarsSold: existing?.metrics.dollarsSold?.toString() || '',
-        nextDayConf: existing?.metrics.nextDayConf?.toString() || '',
-        pcNoTcConversions: existing?.metrics.pcNoTcConversions || false,
-      }
-    })
-    setInputs(newInputs)
-  }, [selectedRegion, selectedDate])
-
-  const handleInputChange = (branchCode: string, field: keyof DailyInput, value: string | boolean) => {
-    setInputs(prev => ({
-      ...prev,
-      [branchCode]: {
-        ...prev[branchCode],
-        [field]: value,
-      }
-    }))
-  }
-
-  const handleSaveRow = async (branchCode: string) => {
-    const input = inputs[branchCode]
-    if (!input) return
-
-    setSaving(prev => ({ ...prev, [branchCode]: true }))
-
-    const branch = branches.find(b => b.code === branchCode)
-    const metrics: DailySalesMetrics = {
-      pccInField: parseInt(input.pccInField) || 0,
-      inspPrp: parseInt(input.inspPrp) || 0,
-      lobsPrp: parseInt(input.lobsPrp) || 0,
-      lobsSold: parseInt(input.lobsSold) || 0,
-      dollarsSold: parseFloat(input.dollarsSold) || 0,
-      nextDayConf: parseInt(input.nextDayConf) || 0,
-      pcNoTcConversions: input.pcNoTcConversions,
+    if (regions.length > 0 && !selectedRegion) {
+      setSelectedRegion(regions[0].region_code)
     }
-
-    if (showTapLeads) {
-      metrics.tapLeads = parseInt(input.tapLeads) || 0
-    }
-
-    addDailyEntry(branchCode, selectedDate, metrics, branch?.branchManager || 'Unknown')
-
-    // Refresh entries
-    setExistingEntries([...getDailyEntries().filter(e => e.date === selectedDate)])
-
-    setTimeout(() => {
-      setSaving(prev => ({ ...prev, [branchCode]: false }))
-    }, 500)
-  }
+  }, [regions, selectedRegion])
 
   const handleExportCSV = () => {
-    const headers = ['Branch Code', 'Branch Name', 'Manager', '# PCCs', showTapLeads ? 'TAP Leads' : '', 'INSP PRP', 'LOBs PRP', 'LOBs Sold', 'Dollars Sold', 'Next Day Conf', 'PC/TC Conv'].filter(Boolean)
-    const rows = branches.map(branch => {
-      const input = inputs[branch.code]
-      return [
-        branch.code,
-        branch.name,
-        branch.branchManager,
-        input?.pccInField || '0',
-        showTapLeads ? (input?.tapLeads || '0') : '',
-        input?.inspPrp || '0',
-        input?.lobsPrp || '0',
-        input?.lobsSold || '0',
-        input?.dollarsSold || '0',
-        input?.nextDayConf || '0',
-        input?.pcNoTcConversions ? 'Yes' : 'No',
-      ].filter((_, i) => showTapLeads || i !== 4)
-    })
+    const headers = ['Branch Code', 'Branch Name', 'Leads', 'Sales', 'Close Rate %']
+    const rows = cadenceData.branches.map(branch => [
+      branch.branch_id,
+      branch.branch_name,
+      branch.leads.toString(),
+      branch.sales.toString(),
+      branch.close_rate.toFixed(1),
+    ])
 
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -220,27 +170,16 @@ export default function DailyCadencePage() {
     URL.revokeObjectURL(url)
   }
 
-  if (isLoading) {
+  if (!mounted || regionsLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-8 w-48 bg-gray-200 animate-pulse rounded" />
-        <div className="h-64 bg-gray-200 animate-pulse rounded-lg" />
+        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
+        <div className="h-64 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
       </div>
     )
   }
 
-  const regionSummary = getRegionSummary(selectedRegion, selectedDate)
   const week = getWeekDates(weekOffset)
-
-  // Calculate goal attainment for display
-  const getGoalStatus = (actual: number, pccCount: number, goalPerPcc: number) => {
-    if (pccCount === 0) return 'neutral'
-    const target = pccCount * goalPerPcc
-    const percentage = (actual / target) * 100
-    if (percentage >= 100) return 'success'
-    if (percentage >= 80) return 'warning'
-    return 'danger'
-  }
 
   return (
     <div className="space-y-6">
@@ -253,21 +192,27 @@ export default function DailyCadencePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Daily Sales Cadence</h1>
-          <p className="text-gray-500 dark:text-gray-400">Branch Manager daily metrics entry</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Daily Branch Performance</h1>
+          <p className="text-gray-500 dark:text-gray-400">Branch-level daily metrics and performance tracking</p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as RegionCode)}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Select Region" />
-            </SelectTrigger>
-            <SelectContent>
-              {REGIONS.map((r) => (
-                <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={handleExportCSV}>
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetchBQ} disabled={isBQLoading}>
+            <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <SearchableSelect
+            options={regions.map(r => ({
+              value: r.region_code,
+              label: r.region_name,
+              description: `${r.branch_count} branches`
+            }))}
+            value={selectedRegion}
+            onValueChange={setSelectedRegion}
+            placeholder="Select Region"
+            searchPlaceholder="Search regions..."
+            className="w-64"
+          />
+          <Button variant="outline" onClick={handleExportCSV} disabled={cadenceData.branches.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -299,7 +244,6 @@ export default function DailyCadencePage() {
                 const dateStr = formatDate(date)
                 const isSelected = dateStr === selectedDate
                 const isToday = dateStr === formatDate(new Date())
-                const hasData = existingEntries.some(e => e.date === dateStr)
 
                 return (
                   <Button
@@ -307,108 +251,61 @@ export default function DailyCadencePage() {
                     variant={isSelected ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedDate(dateStr)}
-                    className={`min-w-[80px] ${isToday ? 'ring-2 ring-blue-500' : ''}`}
+                    className={`min-w-[80px] ${isToday ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}`}
                   >
                     <div className="flex flex-col items-center">
                       <span className="text-xs">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
                       <span>{date.getDate()}</span>
-                      {hasData && <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-0.5" />}
                     </div>
                   </Button>
                 )
               })}
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={showTapLeads}
-                  onCheckedChange={(checked) => setShowTapLeads(!!checked)}
-                />
-                Show TAP Leads
-              </label>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Region Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-blue-500" />
-              <span className="text-sm text-gray-500">Total PCCs</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Branches</span>
             </div>
-            <p className="text-2xl font-bold mt-1">{regionSummary.totalPccInField}</p>
+            <p className="text-2xl font-bold mt-1">{cadenceData.totals.branchCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-green-500" />
-              <span className="text-sm text-gray-500">INSP/PRP</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Total Leads</span>
             </div>
-            <p className="text-2xl font-bold mt-1">{regionSummary.totalInspPrp}</p>
-            <p className="text-xs text-gray-400">Goal: {(regionSummary.totalPccInField * DEFAULT_DAILY_GOALS.inspPrpPerPcc).toFixed(0)}</p>
+            <p className="text-2xl font-bold mt-1">{cadenceData.totals.totalLeads.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-purple-500" />
-              <span className="text-sm text-gray-500">LOBs Sold</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Total Sales</span>
             </div>
-            <p className="text-2xl font-bold mt-1">{regionSummary.totalLobsSold}</p>
-            <p className="text-xs text-gray-400">Goal: {(regionSummary.totalPccInField * DEFAULT_DAILY_GOALS.lobsSoldPerPcc).toFixed(0)}</p>
+            <p className="text-2xl font-bold mt-1">{cadenceData.totals.totalSales.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-green-600" />
-              <span className="text-sm text-gray-500">Dollars Sold</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Avg Close Rate</span>
             </div>
-            <p className="text-2xl font-bold mt-1">{formatCurrency(regionSummary.totalDollarsSold)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-sm text-gray-500">Goal Attainment</span>
-            </div>
-            <p className="text-2xl font-bold mt-1">{regionSummary.avgGoalAttainment.toFixed(0)}%</p>
-            <p className="text-xs text-gray-400">
-              {regionSummary.branchesOnTrack} on track, {regionSummary.branchesOffTrack} off track
-            </p>
+            <p className="text-2xl font-bold mt-1">{cadenceData.totals.avgCloseRate.toFixed(1)}%</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Goals Reference */}
-      <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-        <CardContent className="pt-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium text-blue-900 dark:text-blue-100">Daily Goals per PCC</h3>
-            <div className="flex gap-6 text-sm">
-              <span className="text-blue-700 dark:text-blue-300">
-                <strong>INSP/PRP:</strong> {DEFAULT_DAILY_GOALS.inspPrpPerPcc}
-              </span>
-              <span className="text-blue-700 dark:text-blue-300">
-                <strong>LOBs PRP:</strong> {DEFAULT_DAILY_GOALS.lobsPrpPerPcc}
-              </span>
-              <span className="text-blue-700 dark:text-blue-300">
-                <strong>LOBs Sold:</strong> {DEFAULT_DAILY_GOALS.lobsSoldPerPcc}
-              </span>
-              <span className="text-blue-700 dark:text-blue-300">
-                <strong>Next Day Conf:</strong> {DEFAULT_DAILY_GOALS.nextDayConfPerPcc}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Input Table */}
+      {/* Data Table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -417,152 +314,55 @@ export default function DailyCadencePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-800">
-                  <TableHead className="w-[80px]">Code</TableHead>
-                  <TableHead className="min-w-[150px]">Branch</TableHead>
-                  <TableHead className="min-w-[140px]">Manager</TableHead>
-                  <TableHead className="w-[80px] text-center"># PCCs</TableHead>
-                  {showTapLeads && <TableHead className="w-[80px] text-center">TAP Leads</TableHead>}
-                  <TableHead className="w-[90px] text-center">INSP PRP</TableHead>
-                  <TableHead className="w-[90px] text-center">LOBs PRP</TableHead>
-                  <TableHead className="w-[90px] text-center">LOBs Sold</TableHead>
-                  <TableHead className="w-[100px] text-center">Dollars SLD</TableHead>
-                  <TableHead className="w-[90px] text-center">Next Day</TableHead>
-                  <TableHead className="w-[70px] text-center">PC/TC</TableHead>
-                  <TableHead className="w-[70px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {branches.map((branch) => {
-                  const input = inputs[branch.code]
-                  const pccCount = parseInt(input?.pccInField || '0')
-                  const hasEntry = existingEntries.some(e => e.branchCode === branch.code)
+          {isBQLoading ? (
+            <div className="p-8 flex items-center justify-center">
+              <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : cadenceData.branches.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+              No data available for the selected date and region.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 dark:bg-gray-800">
+                    <TableHead className="w-[80px]">Code</TableHead>
+                    <TableHead className="min-w-[200px]">Branch Name</TableHead>
+                    <TableHead className="w-[100px] text-right">Leads</TableHead>
+                    <TableHead className="w-[100px] text-right">Sales</TableHead>
+                    <TableHead className="w-[120px] text-right">Close Rate</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cadenceData.branches.map((branch) => {
+                    const closeRateColor =
+                      branch.close_rate >= 30 ? 'text-green-600 dark:text-green-400' :
+                      branch.close_rate >= 20 ? 'text-yellow-600 dark:text-yellow-400' :
+                      'text-red-600 dark:text-red-400'
 
-                  return (
-                    <TableRow key={branch.code} className={hasEntry ? 'bg-green-50/50 dark:bg-green-950/20' : ''}>
-                      <TableCell className="font-mono text-sm">{branch.code}</TableCell>
-                      <TableCell>
-                        <p className="font-medium truncate max-w-[140px]">{branch.name}</p>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500">{branch.branchManager}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          className="h-8 w-16 text-center"
-                          value={input?.pccInField || ''}
-                          onChange={(e) => handleInputChange(branch.code, 'pccInField', e.target.value)}
-                          placeholder="0"
-                        />
-                      </TableCell>
-                      {showTapLeads && (
+                    return (
+                      <TableRow key={branch.branch_id}>
+                        <TableCell className="font-mono text-sm">{branch.branch_id}</TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            className="h-8 w-16 text-center"
-                            value={input?.tapLeads || ''}
-                            onChange={(e) => handleInputChange(branch.code, 'tapLeads', e.target.value)}
-                            placeholder="0"
-                          />
+                          <p className="font-medium">{branch.branch_name}</p>
                         </TableCell>
-                      )}
-                      <TableCell>
-                        <div className="flex flex-col items-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            className={`h-8 w-16 text-center ${getGoalStatus(parseInt(input?.inspPrp || '0'), pccCount, DEFAULT_DAILY_GOALS.inspPrpPerPcc) === 'success' ? 'border-green-500' : getGoalStatus(parseInt(input?.inspPrp || '0'), pccCount, DEFAULT_DAILY_GOALS.inspPrpPerPcc) === 'warning' ? 'border-yellow-500' : ''}`}
-                            value={input?.inspPrp || ''}
-                            onChange={(e) => handleInputChange(branch.code, 'inspPrp', e.target.value)}
-                            placeholder="0"
-                          />
-                          {pccCount > 0 && (
-                            <span className="text-xs text-gray-400 mt-0.5">/{(pccCount * DEFAULT_DAILY_GOALS.inspPrpPerPcc).toFixed(0)}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col items-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            className="h-8 w-16 text-center"
-                            value={input?.lobsPrp || ''}
-                            onChange={(e) => handleInputChange(branch.code, 'lobsPrp', e.target.value)}
-                            placeholder="0"
-                          />
-                          {pccCount > 0 && (
-                            <span className="text-xs text-gray-400 mt-0.5">/{(pccCount * DEFAULT_DAILY_GOALS.lobsPrpPerPcc).toFixed(0)}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col items-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            className={`h-8 w-16 text-center ${getGoalStatus(parseInt(input?.lobsSold || '0'), pccCount, DEFAULT_DAILY_GOALS.lobsSoldPerPcc) === 'success' ? 'border-green-500' : ''}`}
-                            value={input?.lobsSold || ''}
-                            onChange={(e) => handleInputChange(branch.code, 'lobsSold', e.target.value)}
-                            placeholder="0"
-                          />
-                          {pccCount > 0 && (
-                            <span className="text-xs text-gray-400 mt-0.5">/{(pccCount * DEFAULT_DAILY_GOALS.lobsSoldPerPcc).toFixed(0)}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="h-8 w-20 text-center"
-                          value={input?.dollarsSold || ''}
-                          onChange={(e) => handleInputChange(branch.code, 'dollarsSold', e.target.value)}
-                          placeholder="0"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          className="h-8 w-16 text-center"
-                          value={input?.nextDayConf || ''}
-                          onChange={(e) => handleInputChange(branch.code, 'nextDayConf', e.target.value)}
-                          placeholder="0"
-                        />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Checkbox
-                          checked={input?.pcNoTcConversions || false}
-                          onCheckedChange={(checked) => handleInputChange(branch.code, 'pcNoTcConversions', !!checked)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleSaveRow(branch.code)}
-                          disabled={saving[branch.code]}
-                          className="h-8 w-8 p-0"
-                        >
-                          {saving[branch.code] ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Save className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                        <TableCell className="text-right font-medium">
+                          {branch.leads.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {branch.sales.toLocaleString()}
+                        </TableCell>
+                        <TableCell className={`text-right font-bold ${closeRateColor}`}>
+                          {branch.close_rate.toFixed(1)}%
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -572,20 +372,20 @@ export default function DailyCadencePage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap gap-6 text-sm">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-100 dark:bg-green-950 border-2 border-green-400 dark:border-green-700 rounded" />
-                <span>Entry saved</span>
+                <div className="w-3 h-3 bg-green-600 dark:bg-green-400 rounded" />
+                <span>Close rate &ge; 30%</span>
               </div>
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-yellow-500" />
-                <span>Below 80% goal</span>
+                <div className="w-3 h-3 bg-yellow-600 dark:bg-yellow-400 rounded" />
+                <span>Close rate 20-30%</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <span>At or above goal</span>
+                <div className="w-3 h-3 bg-red-600 dark:bg-red-400 rounded" />
+                <span>Close rate &lt; 20%</span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Click Save icon to save individual rows | Goals shown below each input
+              Data refreshes automatically from BigQuery | Close rate = Sales / Leads
             </p>
           </div>
         </CardContent>

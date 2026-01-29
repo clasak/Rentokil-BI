@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
-  AppSettings, GlobalFilters, DemoMode, Role, Scenario, User
+  AppSettings, GlobalFilters, DemoMode, Role, Scenario, User, OrganizationFilters
 } from '@/types'
 import { getUsers, getMarkets, regenerateData, setDataQualityIssues } from '@/lib/data'
 
@@ -28,7 +28,10 @@ interface AppState {
   setAdminModeEnabled: (enabled: boolean) => void
   isPreviewingRole: boolean
   previewedRole: Role | null
+  previewedEmployee: User | null  // The employee whose data we're viewing in preview mode
   setPreviewingRole: (role: Role | null) => void
+  setPreviewingRoleWithOrg: (role: Role, orgData: { market?: string; region?: string; branch?: string }) => void
+  setPreviewedEmployee: (employee: User | null) => void
   exitRolePreview: () => void
 
   // Filters
@@ -85,12 +88,20 @@ interface AppState {
 
   // Current user context
   currentUser: User | null
+  setCurrentUser: (user: User | null) => void
   getCurrentUserScope: () => { markets: string[]; branches: string[]; scope: string }
+
+  // Organization Hierarchy Filters (cascade: Market -> Region -> Branch)
+  organizationFilters: OrganizationFilters
+  setOrganizationMarket: (marketCode: string | null) => void
+  setOrganizationRegion: (regionCode: string | null) => void
+  setOrganizationBranch: (branchCode: string | null) => void
+  clearOrganizationFilters: () => void
 }
 
 const defaultFilters: GlobalFilters = {
   dateRange: {
-    start: new Date(new Date().setDate(new Date().getDate() - 30)),
+    start: new Date(new Date().setDate(new Date().getDate() - 90)), // Extended from 30 to 90 days for better data coverage
     end: new Date(),
   },
   marketIds: [],
@@ -106,6 +117,12 @@ const defaultSettings: AppSettings = {
   scenario: 'base',
   dataQualityIssuesEnabled: false,
   refreshSeed: 12345,
+}
+
+const defaultOrganizationFilters: OrganizationFilters = {
+  selectedMarket: null,
+  selectedRegion: null,
+  selectedBranch: null,
 }
 
 // Presenter Mode Configuration with full scripts
@@ -196,6 +213,80 @@ export const PRESENTER_MODE_CONFIG: Record<DemoMode, {
   }
 }
 
+/**
+ * Create a synthetic preview user for role simulation.
+ * Uses real BigQuery org codes (not mock IDs) for proper data filtering.
+ * These are sample codes from actual BigQuery data in S2.VwUnf_Branch
+ */
+function createPreviewUserForRole(role: Role): User {
+  // Sample real BigQuery org codes - these match actual data in the database
+  // Markets: ATL (Atlantic), FL (Florida), MW (Midwest), NE (Northeast), SE (Southeast), SW (Southwest), WC (West Coast)
+  const SAMPLE_MARKET = 'NE'  // Northeast market
+  const SAMPLE_REGION = 'R16' // Northeast Region 16
+  const SAMPLE_BRANCH = 'S022' // Sample branch in NE/R16
+
+  const baseUser: User = {
+    id: `preview-${role}`,
+    name: `Preview ${ROLE_PERMISSIONS[role]?.label || role}`,
+    email: `preview-${role}@rentokil-bi.demo`,
+    role: role,
+    title: ROLE_PERMISSIONS[role]?.label || role,
+    assignedMarkets: [],
+    assignedRegions: [],
+    assignedBranches: [],
+    assignedTeams: [],
+    assignedReps: [],
+    assignedTechnicians: [],
+  }
+
+  // Assign org scope based on role level
+  switch (role) {
+    case 'exec':
+      // Exec sees all - no org restrictions
+      break
+
+    case 'market_vp':
+    case 'market_sales_director':
+      // Market-level roles see their assigned market
+      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      break
+
+    case 'region_director':
+    case 'region_sales_manager':
+      // Region-level roles see their assigned region(s)
+      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      baseUser.assignedRegions = [SAMPLE_REGION]
+      break
+
+    case 'manager':
+    case 'sales_manager':
+    case 'ops_manager':
+      // Branch-level management roles
+      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      baseUser.assignedRegions = [SAMPLE_REGION]
+      baseUser.assignedBranches = [SAMPLE_BRANCH]
+      break
+
+    case 'rep':
+      // Account Executives - individual contributor
+      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      baseUser.assignedRegions = [SAMPLE_REGION]
+      baseUser.assignedBranches = [SAMPLE_BRANCH]
+      baseUser.name = 'John Smith' // Sample AE name for salesPerson filter
+      break
+
+    case 'technician':
+      // Technicians - individual contributor
+      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      baseUser.assignedRegions = [SAMPLE_REGION]
+      baseUser.assignedBranches = [SAMPLE_BRANCH]
+      baseUser.id = 'TECH-001' // Sample tech ID for route filter
+      break
+  }
+
+  return baseUser
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -269,14 +360,55 @@ export const useAppStore = create<AppState>()(
       setAdminModeEnabled: (enabled: boolean) => set({ adminModeEnabled: enabled }),
       isPreviewingRole: false,
       previewedRole: null,
+      previewedEmployee: null,
       setPreviewingRole: (role: Role | null) => {
         if (role) {
-          set({ isPreviewingRole: true, previewedRole: role })
+          // Create a synthetic preview user with role-appropriate org assignments
+          // Use real BigQuery org codes (not mock IDs) for proper filtering
+          const previewUser = createPreviewUserForRole(role)
+          set({
+            isPreviewingRole: true,
+            previewedRole: role,
+            previewedEmployee: previewUser,
+          })
         } else {
-          set({ isPreviewingRole: false, previewedRole: null })
+          set({ isPreviewingRole: false, previewedRole: null, previewedEmployee: null })
         }
       },
-      exitRolePreview: () => set({ isPreviewingRole: false, previewedRole: null }),
+      setPreviewingRoleWithOrg: (role: Role, orgData: { market?: string; region?: string; branch?: string }) => {
+        // Create a preview user with specific org assignments (from real BigQuery data)
+        const previewUser = createPreviewUserForRole(role)
+
+        // Override with provided org data if available
+        if (orgData.market) {
+          previewUser.assignedMarkets = [orgData.market]
+        }
+        if (orgData.region) {
+          previewUser.assignedRegions = [orgData.region]
+        }
+        if (orgData.branch) {
+          previewUser.assignedBranches = [orgData.branch]
+        }
+
+        set({
+          isPreviewingRole: true,
+          previewedRole: role,
+          previewedEmployee: previewUser,
+        })
+      },
+      setPreviewedEmployee: (employee: User | null) => {
+        if (employee) {
+          // When setting a previewed employee, also set their role as the previewed role
+          set({
+            previewedEmployee: employee,
+            previewedRole: employee.role,
+            isPreviewingRole: true,
+          })
+        } else {
+          set({ previewedEmployee: null })
+        }
+      },
+      exitRolePreview: () => set({ isPreviewingRole: false, previewedRole: null, previewedEmployee: null }),
 
       // Filters
       filters: defaultFilters,
@@ -375,13 +507,19 @@ export const useAppStore = create<AppState>()(
 
       // Current user
       currentUser: null,
+      setCurrentUser: (user: User | null) => set({ currentUser: user }),
 
       getCurrentUserScope: () => {
         const state = get()
-        const { role, userId } = state.settings
+        const { role: settingsRole, userId } = state.settings
         const markets = getMarkets()
 
-        if (role === 'exec') {
+        // Use previewed role/employee if in preview mode, otherwise use settings
+        const isPreview = state.isPreviewingRole && state.previewedEmployee
+        const effectiveRole = isPreview ? state.previewedRole || settingsRole : settingsRole
+        const effectiveUser = isPreview ? state.previewedEmployee : state.currentUser
+
+        if (effectiveRole === 'exec') {
           return {
             markets: markets.map(m => m.id),
             branches: [],
@@ -389,11 +527,11 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        // Try currentUser first, then look up by userId, then by role
-        let user = state.currentUser
+        // Use effectiveUser (which may be previewedEmployee in preview mode)
+        let user = effectiveUser
         if (!user) {
           const users = getUsers()
-          user = users.find(u => u.id === userId) ?? users.find(u => u.role === role) ?? null
+          user = users.find(u => u.id === userId) ?? users.find(u => u.role === effectiveRole) ?? null
         }
 
         if (!user) {
@@ -409,16 +547,24 @@ export const useAppStore = create<AppState>()(
             rep: 'My Accounts',
             technician: 'My Routes',
           }
-          return { markets: [], branches: [], scope: roleLabels[role] || 'My View' }
+          return { markets: [], branches: [], scope: roleLabels[effectiveRole] || 'My View' }
         }
 
+        // For preview users, return the assigned org codes directly (these are real BigQuery codes)
+        // For regular users, try to match with mock market data
+        const userMarkets = user.assignedMarkets || []
+
+        // Try to find market names (works for both mock IDs and real codes)
         const marketNames = markets
-          .filter(m => user.assignedMarkets.includes(m.id))
+          .filter(m => userMarkets.includes(m.id) || userMarkets.includes(m.name))
           .map(m => m.name)
 
-        // Determine scope label based on role
+        // If no market names found, use the raw market codes as display (for preview users with real codes)
+        const displayMarkets = marketNames.length > 0 ? marketNames : userMarkets
+
+        // Determine scope label based on effective role
         let scopeLabel: string
-        switch (role) {
+        switch (effectiveRole) {
           case 'rep':
             scopeLabel = 'My Accounts'
             break
@@ -441,13 +587,13 @@ export const useAppStore = create<AppState>()(
             scopeLabel = `Sales: ${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
             break
           case 'market_sales_director':
-            scopeLabel = `Sales: ${marketNames.join(', ')}`
+            scopeLabel = `Sales: ${displayMarkets.join(', ') || 'Market'}`
             break
           case 'market_vp':
-            scopeLabel = marketNames.join(', ')
+            scopeLabel = displayMarkets.join(', ') || 'Market'
             break
           default:
-            scopeLabel = marketNames.join(', ')
+            scopeLabel = displayMarkets.join(', ') || 'My View'
         }
 
         return {
@@ -455,6 +601,44 @@ export const useAppStore = create<AppState>()(
           branches: user.assignedBranches,
           scope: scopeLabel,
         }
+      },
+
+      // Organization Hierarchy Filters
+      organizationFilters: defaultOrganizationFilters,
+
+      setOrganizationMarket: (marketCode: string | null) => {
+        set({
+          organizationFilters: {
+            selectedMarket: marketCode,
+            selectedRegion: null,    // Clear downstream selections
+            selectedBranch: null,
+          }
+        })
+      },
+
+      setOrganizationRegion: (regionCode: string | null) => {
+        set((state) => ({
+          organizationFilters: {
+            ...state.organizationFilters,
+            selectedRegion: regionCode,
+            selectedBranch: null,    // Clear downstream selection
+          }
+        }))
+      },
+
+      setOrganizationBranch: (branchCode: string | null) => {
+        set((state) => ({
+          organizationFilters: {
+            ...state.organizationFilters,
+            selectedBranch: branchCode,
+          }
+        }))
+      },
+
+      clearOrganizationFilters: () => {
+        set({
+          organizationFilters: defaultOrganizationFilters,
+        })
       },
     }),
     {
@@ -467,6 +651,7 @@ export const useAppStore = create<AppState>()(
         adminModeEnabled: state.adminModeEnabled,
         testModeEnabled: state.testModeEnabled,
         testScenario: state.testScenario,
+        organizationFilters: state.organizationFilters,
       }),
       // Migrate persisted state to fix invalid roles
       onRehydrateStorage: () => (state) => {

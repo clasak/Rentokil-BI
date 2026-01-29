@@ -19,7 +19,7 @@ import Link from 'next/link'
 import { addSale, initializeAEData, getAEData, markProposalSold } from '@/lib/sales-tracker-data'
 import { LeadType, ServiceType, JobType, Proposal } from '@/types/sales-tracker'
 
-const LEAD_TYPES: LeadType[] = ['Inbound', 'Outbound', 'Referral', 'Self-Gen', 'Canvass']
+const LEAD_TYPES: LeadType[] = ['Inbound', 'TAP', 'Creative']
 const SERVICE_TYPES: ServiceType[] = ['Pest Control', 'Termite', 'Wildlife', 'Mosquito', 'Bed Bug', 'Commercial']
 const JOB_TYPES: JobType[] = ['One-Time', 'Contract', 'Recurring']
 

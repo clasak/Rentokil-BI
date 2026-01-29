@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clearing Dev Mode Cache...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .container {
+      text-align: center;
+      padding: 3rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 1rem;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    h1 {
+      margin: 0 0 1rem 0;
+      font-size: 2rem;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      margin: 2rem auto;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status {
+      font-size: 1.1rem;
+      margin: 1rem 0;
+      opacity: 0.9;
+    }
+    .success {
+      color: #4ade80;
+      font-weight: bold;
+    }
+    ul {
+      text-align: left;
+      display: inline-block;
+      margin: 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    li {
+      padding: 0.5rem 0;
+      opacity: 0.8;
+    }
+    li::before {
+      content: "✓ ";
+      color: #4ade80;
+      font-weight: bold;
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧹 Clearing Dev Mode Cache</h1>
+    <div class="spinner"></div>
+    <div class="status" id="status">Cleaning up old preview data...</div>
+    <ul id="log" style="display: none;">
+      <li>Cleared rentokil-bi-store</li>
+      <li>Removed admin preview state</li>
+      <li>Reset to dev mode settings</li>
+    </ul>
+    <div id="redirect" style="display: none; margin-top: 2rem; opacity: 0.8;">
+      Redirecting to dashboard in <span id="countdown">3</span>...
+    </div>
+  </div>
+
+  <script>
+    (async function() {
+      const statusEl = document.getElementById('status');
+      const logEl = document.getElementById('log');
+      const redirectEl = document.getElementById('redirect');
+      const countdownEl = document.getElementById('countdown');
+
+      // Wait a moment for effect
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Clear the persisted Zustand store (removes admin preview state)
+      localStorage.removeItem('rentokil-bi-store');
+
+      // Also clear any other potential cache
+      sessionStorage.clear();
+
+      // Show success
+      statusEl.innerHTML = '<span class="success">✓ Cache Cleared Successfully!</span>';
+      logEl.style.display = 'block';
+      redirectEl.style.display = 'block';
+
+      // Countdown redirect
+      let count = 3;
+      const interval = setInterval(() => {
+        count--;
+        countdownEl.textContent = count;
+        if (count <= 0) {
+          clearInterval(interval);
+          // Redirect to dashboard
+          window.location.href = 'http://localhost:3000';
+        }
+      }, 1000);
+    })();
+  </script>
+</body>
+</html>

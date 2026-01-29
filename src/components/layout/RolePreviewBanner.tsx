@@ -27,23 +27,33 @@ export function RolePreviewBanner() {
 
   return (
     <div className={cn(
-      'sticky top-0 z-30 w-full bg-blue-600 dark:bg-blue-800 text-white',
-      'flex items-center justify-between px-4 py-2 shadow-md'
+      'sticky top-0 z-30 w-full',
+      'bg-gradient-to-r from-blue-600 via-blue-700 to-blue-600 dark:from-blue-800 dark:via-blue-900 dark:to-blue-800',
+      'text-white border-b-2 border-blue-400 dark:border-blue-600',
+      'flex items-center justify-between px-4 py-3 shadow-lg',
+      'animate-in slide-in-from-top duration-300'
     )}>
-      <div className="flex items-center gap-2">
-        <Eye className="h-4 w-4" />
-        <span className="text-sm font-medium">
-          Previewing: <span className="font-bold">{roleLabel}</span>
-        </span>
-        <span className="text-xs text-blue-200 dark:text-blue-300 hidden sm:inline">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center w-8 h-8 bg-white/20 rounded-full animate-pulse">
+          <Eye className="h-4 w-4" />
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+          <span className="text-sm font-semibold">
+            Previewing Role:
+          </span>
+          <span className="text-base font-bold bg-white/20 px-2 py-0.5 rounded">
+            {roleLabel}
+          </span>
+        </div>
+        <span className="text-xs text-blue-100 dark:text-blue-200 hidden md:inline ml-2">
           You are viewing the dashboard as this role would see it
         </span>
       </div>
       <Button
-        variant="ghost"
+        variant="secondary"
         size="sm"
         onClick={exitRolePreview}
-        className="text-white hover:bg-blue-700 dark:hover:bg-blue-900 gap-1"
+        className="bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900 gap-2 font-semibold shadow-md hover:shadow-lg transition-all"
       >
         <ArrowLeft className="h-4 w-4" />
         <span className="hidden sm:inline">Exit Preview</span>

@@ -4,7 +4,7 @@ import {
   Activity, ServiceEvent, Complaint, Invoice, TechnicianCapacity,
   KPIValue, DataSource, DataQualityMetric, ReconciliationItem,
   ActionItem, VarianceDriver, ForecastPoint, ForecastAssumption,
-  BacktestResult, Role
+  BacktestResult, Role, OrganizationFilters
 } from '@/types'
 import { KPI_DICTIONARY, getKPIBySlug } from './kpis'
 
@@ -1041,6 +1041,84 @@ export function filterByRole(
         return true
     }
   })
+}
+
+/**
+ * Filter data by organization hierarchy (market -> region -> branch)
+ * This applies user-selected filters from the global organization filter UI.
+ *
+ * @param data - Array of items with marketId, regionId, and/or branchId properties
+ * @param filters - Organization filters from the global store
+ * @returns Filtered array
+ */
+export function filterByOrganizationHierarchy<T extends { marketId?: string; regionId?: string; branchId?: string }>(
+  data: T[],
+  filters: OrganizationFilters
+): T[] {
+  const { selectedMarket, selectedRegion, selectedBranch } = filters
+
+  // If no filters are set, return all data
+  if (!selectedMarket && !selectedRegion && !selectedBranch) {
+    return data
+  }
+
+  return data.filter(item => {
+    // Market filter - match market code to item's marketId
+    if (selectedMarket) {
+      // The item might have a marketId like "MKT-001" or market code like "ATL"
+      // We need to handle both cases
+      if (item.marketId) {
+        // Check if marketId contains the market code or matches it directly
+        const itemMarketCode = item.marketId.includes('-')
+          ? getMarketCodeById(item.marketId)
+          : item.marketId
+        if (itemMarketCode !== selectedMarket && item.marketId !== selectedMarket) {
+          return false
+        }
+      }
+    }
+
+    // Region filter
+    if (selectedRegion) {
+      if (item.regionId) {
+        // Region ID might be like "REG-R16" or region code like "ATL-01"
+        const itemRegionCode = item.regionId.replace('REG-', '')
+        if (itemRegionCode !== selectedRegion && item.regionId !== selectedRegion) {
+          return false
+        }
+      }
+    }
+
+    // Branch filter
+    if (selectedBranch) {
+      if (item.branchId) {
+        // Branch ID might be like "BR-0001" or branch code like "ATL001"
+        const itemBranchCode = item.branchId.replace('BR-', '')
+        if (itemBranchCode !== selectedBranch && item.branchId !== selectedBranch) {
+          return false
+        }
+      }
+    }
+
+    return true
+  })
+}
+
+/**
+ * Helper to get market code from market ID
+ * Maps MKT-001 -> corresponding market code (e.g., ATL, MID)
+ */
+function getMarketCodeById(marketId: string): string | undefined {
+  // Map of mock market IDs to BigQuery market codes
+  const marketIdToCode: Record<string, string> = {
+    'MKT-001': 'NE',   // Northeast
+    'MKT-002': 'ATL',  // Southeast -> Atlantic
+    'MKT-003': 'MID',  // Midwest
+    'MKT-004': 'SW',   // Southwest
+    'MKT-005': 'PAC',  // West Coast -> Pacific
+    'MKT-006': 'ATL',  // Mid-Atlantic -> Atlantic
+  }
+  return marketIdToCode[marketId]
 }
 
 // Export KPI calculation functions - these will be in a separate file

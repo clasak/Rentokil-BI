@@ -204,7 +204,7 @@ function generateDataQualityIssues(): DataQualityIssue[] {
       fieldName: 'invoice_status',
       displayName: 'Invoice Status',
       severity: 'warning',
-      source: 'sap',
+      source: 'jde',
       description: 'Paid invoices missing payment date',
       affectedRecords: 5,
       totalRecords: 6200,
@@ -320,7 +320,7 @@ function generateReconciliationResults(): ReconciliationResult[] {
       discrepancies: []
     },
     {
-      sourceA: 'sap',
+      sourceA: 'jde',
       sourceB: 'rtx_data_hub',
       entityType: 'invoice',
       fieldName: 'amount',
@@ -410,7 +410,7 @@ function generateDataSourceHealth(): DataSourceHealth[] {
       errorRate: 0.03
     },
     {
-      source: 'sap',
+      source: 'jde',
       name: 'SAP Financials',
       status: 'healthy',
       lastSync: '2025-01-08T13:00:00Z',
@@ -492,10 +492,16 @@ function calculateDataQualityScore(): DataQualityScore {
     rtx_data_hub: 96.5,
     salesforce: 94.2,
     pestpac: 97.8,
-    sap: 98.1,
+    jde: 98.1,
     workday: 99.2,
     start_packet_pdf: 89.5,
-    calculated: 91.0
+    calculated: 91.0,
+    invoca: 95.5,
+    five9: 96.0,
+    lead_exec: 94.8,
+    sales_exec: 95.2,
+    xactly: 98.5,
+    winning_formula: 96.8,
   }
 
   // Historical trend (last 7 days)

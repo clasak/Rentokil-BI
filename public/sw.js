@@ -25,6 +25,7 @@ const NO_CACHE_API_ROUTES = [
   '/api/push-subscription', // Contains user subscription data
   '/api/reconcile',         // Contains sensitive reconciliation data
   '/api/governance',        // Contains governance data
+  '/api/bigquery',          // Contains all BigQuery data (role-specific)
 ];
 
 // Static asset extensions to cache

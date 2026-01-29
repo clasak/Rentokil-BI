@@ -369,6 +369,13 @@ export interface GlobalFilters {
   ownerIds: string[]
 }
 
+// Organization Hierarchy Filters (cascade: Market -> Region -> Branch)
+export interface OrganizationFilters {
+  selectedMarket: string | null    // Market code (e.g., 'ATL', 'MID') or null for "All"
+  selectedRegion: string | null    // Region code (e.g., 'ATL-01') or null for "All"
+  selectedBranch: string | null    // Branch code (e.g., 'ATL001') or null for "All"
+}
+
 // WBR/QBR
 export interface ReviewSection {
   id: string

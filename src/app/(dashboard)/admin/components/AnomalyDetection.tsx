@@ -1,184 +1,328 @@
 "use client"
 
 import { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  AlertTriangle, AlertCircle, Info, Clock, Brain,
-  ChevronDown, ChevronUp, CheckCircle, ExternalLink
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  AlertTriangle, AlertCircle, Info, Clock, Zap, Eye,
+  CheckCircle, ChevronRight, TrendingDown, Activity
 } from 'lucide-react'
-import { AnomalyAlert, AnomalySeverity } from '@/lib/platform-admin-data'
 import { formatDistanceToNow } from 'date-fns'
-import Link from 'next/link'
+import { getAnomalyAlerts, type AnomalyAlert } from '@/lib/mock/platformAdminData'
 
-interface AnomalyDetectionProps {
-  alerts: AnomalyAlert[]
+function SeverityIcon({ severity }: { severity: AnomalyAlert['severity'] }) {
+  const icons = {
+    critical: <AlertCircle className="h-5 w-5 text-red-500" />,
+    warning: <AlertTriangle className="h-5 w-5 text-yellow-500" />,
+    info: <Info className="h-5 w-5 text-blue-500" />
+  }
+  return icons[severity]
 }
 
-export function AnomalyDetection({ alerts }: AnomalyDetectionProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-
-  const criticalCount = alerts.filter(a => a.severity === 'critical' && !a.acknowledged).length
-  const warningCount = alerts.filter(a => a.severity === 'warning' && !a.acknowledged).length
-
-  const getSeverityIcon = (severity: AnomalySeverity) => {
-    switch (severity) {
-      case 'critical':
-        return <AlertCircle className="h-5 w-5 text-red-500" />
-      case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-amber-500" />
-      case 'info':
-        return <Info className="h-5 w-5 text-blue-500" />
-    }
+function SeverityBadge({ severity }: { severity: AnomalyAlert['severity'] }) {
+  const styles = {
+    critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800',
+    warning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800',
+    info: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800'
   }
 
-  const getSeverityBadge = (severity: AnomalySeverity) => {
-    switch (severity) {
-      case 'critical':
-        return <Badge variant="destructive">Critical</Badge>
-      case 'warning':
-        return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Warning</Badge>
-      case 'info':
-        return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Info</Badge>
-    }
-  }
-
-  const getCardStyle = (severity: AnomalySeverity, acknowledged: boolean) => {
-    if (acknowledged) {
-      return 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 opacity-75'
-    }
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-      case 'warning':
-        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-      case 'info':
-        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-    }
+  const tooltips = {
+    critical: 'High-priority anomaly requiring immediate attention. Affects core KPIs and may impact business operations.',
+    warning: 'Moderate anomaly detected. Monitor for escalation or investigate when capacity allows.',
+    info: 'Low-priority anomaly for awareness. No immediate action needed but should be reviewed.'
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-primary" />
-              AI-Detected Anomalies
-            </CardTitle>
-            <CardDescription>Automated detection of data and metric anomalies</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            {criticalCount > 0 && (
-              <Badge variant="destructive">
-                <AlertCircle className="h-3 w-3 mr-1" />
-                {criticalCount} Critical
-              </Badge>
-            )}
-            {warningCount > 0 && (
-              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                {warningCount} Warnings
-              </Badge>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {alerts.map((alert) => (
-            <div
-              key={alert.id}
-              className={`p-4 border rounded-lg transition-all ${getCardStyle(alert.severity, alert.acknowledged)}`}
-            >
-              <div className="flex items-start gap-3">
-                {getSeverityIcon(alert.severity)}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      {getSeverityBadge(alert.severity)}
-                      {alert.acknowledged && (
-                        <Badge variant="outline" className="text-xs">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Acknowledged
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatDistanceToNow(alert.detectedAt, { addSuffix: true })}
-                    </div>
-                  </div>
+    <TooltipProvider>
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${styles[severity]}`}>
+            <SeverityIcon severity={severity} />
+            {severity.charAt(0).toUpperCase() + severity.slice(1)}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="max-w-xs">{tooltips[severity]}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    {alert.description}
-                  </p>
+function StatusBadge({ status }: { status: AnomalyAlert['status'] }) {
+  const styles = {
+    active: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    investigating: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    resolved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+  }
 
-                  <button
-                    onClick={() => setExpandedId(expandedId === alert.id ? null : alert.id)}
-                    className="text-xs text-primary flex items-center gap-1 hover:underline"
-                  >
-                    {expandedId === alert.id ? (
-                      <>
-                        <ChevronUp className="h-3 w-3" />
-                        Hide details
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="h-3 w-3" />
-                        Show details
-                      </>
-                    )}
-                  </button>
+  const icons = {
+    active: <Activity className="h-3 w-3" />,
+    investigating: <Eye className="h-3 w-3" />,
+    resolved: <CheckCircle className="h-3 w-3" />
+  }
 
-                  {expandedId === alert.id && (
-                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                      <div>
-                        <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">
-                          Likely Cause
-                        </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                          {alert.likelyCause}
-                        </p>
-                      </div>
+  const tooltips = {
+    active: 'Anomaly is currently active and requires attention. Click to expand for recovery actions.',
+    investigating: 'Team is currently investigating this anomaly. Updates will be provided as they become available.',
+    resolved: 'Anomaly has been resolved. Root cause has been identified and corrected.'
+  }
 
-                      <div>
-                        <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">
-                          Affected KPIs
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {alert.affectedKpis.map((kpi) => (
-                            <Link
-                              key={kpi}
-                              href={`/kpi/${kpi}`}
-                              className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center gap-1"
-                            >
-                              <code>{kpi}</code>
-                              <ExternalLink className="h-3 w-3 text-gray-400" />
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium capitalize ${styles[status]}`}>
+            {icons[status]}
+            {status}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="max-w-xs">{tooltips[status]}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 
-                      {!alert.acknowledged && (
-                        <div className="flex gap-2 pt-2">
-                          <Button size="sm" variant="outline">
-                            Acknowledge
-                          </Button>
-                          <Button size="sm">
-                            Investigate
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+function AnomalyCard({ anomaly }: { anomaly: AnomalyAlert }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const borderColor = {
+    critical: 'border-l-red-500',
+    warning: 'border-l-yellow-500',
+    info: 'border-l-blue-500'
+  }
+
+  const bgColor = {
+    critical: anomaly.status === 'active' ? 'bg-red-50/50 dark:bg-red-900/10' : '',
+    warning: '',
+    info: ''
+  }
+
+  return (
+    <Card className={`border-l-4 ${borderColor[anomaly.severity]} ${bgColor[anomaly.severity]}`}>
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+              anomaly.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/30' :
+              anomaly.severity === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+              'bg-blue-100 dark:bg-blue-900/30'
+            }`}>
+              <SeverityIcon severity={anomaly.severity} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <SeverityBadge severity={anomaly.severity} />
+                <StatusBadge status={anomaly.status} />
+              </div>
+              <p className="text-sm font-medium">{anomaly.description}</p>
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatDistanceToNow(anomaly.detectionTime, { addSuffix: true })}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Zap className="h-3 w-3" />
+                  {anomaly.affectedKPIs.length} KPIs affected
+                </span>
               </div>
             </div>
-          ))}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded(!expanded)}
+            className="shrink-0"
+          >
+            <ChevronRight className={`h-4 w-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+          </Button>
         </div>
+
+        {expanded && (
+          <div className="mt-4 pt-4 border-t dark:border-gray-700 space-y-4">
+            <div>
+              <div className="text-xs font-medium text-muted-foreground mb-1">Likely Cause</div>
+              <p className="text-sm">{anomaly.likelyCause}</p>
+            </div>
+
+            <div>
+              <div className="text-xs font-medium text-muted-foreground mb-2">Affected KPIs</div>
+              <div className="flex flex-wrap gap-2">
+                {anomaly.affectedKPIs.map(kpi => (
+                  <Badge key={kpi} variant="outline" className="text-xs">
+                    <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
+                    {kpi.replace(/_/g, ' ')}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {anomaly.status !== 'resolved' && (
+              <div className="flex gap-2 pt-2">
+                {anomaly.status === 'active' && (
+                  <Button size="sm" variant="outline">
+                    <Eye className="h-4 w-4 mr-1" />
+                    Investigate
+                  </Button>
+                )}
+                <Button size="sm" variant="outline">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Mark Resolved
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
+  )
+}
+
+export function AnomalyDetection() {
+  const anomalies = getAnomalyAlerts()
+
+  const criticalCount = anomalies.filter(a => a.severity === 'critical' && a.status === 'active').length
+  const warningCount = anomalies.filter(a => a.severity === 'warning' && a.status !== 'resolved').length
+  const activeCount = anomalies.filter(a => a.status === 'active').length
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Anomaly Detection Alerts
+              </CardTitle>
+              <CardDescription>
+                AI-detected anomalies in data patterns and KPI metrics
+              </CardDescription>
+            </div>
+            <TooltipProvider>
+              <div className="flex items-center gap-4">
+                {criticalCount > 0 && (
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                        <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                          {criticalCount} Critical
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Active critical anomalies requiring immediate attention</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {warningCount > 0 && (
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
+                          {warningCount} Warning
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Active or investigating warning-level anomalies</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline">
+                      {activeCount} Active
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total anomalies currently active across all severity levels</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Alert by Severity */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{criticalCount}</div>
+                <div className="text-sm text-muted-foreground">Critical Anomalies</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-yellow-500">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{warningCount}</div>
+                <div className="text-sm text-muted-foreground">Warning Anomalies</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">
+                  {anomalies.filter(a => a.status === 'resolved').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Resolved Today</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Anomaly List */}
+      <div className="space-y-4">
+        {anomalies
+          .sort((a, b) => {
+            // Sort by severity (critical first), then by status (active first), then by time
+            const severityOrder = { critical: 0, warning: 1, info: 2 }
+            const statusOrder = { active: 0, investigating: 1, resolved: 2 }
+            if (severityOrder[a.severity] !== severityOrder[b.severity]) {
+              return severityOrder[a.severity] - severityOrder[b.severity]
+            }
+            if (statusOrder[a.status] !== statusOrder[b.status]) {
+              return statusOrder[a.status] - statusOrder[b.status]
+            }
+            return b.detectionTime.getTime() - a.detectionTime.getTime()
+          })
+          .map(anomaly => (
+            <AnomalyCard key={anomaly.id} anomaly={anomaly} />
+          ))}
+      </div>
+    </div>
   )
 }

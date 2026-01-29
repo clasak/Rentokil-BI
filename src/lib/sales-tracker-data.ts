@@ -15,7 +15,7 @@ import {
 } from '@/types/sales-tracker'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
-const LEAD_TYPES: LeadType[] = ['Inbound', 'Outbound', 'Referral', 'Self-Gen', 'Canvass']
+const LEAD_TYPES: LeadType[] = ['Inbound', 'TAP', 'Creative']
 const SERVICE_TYPES: ServiceType[] = ['Pest Control', 'Termite', 'Wildlife', 'Mosquito', 'Bed Bug', 'Commercial']
 const JOB_TYPES: JobType[] = ['One-Time', 'Contract', 'Recurring']
 

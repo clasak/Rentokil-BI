@@ -3,10 +3,12 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import { useAppStore } from '@/store'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { calculateKPIValues } from '@/lib/kpi-calculations'
 import { getServiceEvents, getTechnicianCapacity } from '@/lib/data'
 import { getActiveBusinessUnits } from '@/lib/business-units'
 import { ViewToggle } from '@/components/features/ViewToggle'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,11 +22,64 @@ import {
 } from 'recharts'
 import {
   Truck, Users, Clock, AlertTriangle, CheckCircle, Calendar,
-  Activity, MapPin, ArrowRight, ChevronRight, Wrench, PhoneCall
+  Activity, MapPin, ArrowRight, ChevronRight, Wrench, PhoneCall, RefreshCw
 } from 'lucide-react'
+import type { OpsNational } from '@/lib/bigquery/queries/ops'
+
+// Types for display
+interface OpsNationalDisplay {
+  regions: Array<{
+    name: string
+    branchCount: number
+    technicianCount: number
+    stopsCompleted: number
+    stopsTarget: number
+    completionRate: number
+    avgStopsPerTech: number
+    callbacks: number
+    callbackRate: number
+  }>
+}
+
+// Transform BigQuery data
+function transformBigQueryData(bqData: OpsNational[]): OpsNationalDisplay {
+  return {
+    regions: bqData.map(row => ({
+      name: row.region,
+      branchCount: row.branch_count,
+      technicianCount: row.technician_count,
+      stopsCompleted: row.stops_completed,
+      stopsTarget: row.stops_target,
+      completionRate: row.completion_rate,
+      avgStopsPerTech: row.avg_stops_per_tech,
+      callbacks: row.callbacks,
+      callbackRate: row.callback_rate,
+    }))
+  }
+}
+
+// Empty fallback data
+const EMPTY_OPS_NATIONAL: OpsNationalDisplay = {
+  regions: []
+}
 
 export default function NationalOpsPage() {
   const { settings } = useAppStore()
+
+  // BigQuery integration for national ops metrics
+  const {
+    data: opsNationalData,
+    isLoading: isBQLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<OpsNational[], OpsNationalDisplay>({
+    queryName: 'ops-national',
+    filters: { daysBack: 30 },
+    defaultData: EMPTY_OPS_NATIONAL,
+    transformBigQueryData,
+  })
+
   // Pass role and userId to filter KPI data to user's scope
   const kpiValues = useMemo(() => calculateKPIValues(settings.role, settings.userId), [settings.role, settings.userId])
   const serviceEvents = useMemo(() => getServiceEvents(), [])
@@ -43,16 +98,26 @@ export default function NationalOpsPage() {
     ? ((callbackEvents / serviceEvents.length) * 100).toFixed(1)
     : '0'
 
-  // Regional ops breakdown (simulated)
-  const regionalOpsData = businessUnits.map(bu => ({
-    name: bu.shortName,
-    color: bu.color,
-    technicians: Math.round(bu.metrics.technicians),
-    utilization: Math.round(70 + Math.random() * 20), // 70-90%
-    callbackRate: (2 + Math.random() * 4).toFixed(1), // 2-6%
-    avgTimeOnSite: Math.round(35 + Math.random() * 20), // 35-55 min
-    completionRate: Math.round(92 + Math.random() * 6) // 92-98%
-  }))
+  // Regional ops breakdown - use BigQuery data when connected, otherwise business units
+  const regionalOpsData = opsNationalData?.regions.length > 0
+    ? opsNationalData.regions.map(r => ({
+        name: r.name,
+        color: '#3b82f6',
+        technicians: r.technicianCount,
+        utilization: Math.round((r.stopsCompleted / r.stopsTarget) * 100),
+        callbackRate: r.callbackRate.toFixed(1),
+        avgTimeOnSite: 45, // Placeholder - not in BigQuery data
+        completionRate: Math.round(r.completionRate)
+      }))
+    : businessUnits.map(bu => ({
+        name: bu.shortName,
+        color: bu.color,
+        technicians: Math.round(bu.metrics.technicians),
+        utilization: 80,
+        callbackRate: '3.5',
+        avgTimeOnSite: 45,
+        completionRate: 95
+      }))
 
   // Weekly trend data (simulated)
   const weeklyTrend = [
@@ -85,7 +150,13 @@ export default function NationalOpsPage() {
             Service delivery metrics and technician efficiency across all regions
           </p>
         </div>
-        <ViewToggle variant="dropdown" />
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading}>
+            <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <ViewToggle variant="dropdown" />
+        </div>
       </div>
 
       {/* KPI Summary Cards */}

@@ -130,7 +130,7 @@ export function PresenterMode() {
   // Full presenter panel
   return (
     <div className="fixed bottom-6 right-6 z-50 w-[420px] animate-in slide-in-from-bottom-4 duration-300">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-md shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">

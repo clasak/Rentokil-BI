@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAppStore, DEMO_MODE_CONFIG, ROLE_PERMISSIONS } from '@/store'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { KPICard } from '@/components/features/KPICard'
 import { VarianceNarrative } from '@/components/features/VarianceNarrative'
 import { ActionList } from '@/components/features/ActionList'
 import { ChartTooltip } from '@/components/features/ChartTooltip'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import { TOP_10_KPIS } from '@/lib/kpis'
 import { calculateKPIValues, getVarianceDrivers, getActionItems } from '@/lib/kpi-calculations'
 import { KPIValue, ActionItem, VarianceDriver } from '@/types'
@@ -15,6 +17,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DashboardSkeleton } from '@/components/ui/skeleton-loader'
 import {
   Tooltip as RadixTooltip,
   TooltipContent,
@@ -31,8 +34,10 @@ import {
   BarChart, Bar
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
-import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock, X, ExternalLink } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock, X, ExternalLink, RefreshCw, History } from 'lucide-react'
 import seedrandom from 'seedrandom'
+import type { ExecutiveCommandCenter as ExecCCData } from '@/lib/bigquery/queries/executive'
+import { useRecentPages } from '@/hooks/useRecentPages'
 
 type KpiStatusFilter = 'all' | 'good' | 'warning' | 'critical'
 
@@ -54,10 +59,41 @@ function generateDailyBreakdown(weeklyTotal: number, periodIndex: number, seed: 
   }))
 }
 
+// Types and transformers for BigQuery data
+interface ExecDisplayData {
+  metrics: Array<{
+    category: string
+    metric: string
+    value: number
+    target: number
+    variance: number
+    status: string
+  }>
+}
+
+function transformBigQueryData(bqData: ExecCCData[]): ExecDisplayData {
+  return {
+    metrics: bqData.map(row => ({
+      category: row.category,
+      metric: row.metric,
+      value: row.value,
+      target: row.target,
+      variance: row.variance_pct,
+      status: row.status,
+    }))
+  }
+}
+
+// Empty default state (BigQuery-only, no mock fallback)
+const EMPTY_EXEC_DATA: ExecDisplayData = {
+  metrics: []
+}
+
 export function ExecutiveCommandCenter() {
   const { settings, currentUser, getCurrentUserScope } = useAppStore()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
   const [kpiValues, setKpiValues] = useState<Map<string, KPIValue>>(new Map())
   const [varianceDrivers, setVarianceDrivers] = useState<VarianceDriver[]>([])
   const [actions, setActions] = useState<ActionItem[]>([])
@@ -66,6 +102,26 @@ export function ExecutiveCommandCenter() {
   const [currentTime, setCurrentTime] = useState('')
   const [kpiStatusFilter, setKpiStatusFilter] = useState<KpiStatusFilter>('all')
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodBreakdown | null>(null)
+  const { recentPages, mounted: recentMounted } = useRecentPages()
+
+  // BigQuery integration for executive metrics
+  const {
+    data: execData,
+    isLoading: isBQLoading,
+    dataSource,
+    responseTime,
+    refetch,
+  } = useBigQueryData<ExecCCData[], ExecDisplayData>({
+    queryName: 'executive-command-center',
+    filters: { daysBack: 30 },
+    defaultData: EMPTY_EXEC_DATA,
+    transformBigQueryData,
+  })
+
+  // Hydration guard
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Initialize filter from URL on mount
   useEffect(() => {
@@ -104,6 +160,9 @@ export function ExecutiveCommandCenter() {
   }, [])
 
   useEffect(() => {
+    // Wait for client hydration before loading data
+    if (!mounted) return
+
     setIsLoading(true)
     const timer = setTimeout(() => {
       // Pass role and userId to filter data to user's scope
@@ -131,7 +190,7 @@ export function ExecutiveCommandCenter() {
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [settings.refreshSeed, settings.role, settings.userId])
+  }, [mounted, settings.refreshSeed, settings.role, settings.userId])
 
   const demoMode = settings.demoMode in DEMO_MODE_CONFIG
     ? settings.demoMode
@@ -181,23 +240,7 @@ export function ExecutiveCommandCenter() {
   const varianceToTarget = kpiValues.get('variance_to_target_mtd')
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-6 w-32" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-64 lg:col-span-2" />
-          <Skeleton className="h-64" />
-        </div>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   return (
@@ -206,7 +249,7 @@ export function ExecutiveCommandCenter() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Command Center</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1" suppressHydrationWarning>
             {personaDisplay} • {currentDate || 'Loading...'}
           </p>
         </div>
@@ -246,7 +289,11 @@ export function ExecutiveCommandCenter() {
               )}
             </TooltipContent>
           </RadixTooltip>
-          <Badge variant="outline" className="gap-1">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading} className="h-8 w-8" aria-label="Refresh data">
+            <RefreshCw className={`h-3.5 w-3.5 ${isBQLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Badge variant="outline" className="gap-1" suppressHydrationWarning>
             <Clock className="h-3 w-3" />
             Last updated: {currentTime || '--:--:--'}
           </Badge>
@@ -311,8 +358,16 @@ export function ExecutiveCommandCenter() {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-sm">KPIs meeting or exceeding targets</p>
-                  <p className="text-xs text-gray-400 mt-1">Click to filter</p>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{goodKpis.length} KPIs Meeting Targets</p>
+                    <p className="text-xs text-gray-400">
+                      {((goodKpis.length / kpiValues.size) * 100).toFixed(0)}% of {kpiValues.size} tracked metrics
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 pt-1 border-t border-gray-600">
+                      At or above target threshold
+                    </p>
+                    <p className="text-xs text-gray-400">Click to filter</p>
+                  </div>
                 </TooltipContent>
               </RadixTooltip>
               <RadixTooltip>
@@ -327,8 +382,16 @@ export function ExecutiveCommandCenter() {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-sm">KPIs approaching threshold limits</p>
-                  <p className="text-xs text-gray-400 mt-1">Click to filter</p>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{warningKpis.length} KPIs Need Attention</p>
+                    <p className="text-xs text-gray-400">
+                      {((warningKpis.length / kpiValues.size) * 100).toFixed(0)}% of {kpiValues.size} tracked metrics
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 pt-1 border-t border-gray-600">
+                      Below target but above critical threshold
+                    </p>
+                    <p className="text-xs text-gray-400">Click to filter</p>
+                  </div>
                 </TooltipContent>
               </RadixTooltip>
               <RadixTooltip>
@@ -343,8 +406,16 @@ export function ExecutiveCommandCenter() {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-sm">KPIs requiring immediate attention</p>
-                  <p className="text-xs text-gray-400 mt-1">Click to filter</p>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{criticalKpis.length} KPIs Require Action</p>
+                    <p className="text-xs text-gray-400">
+                      {((criticalKpis.length / kpiValues.size) * 100).toFixed(0)}% of {kpiValues.size} tracked metrics
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 pt-1 border-t border-gray-600">
+                      Significantly below target - immediate attention needed
+                    </p>
+                    <p className="text-xs text-gray-400">Click to filter</p>
+                  </div>
                 </TooltipContent>
               </RadixTooltip>
             </div>
@@ -576,8 +647,34 @@ export function ExecutiveCommandCenter() {
           />
         </div>
 
-        {/* Right Sidebar - Actions */}
+        {/* Right Sidebar - Actions & Quick Access */}
         <div id="action-list" className="space-y-6">
+          {/* Recently Viewed Pages */}
+          {recentMounted && recentPages.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <History className="h-4 w-4 text-primary" />
+                  Quick Access
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {recentPages.slice(0, 5).map((page) => (
+                    <Link
+                      key={page.path}
+                      href={page.path}
+                      className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors group"
+                    >
+                      <Clock className="h-3.5 w-3.5 text-gray-400 group-hover:text-primary" />
+                      <span className="truncate group-hover:underline">{page.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <ActionList
             actions={actions}
             title="Priority Actions"

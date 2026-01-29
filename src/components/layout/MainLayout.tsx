@@ -8,6 +8,7 @@ import { RolePreviewBanner } from './RolePreviewBanner'
 import { DataQualityBanner } from '@/components/features/DataQualityBanner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Tutorial } from '@/components/features/Tutorial'
+import { SkipLink } from '@/components/accessibility/SkipLink'
 
 interface MainLayoutProps {
   children: ReactNode
@@ -41,7 +42,8 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
+      <SkipLink />
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-950" suppressHydrationWarning>
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">
           <SidebarWrapper onNavigate={() => setMobileMenuOpen(false)} />
@@ -70,7 +72,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           <RolePreviewBanner />
           <DataQualityBanner />
           {/* Main content with bottom padding for mobile nav */}
-          <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 pb-24 lg:pb-6 dark:bg-gray-950">
+          <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 pb-24 lg:pb-6 dark:bg-gray-950">
             {children}
           </main>
         </div>

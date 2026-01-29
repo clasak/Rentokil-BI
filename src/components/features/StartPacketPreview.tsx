@@ -172,7 +172,7 @@ export function StartPacketPreview({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-md shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-900 border-b dark:border-gray-800 p-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
@@ -188,7 +188,7 @@ export function StartPacketPreview({
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onCancel} disabled={isSubmitting}>
+          <Button variant="ghost" size="icon" onClick={onCancel} disabled={isSubmitting} aria-label="Close modal">
             <X className="h-5 w-5" />
           </Button>
         </div>

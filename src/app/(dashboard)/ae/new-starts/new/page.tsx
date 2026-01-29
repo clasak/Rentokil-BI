@@ -26,6 +26,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  Plus,
 } from 'lucide-react'
 import { addNewStart } from '@/lib/new-start-data'
 import {
@@ -34,7 +35,10 @@ import {
   FrequencyType,
   YesNo,
   MonthName,
+  PestType,
+  SalesRepSplit,
 } from '@/types/new-start-log'
+import { createOpsData, generatePestPacUrl, validateSalesRepSplits } from '@/lib/supabase/new-start-ops'
 import { FileUploadZone } from '@/components/features/FileUploadZone'
 import { ParsedDataPreview } from '@/components/features/ParsedDataPreview'
 import { StartPacketPreview } from '@/components/features/StartPacketPreview'
@@ -89,6 +93,14 @@ export default function NewStartEntryPage() {
 
   // Start Packet preview modal state
   const [showStartPacketPreview, setShowStartPacketPreview] = useState(false)
+
+  // Sales rep splits state (NEW)
+  const [salesRepSplits, setSalesRepSplits] = useState<Array<{ name: string; split: string }>>([
+    { name: '', split: '100' }
+  ])
+
+  // Pest types state (NEW)
+  const [selectedPestTypes, setSelectedPestTypes] = useState<Set<string>>(new Set(['General Pest']))
 
   const [formData, setFormData] = useState<NewStartAEInput>({
     soldDate: new Date().toISOString().split('T')[0],
@@ -195,15 +207,35 @@ export default function NewStartEntryPage() {
       return 'PestPac Location # is required'
     }
 
+    // Validate pest types
+    if (selectedPestTypes.size === 0) {
+      return 'At least one pest type is required'
+    }
+
+    // Validate sales rep splits
+    const repSplitsData: SalesRepSplit[] = salesRepSplits
+      .filter(rep => rep.name.trim())
+      .map(rep => ({ name: rep.name.trim(), split: parseFloat(rep.split) || 0 }))
+
+    if (repSplitsData.length > 0 && !validateSalesRepSplits(repSplitsData)) {
+      return 'Sales rep commission splits must total 100%'
+    }
+
     const initialPrice = parseFloat(formData.initialJobPrice) || 0
     const maintenancePrice = parseFloat(formData.maintenancePrice) || 0
 
-    if (initialPrice === 0 && maintenancePrice === 0) {
-      return 'At least one price is required'
+    if (formData.serviceType === 'Contract') {
+      if (initialPrice === 0 || maintenancePrice === 0) {
+        return 'Both initial and maintenance prices are required for contracts'
+      }
+    } else if (formData.serviceType === 'Job 1x') {
+      if (initialPrice === 0) {
+        return 'Job price is required'
+      }
     }
 
     return null
-  }, [formData])
+  }, [formData, selectedPestTypes, salesRepSplits])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -228,12 +260,17 @@ export default function NewStartEntryPage() {
       const initialPrice = parseFloat(formData.initialJobPrice) || 0
       const maintenancePrice = parseFloat(formData.maintenancePrice) || 0
 
-      // Add the new start
-      addNewStart({
+      // Prepare sales rep splits
+      const repSplitsData: SalesRepSplit[] = salesRepSplits
+        .filter(rep => rep.name.trim())
+        .map(rep => ({ name: rep.name.trim(), split: parseFloat(rep.split) || 0 }))
+
+      // Add the new start (mock data - gets ID back)
+      const newEntry = addNewStart({
         soldDate: formData.soldDate,
         accountName: formData.accountName.trim(),
         serviceAddress: formData.serviceAddress.trim(),
-        salesRepsInvolved: formData.salesRepsInvolved.trim() || 'Cody',
+        salesRepsInvolved: repSplitsData.map(r => r.name).join(', ') || 'Cody',
         initialJobPrice: initialPrice,
         maintenancePrice: maintenancePrice,
         serviceType: formData.serviceType as ServiceType,
@@ -242,6 +279,17 @@ export default function NewStartEntryPage() {
         tapLeadOrSpecialist: formData.tapLeadOrSpecialist.trim(),
         pestPacLocNumber: formData.pestPacLocNumber.trim(),
         customerRequestedStartMonth: formData.customerRequestedStartMonth || '',
+      })
+
+      // Create Supabase ops record with new fields
+      const salesId = newEntry?.id || `SALE-${Date.now()}`
+
+      await createOpsData(salesId, {
+        status: 'pending_ops',
+        customer_requested_start_date: formData.customerRequestedStartMonth || null,
+        pest_types: Array.from(selectedPestTypes),
+        sales_reps_splits: repSplitsData.length > 0 ? repSplitsData : null,
+        pestpac_entry_url: formData.pestPacLocNumber.trim() ? generatePestPacUrl(formData.pestPacLocNumber.trim()) : null,
       })
 
       toastSuccess('Sale Submitted', 'New start entry created successfully')
@@ -548,23 +596,130 @@ export default function NewStartEntryPage() {
               />
             </div>
 
-            {/* Sales Rep */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Sales Rep(s) Involved</label>
-              <Input
-                placeholder="Your name or multiple reps"
-                value={formData.salesRepsInvolved}
-                onChange={(e) => setFormData({ ...formData, salesRepsInvolved: e.target.value })}
-              />
+            {/* Sales Rep Splits (NEW) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Sales Rep(s) & Commission Splits</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSalesRepSplits([...salesRepSplits, { name: '', split: '0' }])}
+                  disabled={salesRepSplits.length >= 3}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Rep
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {salesRepSplits.map((rep, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      placeholder="Rep name"
+                      value={rep.name}
+                      onChange={(e) => {
+                        const updated = [...salesRepSplits]
+                        updated[index].name = e.target.value
+                        setSalesRepSplits(updated)
+                      }}
+                      className="flex-1"
+                    />
+                    <div className="flex items-center gap-1 w-24">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                        value={rep.split}
+                        onChange={(e) => {
+                          const updated = [...salesRepSplits]
+                          updated[index].split = e.target.value
+                          setSalesRepSplits(updated)
+                        }}
+                        className="w-16"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                    {salesRepSplits.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSalesRepSplits(salesRepSplits.filter((_, i) => i !== index))}
+                        className="shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {(() => {
+                const total = salesRepSplits.reduce((sum, rep) => sum + (parseFloat(rep.split) || 0), 0)
+                const isValid = total === 100
+                return (
+                  <div className={`text-xs ${isValid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    Total: {total}% {!isValid && '(must equal 100%)'}
+                  </div>
+                )
+              })()}
             </div>
 
-            {/* Pricing */}
+            {/* Pricing (Conditional based on Service Type) */}
             <div className="space-y-4">
               <h3 className="font-medium text-gray-900 dark:text-gray-100 border-b dark:border-gray-700 pb-2">Pricing</h3>
-              <div className="grid grid-cols-2 gap-4">
+
+              {!formData.serviceType && (
+                <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-300">Please select a Service Type first to see relevant pricing fields</p>
+                </div>
+              )}
+
+              {formData.serviceType === 'Contract' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Initial / Setup Price *</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        className="pl-7"
+                        value={formData.initialJobPrice}
+                        onChange={(e) => setFormData({ ...formData, initialJobPrice: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">One-time setup/installation fee</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Maintenance (Monthly) Price *</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        className="pl-7"
+                        value={formData.maintenancePrice}
+                        onChange={(e) => setFormData({ ...formData, maintenancePrice: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Monthly contract rate</p>
+                  </div>
+                </div>
+              )}
+
+              {formData.serviceType === 'Job 1x' && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Initial / Job 1X Price *</label>
-                  <div className="relative">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Job Price *</label>
+                  <div className="relative max-w-sm">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                     <Input
                       type="number"
@@ -574,27 +729,12 @@ export default function NewStartEntryPage() {
                       className="pl-7"
                       value={formData.initialJobPrice}
                       onChange={(e) => setFormData({ ...formData, initialJobPrice: e.target.value })}
+                      required
                     />
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Including merchandise</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">One-time job price including materials</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Maintenance (Contract) Price</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      className="pl-7"
-                      value={formData.maintenancePrice}
-                      onChange={(e) => setFormData({ ...formData, maintenancePrice: e.target.value })}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Monthly contract rate</p>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Service Details */}
@@ -661,6 +801,35 @@ export default function NewStartEntryPage() {
                   />
                 </div>
               </div>
+
+              {/* Pest Types Multi-Select (NEW) */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Pest Types * <span className="text-xs text-gray-500">(Select all that apply)</span></label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-4 border rounded-lg dark:border-gray-700">
+                  {(['General Pest', 'Termite', 'Rodent', 'Wildlife', 'Bed Bug', 'Mosquito', 'Lawn Care', 'Insulation'] as PestType[]).map((pestType) => (
+                    <label key={pestType} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedPestTypes.has(pestType)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedPestTypes)
+                          if (e.target.checked) {
+                            newSet.add(pestType)
+                          } else {
+                            newSet.delete(pestType)
+                          }
+                          setSelectedPestTypes(newSet)
+                        }}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{pestType}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedPestTypes.size === 0 && (
+                  <p className="text-xs text-red-600 dark:text-red-400">At least one pest type is required</p>
+                )}
+              </div>
             </div>
 
             {/* PestPac & Scheduling */}
@@ -678,22 +847,13 @@ export default function NewStartEntryPage() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">Blue number from PestPac</p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Customer Requested Start Month</label>
-                  <Select
-                    value={formData.customerRequestedStartMonth}
-                    onValueChange={(value) => setFormData({ ...formData, customerRequestedStartMonth: value as MonthName })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MONTHS.map((month) => (
-                        <SelectItem key={month} value={month}>
-                          {month}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Customer Requested Start Date</label>
+                  <Input
+                    type="date"
+                    value={formData.customerRequestedStartDate || ''}
+                    onChange={(e) => setFormData({ ...formData, customerRequestedStartDate: e.target.value })}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Initial customer expectation (optional)</p>
                 </div>
               </div>
             </div>

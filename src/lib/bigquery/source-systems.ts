@@ -14,6 +14,7 @@
 export type SourceSystemId =
   | 'INVOCA'
   | 'FIVE9'
+  | 'TMX'
   | 'LEAD_EXEC'
   | 'SALES_EXEC'
   | 'WINNING_FORMULA'
@@ -22,6 +23,9 @@ export type SourceSystemId =
   | 'CCM'
   | 'WEB_FORMS'
   | 'SERVICE_TRACK'
+  | 'ERP'
+  | 'RTX_HUB'
+  | 'WORKDAY'
 
 export type SourceSystemType =
   | 'Call Tracking'
@@ -34,6 +38,9 @@ export type SourceSystemType =
   | 'Customer Communication'
   | 'Web Capture'
   | 'Service Referrals'
+  | 'Financial'
+  | 'Data Warehouse'
+  | 'HRIS'
 
 export type TraceabilityStatus = 'perfect' | 'excellent' | 'good' | 'low' | 'critical'
 
@@ -81,6 +88,19 @@ export const SOURCE_SYSTEMS: Record<SourceSystemId, SourceSystemConfig> = {
     integrationStatus: 'pending',
     color: '#8B5CF6', // Violet
     icon: 'headphones',
+  },
+  TMX: {
+    id: 'TMX',
+    name: 'TMX',
+    type: 'Lead Management',
+    description: 'TMX lead management and inspection tracking system',
+    dataTypes: ['Leads', 'Inspections', 'Employee data', 'Lead lifecycle'],
+    bigQueryDataset: 'S0_TMX',
+    bigQueryTable: 'tmx_lead',
+    knownTables: ['tmx_lead', 'tmx_employee', 'tmx_inspection'],
+    integrationStatus: 'connected',
+    color: '#06B6D4', // Cyan
+    icon: 'clipboard-list',
   },
   LEAD_EXEC: {
     id: 'LEAD_EXEC',
@@ -185,6 +205,62 @@ export const SOURCE_SYSTEMS: Record<SourceSystemId, SourceSystemConfig> = {
     integrationStatus: 'partial',
     color: '#14B8A6', // Teal
     icon: 'repeat',
+  },
+  ERP: {
+    id: 'ERP',
+    name: 'JD Edwards (JDE)',
+    type: 'Financial',
+    description: 'Oracle JD Edwards ERP - AR, billing, P&L, revenue detail',
+    dataTypes: ['Accounts receivable', 'Billing', 'P&L', 'Financial reporting', 'Revenue detail'],
+    bigQueryDataset: 'Reports',
+    bigQueryTable: 'VwUnf_dim_ar_detail',
+    knownTables: [
+      'Reports.VwUnf_dim_ar_detail',
+      'Reports.VwUnf_ar_amount',
+      'S4.VwUnf_daily_ar',
+      'S1.vw_iris_jde_daily_revenue_detail'
+    ],
+    integrationStatus: 'connected',
+    color: '#059669', // Emerald
+    icon: 'dollar-sign',
+  },
+  RTX_HUB: {
+    id: 'RTX_HUB',
+    name: 'RTX Data Hub',
+    type: 'Data Warehouse',
+    description: 'Central data warehouse - unified views across all source systems',
+    dataTypes: ['Unified leads', 'Sales facts', 'Branch hierarchy', 'Reference data'],
+    bigQueryDataset: 'S4',
+    bigQueryTable: 'Fact_ContractSales_Txn_Na_Daily_Dtl_Vw',
+    knownTables: [
+      'S4.Fact_ContractSales_Txn_Na_Daily_Dtl_Vw',
+      'S4.Fact_Leads_Acc_Daily_Dtls_Snp',
+      'S2.VwUnf_Branch',
+      'S4.Branch_Hierarchy',
+      'Reference.Ref_Map_BranchHeirarchy_GCS',
+    ],
+    integrationStatus: 'connected',
+    color: '#DC2626', // Red (Rentokil brand)
+    icon: 'database',
+  },
+  WORKDAY: {
+    id: 'WORKDAY',
+    name: 'Workday',
+    type: 'HRIS',
+    description: 'HR information system - employee data, terminations, headcount (via TMX ETL)',
+    dataTypes: ['Employee data', 'Terminations', 'Headcount', 'Org structure', 'Tenure'],
+    bigQueryDataset: 'S0_TMX',
+    bigQueryTable: 'tmx_employee',
+    knownTables: [
+      'S0_TMX.tmx_employee',           // 1.29M rows - Primary employee/termination data
+      'S0_TMX.Employees_Main',          // 29K rows - Current employee directory
+      'WorkDayTerm.WorkDayTermDtls',    // Nested structure (backup)
+      'S0_TMX.ExtRaw_wrkday_Employee_extended',
+      'S0_TMX.ExtRaw_wrkday_Termination_Details',
+    ],
+    integrationStatus: 'connected',
+    color: '#7C3AED', // Purple
+    icon: 'users',
   },
 }
 

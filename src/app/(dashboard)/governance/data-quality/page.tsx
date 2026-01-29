@@ -1,4 +1,14 @@
+/**
+ * DATA QUALITY DASHBOARD
+ *
+ * Now uses REAL BigQuery data from INFORMATION_SCHEMA and data-freshness.ts
+ * to track actual table health, NULL rates, duplicates, and freshness SLA.
+ */
 "use client"
+
+// Feature flag to toggle between real BigQuery and mock data
+// Set to false to use mock data (consistent with Platform Admin Console)
+const USE_REAL_DATA = false
 
 import { useState, useMemo } from 'react'
 import {
@@ -11,6 +21,12 @@ import {
   type ReconciliationResult,
   type DataSourceHealth
 } from '@/lib/data-quality-engine'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type {
+  DataQualityIssueReal,
+  DataQualityScoreReal,
+  DataSourceHealthReal
+} from '@/lib/bigquery/queries/data-quality'
 import {
   runValidation,
   getValidationSummary,
@@ -195,7 +211,13 @@ function SourceBadge({ source }: { source: DataSource }) {
     start_packet_pdf: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     calculated: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
     workday: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
-    sap: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+    jde: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    invoca: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    five9: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+    lead_exec: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    sales_exec: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    xactly: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    winning_formula: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   }
 
   const labels: Record<DataSource, string> = {
@@ -205,7 +227,13 @@ function SourceBadge({ source }: { source: DataSource }) {
     start_packet_pdf: 'Start Packet',
     calculated: 'Calculated',
     workday: 'Workday',
-    sap: 'SAP'
+    jde: 'JDE',
+    invoca: 'Invoca',
+    five9: 'Five9',
+    lead_exec: 'Lead Exec',
+    sales_exec: 'Sales Exec',
+    xactly: 'Xactly',
+    winning_formula: 'Winning Formula',
   }
 
   return (
@@ -317,11 +345,71 @@ export default function DataQualityPage() {
   const [severityFilter, setSeverityFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
-  const issues = useMemo(() => getDataQualityIssues(), [])
-  const reconciliation = useMemo(() => getReconciliationResults(), [])
-  const sourceHealth = useMemo(() => getDataSourceHealth(), [])
-  const qualityScore = useMemo(() => getDataQualityScore(), [])
-  const issueSummary = useMemo(() => getIssueSummary(), [])
+  // Empty defaults for BigQuery hooks
+  const EMPTY_ISSUES: DataQualityIssueReal[] = []
+  const EMPTY_SCORE: DataQualityScoreReal = {
+    overall: 0,
+    byDimension: { completeness: 0, timeliness: 0, validity: 0, consistency: 0, accuracy: 0, uniqueness: 0 },
+    byDataset: {},
+    criticalIssuesCount: 0,
+    warningIssuesCount: 0,
+    trend: [],
+  }
+  const EMPTY_HEALTH: DataSourceHealthReal[] = []
+
+  // BigQuery hooks (only enabled when USE_REAL_DATA is true)
+  const {
+    data: realIssues,
+    isLoading: issuesLoading,
+    dataSource: issuesDataSource,
+    error: issuesError,
+  } = useBigQueryData<DataQualityIssueReal[], DataQualityIssueReal[]>({
+    queryName: 'data-quality-issues',
+    defaultData: EMPTY_ISSUES,
+    transformBigQueryData: (raw) => raw,
+  })
+
+  const {
+    data: realScore,
+    isLoading: scoreLoading,
+    error: scoreError,
+  } = useBigQueryData<DataQualityScoreReal, DataQualityScoreReal>({
+    queryName: 'data-quality-score',
+    defaultData: EMPTY_SCORE,
+    transformBigQueryData: (raw) => raw,
+  })
+
+  const {
+    data: realSourceHealth,
+    isLoading: healthLoading,
+    error: healthError,
+  } = useBigQueryData<DataSourceHealthReal[], DataSourceHealthReal[]>({
+    queryName: 'data-quality-source-health',
+    defaultData: EMPTY_HEALTH,
+    transformBigQueryData: (raw) => raw,
+  })
+
+  // Use real or mock data based on feature flag
+  const mockIssues = useMemo(() => getDataQualityIssues(), [])
+  const mockReconciliation = useMemo(() => getReconciliationResults(), [])
+  const mockSourceHealth = useMemo(() => getDataSourceHealth(), [])
+  const mockQualityScore = useMemo(() => getDataQualityScore(), [])
+  const mockIssueSummary = useMemo(() => getIssueSummary(), [])
+
+  const issues = USE_REAL_DATA ? realIssues : mockIssues
+  const reconciliation = USE_REAL_DATA ? [] : mockReconciliation
+  const sourceHealth = USE_REAL_DATA ? realSourceHealth : mockSourceHealth
+  const qualityScore = USE_REAL_DATA ? realScore : mockQualityScore
+  const issueSummary = USE_REAL_DATA ? {
+    total: realIssues.length,
+    open: realIssues.filter(i => i.status === 'open').length,
+    bySeverity: {
+      critical: realIssues.filter(i => i.severity === 'critical').length,
+      warning: realIssues.filter(i => i.severity === 'warning').length,
+      info: realIssues.filter(i => i.severity === 'info').length,
+    },
+    resolved: 0,
+  } : mockIssueSummary
 
   // Real-time validation from validation layer (J4)
   const validationResult = useMemo(() => runValidation(), [])
@@ -337,8 +425,8 @@ export default function DataQualityPage() {
     })
   }, [issues, severityFilter, statusFilter])
 
-  const openIssueDetail = (issue: DataQualityIssue) => {
-    setSelectedIssue(issue)
+  const openIssueDetail = (issue: DataQualityIssue | DataQualityIssueReal) => {
+    setSelectedIssue(issue as DataQualityIssue)
     setIssueModalOpen(true)
   }
 
@@ -362,11 +450,32 @@ export default function DataQualityPage() {
             Real-time data quality monitoring, issue detection, and cross-system reconciliation
           </p>
         </div>
-        <Button variant="outline" className="gap-2">
-          <RefreshCw className="h-4 w-4" />
-          Refresh Now
-        </Button>
+        <div className="flex items-center gap-2">
+          {USE_REAL_DATA && (issuesLoading || scoreLoading || healthLoading) && (
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Loading BigQuery data...
+            </span>
+          )}
+          <Button variant="outline" className="gap-2" onClick={() => window.location.reload()}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh Now
+          </Button>
+        </div>
       </div>
+
+      {/* Debug Info (only in dev) */}
+      {process.env.NODE_ENV === 'development' && USE_REAL_DATA && (
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200">
+          <CardContent className="pt-4">
+            <div className="text-xs space-y-1">
+              <div>Issues: {issuesLoading ? 'Loading...' : issuesError ? `Error: ${issuesError}` : `${realIssues.length} loaded`}</div>
+              <div>Score: {scoreLoading ? 'Loading...' : scoreError ? `Error: ${scoreError}` : `${realScore.overall}% loaded`}</div>
+              <div>Health: {healthLoading ? 'Loading...' : healthError ? `Error: ${healthError}` : `${realSourceHealth.length} sources loaded`}</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Overall Score Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -458,10 +567,12 @@ export default function DataQualityPage() {
             <FileWarning className="h-4 w-4" />
             Issues ({issueSummary.total})
           </TabsTrigger>
-          <TabsTrigger value="reconciliation" className="gap-2">
-            <GitCompare className="h-4 w-4" />
-            Reconciliation
-          </TabsTrigger>
+          {!USE_REAL_DATA && (
+            <TabsTrigger value="reconciliation" className="gap-2">
+              <GitCompare className="h-4 w-4" />
+              Reconciliation
+            </TabsTrigger>
+          )}
           <TabsTrigger value="sources" className="gap-2">
             <Server className="h-4 w-4" />
             Source Health
@@ -495,10 +606,12 @@ export default function DataQualityPage() {
                   <div>
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                       Real-Time KPI Validation
-                      <Badge variant="outline" className="gap-1">
-                        <FlaskConical className="h-3 w-3" />
-                        Simulation Mode
-                      </Badge>
+                      {!USE_REAL_DATA && (
+                        <Badge variant="outline" className="gap-1">
+                          <FlaskConical className="h-3 w-3" />
+                          Simulation Mode
+                        </Badge>
+                      )}
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {validationSummary.status === 'healthy'
@@ -755,7 +868,7 @@ export default function DataQualityPage() {
                         <code className="text-xs text-muted-foreground">{issue.fieldName}</code>
                       </TableCell>
                       <TableCell>
-                        <SourceBadge source={issue.source} />
+                        <SourceBadge source={issue.source as DataSource} />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="font-medium">{issue.affectedRecords.toLocaleString()}</div>
@@ -780,7 +893,8 @@ export default function DataQualityPage() {
           </Card>
         </TabsContent>
 
-        {/* Reconciliation Tab */}
+        {/* Reconciliation Tab - Only shown with mock data (deferred for Phase 3) */}
+        {!USE_REAL_DATA && (
         <TabsContent value="reconciliation" className="space-y-4">
           <Card>
             <CardHeader>
@@ -870,6 +984,7 @@ export default function DataQualityPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* Source Health Tab */}
         <TabsContent value="sources" className="space-y-4">

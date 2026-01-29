@@ -284,7 +284,7 @@ export function RepCommandCenter() {
                 )}
               </div>
               {pipeline.length > 5 && (
-                <Link href="/ae/tracker/proposals" className="block mt-3">
+                <Link href="/ae/tracker" className="block mt-3">
                   <p className="text-sm text-center text-primary hover:underline">
                     View all {pipeline.length} proposals
                   </p>

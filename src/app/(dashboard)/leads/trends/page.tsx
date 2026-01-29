@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -19,8 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -29,12 +27,16 @@ import {
   Legend,
   Area,
   AreaChart,
+  LineChart,
+  Line,
 } from 'recharts'
-import { generateMockLeadTrends } from '@/lib/mock/leadsData'
 import { formatNumber, formatPercent, formatCurrency } from '@/lib/utils'
-import { TrendingUp, TrendingDown, Calendar, Filter, BarChart3 } from 'lucide-react'
-
-const MARKETS = ['All Markets', 'Northeast', 'Southeast', 'Midwest', 'Southwest', 'West', 'Central']
+import { TrendingUp, TrendingDown, Calendar, Database } from 'lucide-react'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { PageHeader } from '@/components/layout/PageHeader'
+import type { LeadTrend as BQLeadTrend } from '@/lib/bigquery/queries/leads'
+import type { LeadTrend } from '@/types/leads'
+import type { BCGLeadAnalytics } from '@/lib/bigquery/queries/bcg-analytics'
 const DATE_RANGES = [
   { label: 'Last 7 Days', value: '7' },
   { label: 'Last 14 Days', value: '14' },
@@ -43,14 +45,74 @@ const DATE_RANGES = [
   { label: 'Last 90 Days', value: '90' },
 ]
 
+const EMPTY_LEAD_TRENDS: LeadTrend[] = []
+
+function transformBigQueryTrends(bqData: BQLeadTrend[]): LeadTrend[] {
+  return bqData.map((d) => ({
+    date: d.date,
+    leads: d.leads,
+    converted: d.converted,
+    conversionRate: d.conversion_rate,
+    avgValue: 2500, // Default estimate since BigQuery doesn't track this
+  }))
+}
+
 export default function LeadTrendsPage() {
   const [dateRange, setDateRange] = useState('30')
-  const [market, setMarket] = useState('All Markets')
 
-  const data = useMemo(
-    () => generateMockLeadTrends(parseInt(dateRange)),
-    [dateRange]
-  )
+  // BCG Analytics state (enhanced data from BCG_RTD_DB - 3.3M rows)
+  const [bcgLeadData, setBcgLeadData] = useState<BCGLeadAnalytics[]>([])
+  const [bcgLoading, setBcgLoading] = useState(false)
+
+  // Fetch BCG lead analytics
+  const fetchBCGLeads = useCallback(async () => {
+    setBcgLoading(true)
+    try {
+      const response = await fetch('/api/bigquery/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: 'bcg-lead-analytics',
+          filters: {
+            daysBack: parseInt(dateRange),
+            limit: 50
+          }
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success && data.data?.length > 0) {
+        setBcgLeadData(data.data)
+      }
+    } catch (err) {
+      console.error('BCG Lead Analytics fetch failed:', err)
+    } finally {
+      setBcgLoading(false)
+    }
+  }, [dateRange])
+
+  // Fetch BCG data when filters change
+  useEffect(() => {
+    fetchBCGLeads()
+  }, [fetchBCGLeads])
+
+  const {
+    data,
+    isLoading,
+    dataSource,
+    responseTime,
+    error,
+    refetch,
+  } = useBigQueryData<BQLeadTrend[], LeadTrend[]>({
+    queryName: 'lead-trends',
+    filters: {
+      daysBack: parseInt(dateRange),
+    },
+    defaultData: EMPTY_LEAD_TRENDS,
+    transformBigQueryData: transformBigQueryTrends,
+  })
+
+  // Auto-refetch when filters change (handled by useBigQueryData dependencies)
 
   const totalLeads = useMemo(
     () => data.reduce((sum, d) => sum + d.leads, 0),
@@ -87,7 +149,6 @@ export default function LeadTrendsPage() {
   // Weekly summary
   const weeklySummary = useMemo(() => {
     const weeks: { week: string; leads: number; converted: number; avgRate: number }[] = []
-    let weekStart = 0
     for (let i = 0; i < data.length; i += 7) {
       const weekData = data.slice(i, Math.min(i + 7, data.length))
       const leads = weekData.reduce((sum, d) => sum + d.leads, 0)
@@ -104,52 +165,36 @@ export default function LeadTrendsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="h-6 w-6" />
-            Lead Trends
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Analyze lead volume and conversion trends over time
-          </p>
+      {/* Header with Breadcrumbs */}
+      <PageHeader
+        title="Lead Trends"
+        breadcrumbs={[
+          { label: 'Leads', href: '/leads' },
+          { label: 'Trends' },
+        ]}
+        dataSource={dataSource}
+        responseTime={responseTime}
+        error={error}
+        onRefresh={refetch}
+        isLoading={isLoading}
+      >
+        {/* Date Range Filter */}
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={dateRange} onValueChange={setDateRange}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DATE_RANGES.map((range) => (
+                <SelectItem key={range.value} value={range.value}>
+                  {range.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-
-        {/* Filters */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DATE_RANGES.map((range) => (
-                  <SelectItem key={range.value} value={range.value}>
-                    {range.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={market} onValueChange={setMarket}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MARKETS.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
+      </PageHeader>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -437,6 +482,70 @@ export default function LeadTrendsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* BCG Analytics Enhancement - Data from BCG_RTD_DB (3.3M rows) */}
+      {bcgLeadData.length > 0 && (
+        <Card className="border-blue-200 dark:border-blue-800">
+          <CardHeader className="bg-blue-50 dark:bg-blue-900/20">
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-blue-600" />
+              BCG Lead Analytics Enhancement
+              <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700">BCG_RTD_DB</Badge>
+            </CardTitle>
+            <CardDescription>
+              Enhanced lead analytics by market and source from BCG data warehouse (3.3M+ records)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {bcgLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                <span className="ml-2 text-gray-500">Loading BCG lead analytics...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {bcgLeadData.slice(0, 12).map((item, i) => (
+                  <div key={i} className="p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {item.period}
+                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        {item.market || 'N/A'}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Total Leads</span>
+                        <span className="font-semibold text-blue-600">{item.total_leads?.toLocaleString() || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Converted</span>
+                        <span className="font-semibold text-green-600">{item.converted_leads?.toLocaleString() || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Conversion Rate</span>
+                        <span className="font-semibold">{((item.conversion_rate || 0) * 100).toFixed(1)}%</span>
+                      </div>
+                      {item.lead_source && (
+                        <div className="mt-2 pt-2 border-t dark:border-gray-600">
+                          <span className="text-xs text-gray-500">Source: </span>
+                          <span className="text-xs font-medium">{item.lead_source}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {bcgLeadData.length > 12 && (
+              <p className="text-sm text-center text-gray-500 mt-4">
+                Showing 12 of {bcgLeadData.length} market/source combinations
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

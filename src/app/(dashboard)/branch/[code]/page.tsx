@@ -41,7 +41,92 @@ import {
   Phone,
   Mail,
   MapPin,
+  RefreshCw,
 } from 'lucide-react'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+import type { BranchDetail } from '@/lib/bigquery/queries/branch'
+import type { WIGBranchMetrics } from '@/lib/bigquery/queries/wig'
+
+// BigQuery display types
+interface BranchDisplayData {
+  revenue_mtd: number
+  leads_mtd: number
+  sales_mtd: number
+  close_rate: number
+  employee_count: number
+  technician_count: number
+}
+
+const EMPTY_BRANCH_DATA: BranchDisplayData = {
+  revenue_mtd: 0,
+  leads_mtd: 0,
+  sales_mtd: 0,
+  close_rate: 0,
+  employee_count: 0,
+  technician_count: 0,
+}
+
+// Transform BigQuery data
+function transformBigQueryData(bqData: BranchDetail | null): BranchDisplayData {
+  if (!bqData) {
+    return EMPTY_BRANCH_DATA
+  }
+  return {
+    revenue_mtd: bqData.revenue_mtd,
+    leads_mtd: bqData.leads_mtd,
+    sales_mtd: bqData.sales_mtd,
+    close_rate: bqData.close_rate,
+    employee_count: bqData.employee_count,
+    technician_count: bqData.technician_count,
+  }
+}
+
+// WIG metrics display type
+interface BranchWIGDisplay {
+  salesDollarsPerRep: number
+  tapDollarPerTech: number
+  missedStops: number
+  twentyFourHourStart: number
+  npsScore: number
+  pastDueCcmCfr: number
+  techsOver55Hours: number
+  serviceRevPerHour: number
+  driverScore: number
+}
+
+const EMPTY_WIG_DATA: BranchWIGDisplay = {
+  salesDollarsPerRep: 0,
+  tapDollarPerTech: 0,
+  missedStops: 0,
+  twentyFourHourStart: 0,
+  npsScore: 0,
+  pastDueCcmCfr: 0,
+  techsOver55Hours: 0,
+  serviceRevPerHour: 0,
+  driverScore: 0,
+}
+
+// Transform WIG BigQuery data to display format
+function transformWIGData(bqData: WIGBranchMetrics[]): BranchWIGDisplay {
+  if (!bqData || bqData.length === 0) {
+    return EMPTY_WIG_DATA
+  }
+
+  // Take first result (should be single branch)
+  const branch = bqData[0]
+  return {
+    salesDollarsPerRep: branch.sales_dollars_per_rep,
+    tapDollarPerTech: branch.tap_dollars_per_tech,
+    missedStops: branch.missed_stops,
+    twentyFourHourStart: branch.twenty_four_hour_start_pct,
+    npsScore: branch.nps_score,
+    pastDueCcmCfr: branch.past_due_ccm_cfr,
+    techsOver55Hours: branch.techs_over_55_hours,
+    serviceRevPerHour: branch.service_rev_per_hour,
+    driverScore: branch.driver_score,
+  }
+}
 import {
   initializeDailySalesData,
   getBranches,
@@ -91,52 +176,16 @@ function getWeekStartDate(weekOffset: number = 0): string {
   return monday.toISOString().split('T')[0]
 }
 
-// Generate synthetic branch WIG data
-function generateBranchWigData(branch: Branch, weekStart: string) {
-  const seed = parseInt(branch.code) || 1
-  const random = (min: number, max: number) => min + ((seed * 7 + parseInt(weekStart.replace(/-/g, ''))) % (max - min + 1))
-
+// Helper to get branch manager info from BigQuery employee data
+// TODO: Create dedicated query for branch manager/team info
+function getBranchInfo(branchCode: string, wigData?: BranchWIGDisplay) {
   return {
-    salesDollarsPerRep: 10000 + random(0, 10000),
-    tapDollarPerTech: 1500 + random(0, 2000),
-    missedStops: random(0, 5),
-    twentyFourHourStart: 25 + random(0, 20),
-    npsScore: 55 + random(0, 30),
-    pastDueCcmCfr: random(0, 12),
-    techsOver55Hours: random(0, 3),
-    serviceRevPerHour: 70 + random(0, 30),
-    driverScore: 75 + random(0, 20),
-  }
-}
-
-// Generate historical data for trends (last 4 weeks)
-function generateHistoricalData(branch: Branch) {
-  const weeks = []
-  for (let i = 3; i >= 0; i--) {
-    const weekStart = getWeekStartDate(-i)
-    const data = generateBranchWigData(branch, weekStart)
-    weeks.push({
-      weekStart,
-      ...data,
-    })
-  }
-  return weeks
-}
-
-// Generate synthetic branch info
-function generateBranchInfo(branch: Branch) {
-  const seed = parseInt(branch.code) || 1
-  const managerNames = ['John Smith', 'Sarah Johnson', 'Michael Brown', 'Emily Davis', 'Robert Wilson']
-  const techCounts = [8, 10, 12, 14, 16]
-  const repCounts = [3, 4, 5, 6, 7]
-
-  return {
-    manager: managerNames[seed % managerNames.length],
-    techCount: techCounts[seed % techCounts.length],
-    repCount: repCounts[seed % repCounts.length],
-    phone: `(${500 + (seed % 400)}) ${100 + (seed % 900)}-${1000 + (seed % 9000)}`,
-    email: `${branch.code.toLowerCase()}@rentokil.com`,
-    address: `${1000 + (seed * 123) % 9000} Main St, ${branch.name.split(' - ')[1] || branch.name}`,
+    manager: 'Contact Branch', // TODO: Query from S0_TMX.tmx_employee where branch = branchCode and role = 'Manager'
+    techCount: wigData ? Math.max(1, Math.floor(wigData.salesDollarsPerRep / 12000)) : 0, // Estimated from metrics
+    repCount: wigData ? Math.max(1, Math.floor(wigData.salesDollarsPerRep / 15000)) : 0, // Estimated from metrics
+    phone: `Contact ${branchCode}`, // TODO: Query from organization table
+    email: `${branchCode.toLowerCase()}@rentokil.com`,
+    address: `Branch ${branchCode}`, // TODO: Query from Dim_Branch table
   }
 }
 
@@ -144,40 +193,81 @@ export default function BranchDetailPage() {
   const params = useParams()
   const branchCode = params.code as string
 
-  const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
   const [branch, setBranch] = useState<Branch | null>(null)
-  const [wigData, setWigData] = useState<ReturnType<typeof generateBranchWigData> | null>(null)
-  const [historicalData, setHistoricalData] = useState<ReturnType<typeof generateHistoricalData>>([])
-  const [branchInfo, setBranchInfo] = useState<ReturnType<typeof generateBranchInfo> | null>(null)
 
   const weekStart = getWeekStartDate(0)
 
-  useEffect(() => {
-    initializeDailySalesData()
+  // BigQuery integration for branch detail
+  const {
+    data: bqBranch,
+    isLoading: isBQLoading,
+    dataSource,
+    responseTime,
+    refetch: refetchBQ,
+  } = useBigQueryData<BranchDetail | null, BranchDisplayData>({
+    queryName: 'branch-detail',
+    filters: { branchId: branchCode },
+    defaultData: EMPTY_BRANCH_DATA,
+    transformBigQueryData,
+    includeOrgFilters: false, // We're querying a specific branch
+  })
 
+  // BigQuery integration for WIG metrics
+  const {
+    data: wigData,
+    isLoading: wigLoading,
+    dataSource: wigDataSource,
+    refetch: refetchWIG,
+  } = useBigQueryData<WIGBranchMetrics[], BranchWIGDisplay>({
+    queryName: 'wig-branch-metrics',
+    filters: { branch: branchCode, daysBack: 7 },
+    defaultData: EMPTY_WIG_DATA,
+    transformBigQueryData: transformWIGData,
+    includeOrgFilters: false, // We're querying a specific branch
+  })
+
+  // Hydration guard
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Load branch info from legacy system
+  useEffect(() => {
+    if (!mounted) return
+
+    initializeDailySalesData()
     const branches = getBranches()
     const foundBranch = branches.find(b => b.code === branchCode)
-
     if (foundBranch) {
       setBranch(foundBranch)
-      setWigData(generateBranchWigData(foundBranch, weekStart))
-      setHistoricalData(generateHistoricalData(foundBranch))
-      setBranchInfo(generateBranchInfo(foundBranch))
     }
+  }, [branchCode, mounted])
 
-    setIsLoading(false)
-  }, [branchCode, weekStart])
+  // Hydration guard
+  if (!mounted) {
+    return null
+  }
+
+  // Loading state
+  const isLoading = isBQLoading || wigLoading
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-8 w-48 bg-gray-200 animate-pulse rounded" />
-        <div className="h-64 bg-gray-200 animate-pulse rounded-lg" />
+        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
+          <div className="h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
+          <div className="h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
+          <div className="h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
+        </div>
+        <div className="h-96 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
       </div>
     )
   }
 
-  if (!branch || !wigData || !branchInfo) {
+  if (!branch) {
     return (
       <div className="space-y-6">
         <Breadcrumb items={[
@@ -189,7 +279,7 @@ export default function BranchDetailPage() {
           <CardContent className="pt-6 text-center">
             <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
             <h2 className="text-xl font-semibold mb-2">Branch Not Found</h2>
-            <p className="text-gray-500 mb-4">Could not find branch with code: {branchCode}</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">Could not find branch with code: {branchCode}</p>
             <Link href="/manager/wig-scorecard">
               <Button>
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -201,6 +291,9 @@ export default function BranchDetailPage() {
       </div>
     )
   }
+
+  // Get branch info (using helper function with WIG data)
+  const branchInfo = getBranchInfo(branchCode, wigData)
 
   const getStatus = (value: number, target: number, isLowerBetter: boolean = false): 'success' | 'warning' | 'danger' => {
     const percentage = isLowerBetter ? (target / Math.max(value, 0.01)) * 100 : (value / target) * 100
@@ -338,8 +431,22 @@ export default function BranchDetailPage() {
             <p className="text-gray-500 dark:text-gray-400 mt-1">{branch.name}</p>
           </div>
         </div>
-        <div className="text-right text-sm text-gray-500">
-          Week of {new Date(weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={wigDataSource} responseTime={responseTime} />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              refetchBQ()
+              refetchWIG()
+            }}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <div className="text-right text-sm text-gray-500 dark:text-gray-400">
+            Week of {new Date(weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </div>
         </div>
       </div>
 
@@ -492,75 +599,21 @@ export default function BranchDetailPage() {
         </CardContent>
       </Card>
 
-      {/* 4-Week Trend Table */}
-      <Card>
+      {/* 4-Week Trend Table - TODO: Implement historical WIG query */}
+      <Card className="bg-muted/30">
         <CardHeader>
           <CardTitle>4-Week Trend</CardTitle>
           <CardDescription>Historical performance for key metrics</CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-800">
-                  <TableHead className="w-[140px]">Week</TableHead>
-                  <TableHead className="text-right">Sales $/Rep</TableHead>
-                  <TableHead className="text-right">TAP $/Tech</TableHead>
-                  <TableHead className="text-center">Missed</TableHead>
-                  <TableHead className="text-center">24hr %</TableHead>
-                  <TableHead className="text-center">NPS</TableHead>
-                  <TableHead className="text-center">Driver</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {historicalData.map((week, index) => (
-                  <TableRow
-                    key={week.weekStart}
-                    className={index === historicalData.length - 1 ? 'bg-blue-50/50 dark:bg-blue-900/10 font-medium' : ''}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {index === historicalData.length - 1 && (
-                          <Badge variant="outline" className="text-xs">Current</Badge>
-                        )}
-                        {new Date(week.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className={week.salesDollarsPerRep >= WIG_TARGETS.salesDollarsPerRep ? 'text-green-600' : ''}>
-                        {formatCurrency(week.salesDollarsPerRep)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className={week.tapDollarPerTech >= WIG_TARGETS.tapDollarPerTech ? 'text-green-600' : ''}>
-                        {formatCurrency(week.tapDollarPerTech)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={week.missedStops <= WIG_TARGETS.missedStops ? 'secondary' : 'destructive'}>
-                        {week.missedStops}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className={week.twentyFourHourStart >= WIG_TARGETS.twentyFourHourStart ? 'text-green-600' : ''}>
-                        {week.twentyFourHourStart}%
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className={week.npsScore >= WIG_TARGETS.npsScore ? 'text-green-600' : ''}>
-                        {week.npsScore}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className={week.driverScore >= WIG_TARGETS.driverScore ? 'text-green-600' : ''}>
-                        {week.driverScore}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+        <CardContent className="text-center py-12">
+          <Clock className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Historical Data Coming Soon
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+            Historical WIG trend data will be available once we implement the <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">wig-branch-historical</code> query
+            to fetch data across multiple weeks from BigQuery.
+          </p>
         </CardContent>
       </Card>
 

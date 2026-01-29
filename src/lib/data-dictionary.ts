@@ -20,7 +20,13 @@ export type DataSource =
   | 'start_packet_pdf'
   | 'calculated'
   | 'workday'
-  | 'sap';
+  | 'jde'
+  | 'invoca'
+  | 'five9'
+  | 'lead_exec'
+  | 'sales_exec'
+  | 'xactly'
+  | 'winning_formula';
 
 export type DataType =
   | 'string'
@@ -494,12 +500,12 @@ Classification:
     definition: 'Current accounts receivable balance owed by the customer.',
     businessContext: 'Total outstanding invoices not yet collected. Key indicator for cash flow management and customer credit risk assessment.',
     valueRanges: { min: 0, max: 1000000, typical: '$0 - $10,000 for most accounts' },
-    primarySource: 'sap',
+    primarySource: 'jde',
     secondarySources: ['rtx_data_hub'],
     sourceFieldName: 'CUST_AR_BAL',
     transformations: [
       {
-        sourceSystem: 'sap',
+        sourceSystem: 'jde',
         sourceField: 'CUST_AR_BAL',
         transformationType: 'direct_map',
         transformationLogic: 'Sum of all open invoices for the customer',
@@ -1301,11 +1307,11 @@ const invoiceFields: FieldDefinition[] = [
     nullable: false,
     definition: 'Unique identifier for each invoice generated.',
     businessContext: 'Primary key for all billing and AR records. Used for payment matching and customer inquiries.',
-    primarySource: 'sap',
+    primarySource: 'jde',
     sourceFieldName: 'INVOICE_NUM',
     transformations: [
       {
-        sourceSystem: 'sap',
+        sourceSystem: 'jde',
         sourceField: 'INVOICE_NUM',
         transformationType: 'direct_map',
         transformationLogic: "Prefix 'INV-' + SAP invoice number",
@@ -1355,11 +1361,11 @@ const invoiceFields: FieldDefinition[] = [
       { value: 'disputed', label: 'Disputed', description: 'Customer has raised a dispute' },
       { value: 'void', label: 'Void', description: 'Invoice cancelled/voided' }
     ],
-    primarySource: 'sap',
+    primarySource: 'jde',
     sourceFieldName: 'INV_STATUS_CD',
     transformations: [
       {
-        sourceSystem: 'sap',
+        sourceSystem: 'jde',
         sourceField: 'INV_STATUS_CD',
         transformationType: 'lookup',
         transformationLogic: 'Map status codes: P=paid, O=open, D=overdue, X=disputed, V=void',
@@ -1466,11 +1472,11 @@ END`,
     definition: 'Total amount billed on the invoice.',
     businessContext: 'Sum of all line items including taxes and fees. Used for AR balance calculations and revenue recognition.',
     valueRanges: { min: 0, max: 1000000, typical: '$50 - $5,000 for most invoices' },
-    primarySource: 'sap',
+    primarySource: 'jde',
     sourceFieldName: 'INV_TOTAL_AMT',
     transformations: [
       {
-        sourceSystem: 'sap',
+        sourceSystem: 'jde',
         sourceField: 'INV_TOTAL_AMT',
         transformationType: 'direct_map',
         transformationLogic: 'Direct mapping, 2 decimal precision',
@@ -2359,11 +2365,53 @@ export const DATA_SOURCES_METADATA: Record<DataSource, {
     refreshFrequency: 'Daily',
     owner: 'HR Operations'
   },
-  sap: {
-    name: 'SAP Financials',
-    description: 'Enterprise financials - invoices, payments, AR/AP',
+  jde: {
+    name: 'JD Edwards (JDE)',
+    description: 'Oracle JD Edwards ERP - financials, AR/AP, billing, P&L',
     type: 'primary',
     refreshFrequency: 'Hourly',
     owner: 'Finance'
+  },
+  invoca: {
+    name: 'Invoca',
+    description: 'Inbound call tracking - call recordings, outcomes, marketing attribution',
+    type: 'primary',
+    refreshFrequency: 'Real-time',
+    owner: 'Marketing'
+  },
+  five9: {
+    name: 'Five9',
+    description: 'Call center platform - agent interactions, dispositions, queue metrics',
+    type: 'primary',
+    refreshFrequency: 'Real-time',
+    owner: 'Inside Sales'
+  },
+  lead_exec: {
+    name: 'Lead Exec',
+    description: 'Lead management system - MQL routing, lead assignments, stages',
+    type: 'primary',
+    refreshFrequency: 'Real-time',
+    owner: 'Sales Operations'
+  },
+  sales_exec: {
+    name: 'Sales Exec',
+    description: 'Sales pipeline management - SQLs, opportunities, proposals, closed deals',
+    type: 'primary',
+    refreshFrequency: 'Real-time',
+    owner: 'Sales Operations'
+  },
+  xactly: {
+    name: 'Xactly',
+    description: 'Compensation management - commissions, incentives, payouts',
+    type: 'primary',
+    refreshFrequency: 'Daily',
+    owner: 'Finance'
+  },
+  winning_formula: {
+    name: 'Winning Formula',
+    description: 'Field sales activities - inspections, proposals, direct sales',
+    type: 'primary',
+    refreshFrequency: 'Every 4 hours',
+    owner: 'Field Sales'
   }
 };

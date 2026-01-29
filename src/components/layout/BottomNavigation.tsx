@@ -35,7 +35,7 @@ interface NavItem {
 const ADMIN_NAV: NavItem[] = [
   { name: 'Admin', href: '/admin', icon: Shield },
   { name: 'Health', href: '/admin?tab=overview', icon: Activity },
-  { name: 'Preview', href: '/admin', icon: Eye },
+  { name: 'Sources', href: '/admin?tab=datasources', icon: Eye },
   { name: 'Governance', href: '/governance', icon: Shield },
   { name: 'Settings', href: '/settings', icon: User },
 ]
@@ -100,8 +100,8 @@ const BOTTOM_NAV_CONFIG: Record<Role, NavItem[]> = {
   ],
   rep: [
     { name: 'Dashboard', href: '/ae', icon: LayoutDashboard },
-    { name: 'Tracker', href: '/ae/tracker/totals', icon: Target },
-    { name: 'New Start', href: '/ae/new-starts', icon: Truck },
+    { name: 'Accounts', href: '/ae/accounts', icon: Users },
+    { name: 'Tracker', href: '/ae/tracker', icon: Target },
     { name: 'Import', href: '/ae/import', icon: FileText },
     { name: 'Profile', href: '/settings', icon: User },
   ],
@@ -163,14 +163,14 @@ export function BottomNavigation() {
       aria-label="Bottom navigation"
     >
       <div className="flex justify-around items-center h-16">
-        {navItems.map((item) => {
+        {navItems.map((item, index) => {
           // Check if this route is active
           const isActive = pathname === item.href ||
             (item.href !== '/' && item.href !== '/ae' && pathname.startsWith(item.href))
 
           return (
             <Link
-              key={item.href}
+              key={`${item.name}-${index}`}
               href={item.href}
               className={cn(
                 // Layout

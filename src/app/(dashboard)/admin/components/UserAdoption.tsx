@@ -14,6 +14,25 @@ interface UserAdoptionProps {
 }
 
 export function UserAdoption({ metrics }: UserAdoptionProps) {
+  // Handle loading state
+  if (!metrics) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            User Adoption
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8 text-gray-500">
+            Loading adoption metrics...
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   const adoptionRate = (metrics.activeUsers / metrics.totalUsers) * 100
 
   const getFeatureIcon = (feature: string) => {
@@ -101,29 +120,35 @@ export function UserAdoption({ metrics }: UserAdoptionProps) {
               Most Viewed Dashboards
             </h4>
             <div className="space-y-2">
-              {metrics.mostViewedDashboards.map((dashboard, index) => (
-                <div
-                  key={dashboard.name}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-400 w-5">
-                      #{index + 1}
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {dashboard.name}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {dashboard.views.toLocaleString()}
+              {metrics.mostViewedDashboards?.length > 0 ? (
+                metrics.mostViewedDashboards.map((dashboard, index) => (
+                  <div
+                    key={dashboard.name}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-400 w-5">
+                        #{index + 1}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {dashboard.name}
+                      </span>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {dashboard.uniqueUsers} users
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {dashboard.views.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {dashboard.uniqueUsers} users
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                  No dashboard tracking data available
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -134,28 +159,36 @@ export function UserAdoption({ metrics }: UserAdoptionProps) {
               Needs Attention
             </h4>
             <div className="space-y-2">
-              {metrics.leastViewedDashboards.map((dashboard) => (
-                <div
-                  key={dashboard.name}
-                  className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
-                >
-                  <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                    {dashboard.name}
-                  </span>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                      {dashboard.views}
-                    </div>
-                    <div className="text-xs text-amber-600 dark:text-amber-400">
-                      {dashboard.uniqueUsers} users
+              {metrics.leastViewedDashboards?.length > 0 ? (
+                metrics.leastViewedDashboards.map((dashboard) => (
+                  <div
+                    key={dashboard.name}
+                    className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
+                  >
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                      {dashboard.name}
+                    </span>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                        {dashboard.views}
+                      </div>
+                      <div className="text-xs text-amber-600 dark:text-amber-400">
+                        {dashboard.uniqueUsers} users
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                  No dashboard tracking data available
                 </div>
-              ))}
+              )}
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Consider reviewing these dashboards for user experience improvements
-            </p>
+            {metrics.leastViewedDashboards?.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Consider reviewing these dashboards for user experience improvements
+              </p>
+            )}
           </div>
         </div>
 
@@ -165,26 +198,32 @@ export function UserAdoption({ metrics }: UserAdoptionProps) {
             Feature Usage Stats
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {metrics.featureUsage.map((feature) => {
-              const Icon = getFeatureIcon(feature.feature)
-              return (
-                <div
-                  key={feature.feature}
-                  className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center"
-                >
-                  <Icon className="h-5 w-5 mx-auto text-primary mb-2" />
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {feature.feature}
+            {metrics.featureUsage?.length > 0 ? (
+              metrics.featureUsage.map((feature) => {
+                const Icon = getFeatureIcon(feature.feature)
+                return (
+                  <div
+                    key={feature.feature}
+                    className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center"
+                  >
+                    <Icon className="h-5 w-5 mx-auto text-primary mb-2" />
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {feature.feature}
+                    </div>
+                    <div className="text-lg font-bold text-primary mt-1">
+                      {feature.usagePercent}%
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {feature.usageCount.toLocaleString()} uses
+                    </div>
                   </div>
-                  <div className="text-lg font-bold text-primary mt-1">
-                    {feature.usagePercent}%
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {feature.usageCount.toLocaleString()} uses
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })
+            ) : (
+              <div className="col-span-2 md:col-span-5 text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                No feature usage data available
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

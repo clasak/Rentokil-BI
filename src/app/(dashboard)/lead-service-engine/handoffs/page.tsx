@@ -1,15 +1,21 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import Link from 'next/link'
 import {
-  getHandoffLeads,
-  getHandoffMetrics,
   HandoffMetrics,
-  Lead,
-  STAGE_CONFIG
 } from '@/lib/lead-engine-data'
-import { HandoffCard, StageBadge, LeadTable } from '@/components/lead-engine'
+import {
+  BQHandoffMetricsRow,
+  BQHandoffLeadRow,
+  transformHandoffMetrics,
+  transformHandoffLeads,
+  HandoffLead,
+} from '@/lib/bigquery/queries/lead-service-transformers'
+import type { HandoffMetrics as TransformedHandoffMetrics } from '@/lib/lead-engine-data'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { HandoffCard, StageBadge } from '@/components/lead-engine'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -20,8 +26,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table'
 import {
-  Mail, AlertTriangle, Clock, ArrowLeft, TrendingUp, TrendingDown, CheckCircle,
-  FileText, User, Info
+  Mail, AlertTriangle, ArrowLeft, TrendingUp, CheckCircle,
+  FileText, Info
 } from 'lucide-react'
 import {
   Tooltip as TooltipComponent,
@@ -29,27 +35,62 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine
 } from 'recharts'
 
-export default function HandoffsPage() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [handoffMetrics, setHandoffMetrics] = useState<HandoffMetrics[]>([])
-  const [bdToSalesLeads, setBdToSalesLeads] = useState<Lead[]>([])
-  const [salesToOpsLeads, setSalesToOpsLeads] = useState<Lead[]>([])
+// Empty data defaults
+const EMPTY_HANDOFF_METRICS: TransformedHandoffMetrics[] = []
+const EMPTY_HANDOFF_LEADS: HandoffLead[] = []
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setHandoffMetrics(getHandoffMetrics())
-      setBdToSalesLeads(getHandoffLeads('bd_to_sales'))
-      setSalesToOpsLeads(getHandoffLeads('sales_to_ops'))
-      setIsLoading(false)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [])
+export default function HandoffsPage() {
+  // Fetch handoff metrics from BigQuery
+  const {
+    data: handoffMetrics,
+    isLoading: isLoadingMetrics,
+    dataSource,
+    responseTime,
+    error,
+    refetch: refetchMetrics,
+  } = useBigQueryData<BQHandoffMetricsRow[], TransformedHandoffMetrics[]>({
+    queryName: 'lead-service-handoff-metrics',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_HANDOFF_METRICS,
+    transformBigQueryData: transformHandoffMetrics,
+  })
+
+  // Fetch BD→Sales leads
+  const {
+    data: bdToSalesLeads,
+    isLoading: isLoadingBD,
+    refetch: refetchBD,
+  } = useBigQueryData<BQHandoffLeadRow[], HandoffLead[]>({
+    queryName: 'lead-service-handoff-leads-bd',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_HANDOFF_LEADS,
+    transformBigQueryData: transformHandoffLeads,
+  })
+
+  // Fetch Sales→Ops leads
+  const {
+    data: salesToOpsLeads,
+    isLoading: isLoadingOps,
+    refetch: refetchOps,
+  } = useBigQueryData<BQHandoffLeadRow[], HandoffLead[]>({
+    queryName: 'lead-service-handoff-leads-ops',
+    filters: { daysBack: 90 },
+    defaultData: EMPTY_HANDOFF_LEADS,
+    transformBigQueryData: transformHandoffLeads,
+  })
+
+  const isLoading = isLoadingMetrics || isLoadingBD || isLoadingOps
+
+  const handleRefresh = useCallback(() => {
+    refetchMetrics()
+    refetchBD()
+    refetchOps()
+  }, [refetchMetrics, refetchBD, refetchOps])
 
   if (isLoading) {
     return (
@@ -70,14 +111,22 @@ export default function HandoffsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <Breadcrumb items={[
-        { label: 'Command Center', href: '/' },
-        { label: 'Lead Service Engine', href: '/lead-service-engine' },
-        { label: 'Handoffs' }
-      ]} />
+      {/* Page Header with Data Source Badge */}
+      <PageHeader
+        title="Handoff Monitoring"
+        breadcrumbs={[
+          { label: 'Command Center', href: '/' },
+          { label: 'Lead Service Engine', href: '/lead-service-engine' },
+          { label: 'Handoffs' }
+        ]}
+        dataSource={dataSource}
+        responseTime={responseTime}
+        error={error}
+        onRefresh={handleRefresh}
+        isLoading={isLoading}
+      />
 
-      {/* Header */}
+      {/* Back Button & Description */}
       <div className="flex items-center gap-4">
         <Link href="/lead-service-engine">
           <Button variant="ghost" size="sm">
@@ -86,11 +135,7 @@ export default function HandoffsPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <Mail className="h-7 w-7 text-orange-500" />
-            Handoff Monitoring
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Track manual email handoff bottlenecks between BD→Sales and Sales→Ops
           </p>
         </div>
@@ -183,7 +228,7 @@ export default function HandoffsPage() {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Percentage of leads processed within the 24-hour SLA target. Green &ge;90%, Yellow &ge;70%, Red &lt;70%</p>
+                  <p>Percentage of leads processed within the 24-hour SLA target. Green ≥90%, Yellow ≥70%, Red &lt;70%</p>
                 </TooltipContent>
               </TooltipComponent>
             </CardContent>
@@ -197,13 +242,13 @@ export default function HandoffsPage() {
           <TabsTrigger value="bd_to_sales" className="gap-2">
             BD → Sales
             {(bdMetrics?.delayedCount || 0) > 0 && (
-              <Badge variant="danger" className="ml-1">{bdMetrics?.delayedCount}</Badge>
+              <Badge variant="destructive" className="ml-1">{bdMetrics?.delayedCount}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="sales_to_ops" className="gap-2">
             Sales → Ops
             {(opsMetrics?.delayedCount || 0) > 0 && (
-              <Badge variant="danger" className="ml-1">{opsMetrics?.delayedCount}</Badge>
+              <Badge variant="destructive" className="ml-1">{opsMetrics?.delayedCount}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -303,10 +348,11 @@ export default function HandoffsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={
-                          lead.handoffStatus === 'delayed' ? 'danger' :
-                          lead.handoffStatus === 'pending' ? 'warning' : 'success'
+                          lead.handoffStatus === 'delayed' ? 'destructive' :
+                          lead.handoffStatus === 'pending' ? 'warning' : 'default'
                         }>
-                          {lead.handoffStatus || 'Pending'}
+                          {lead.handoffStatus === 'delayed' ? 'Delayed' :
+                           lead.handoffStatus === 'completed' ? 'Completed' : 'Pending'}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -406,7 +452,7 @@ export default function HandoffsPage() {
                       <TableCell>{lead.assignedAE || '-'}</TableCell>
                       <TableCell>
                         {lead.startPacketComplete ? (
-                          <Badge variant="success" className="gap-1">
+                          <Badge variant="default" className="gap-1 bg-green-600">
                             <CheckCircle className="h-3 w-3" />
                             Complete
                           </Badge>
@@ -427,10 +473,11 @@ export default function HandoffsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={
-                          lead.handoffStatus === 'delayed' ? 'danger' :
-                          lead.handoffStatus === 'pending' ? 'warning' : 'success'
+                          lead.handoffStatus === 'delayed' ? 'destructive' :
+                          lead.handoffStatus === 'pending' ? 'warning' : 'default'
                         }>
-                          {lead.handoffStatus || 'Pending'}
+                          {lead.handoffStatus === 'delayed' ? 'Delayed' :
+                           lead.handoffStatus === 'completed' ? 'Completed' : 'Pending'}
                         </Badge>
                       </TableCell>
                       <TableCell>

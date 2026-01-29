@@ -27,6 +27,7 @@ export {
   createBigQueryClient,
   BigQueryClient,
   BigQueryApiError,
+  BIGQUERY_CONFIG,
 } from './client'
 
 // Type constants
@@ -80,3 +81,6 @@ export type {
   SourceSystemConfig,
   LeadFlowDefinition,
 } from './source-systems'
+
+// Production query functions
+export * from './queries'
