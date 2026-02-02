@@ -5,7 +5,7 @@
  *
  * Features:
  * - View all users and their roles
- * - See Workday job title vs assigned dashboard role
+ * - See employee job title vs assigned dashboard role
  * - Override/change any user's role
  * - Filter by role, SSO provider, branch, region, market
  * - Search by name, email, employee number
@@ -441,7 +441,7 @@ function AdminUsersPageContent() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>User</TableHead>
-                      <TableHead>Workday Title</TableHead>
+                      <TableHead>Job Title</TableHead>
                       <TableHead>Dashboard Role</TableHead>
                       <TableHead>Auth Provider</TableHead>
                       <TableHead>Location</TableHead>
@@ -555,7 +555,7 @@ function AdminUsersPageContent() {
                                 </div>
                                 <div>
                                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Workday Job Title
+                                    Job Title
                                   </label>
                                   <p className="text-sm text-gray-500">
                                     {user.workday_job_title || 'Not available'}

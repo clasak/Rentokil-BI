@@ -95,12 +95,12 @@ function createDevMarker() {
 }
 
 function startDevServer() {
-  console.log('\n🚀 Starting Next.js dev server...\n');
+  console.log('\n🚀 Starting Next.js dev server on port 3001...\n');
 
   // Create dev marker after a short delay (once .next exists)
   setTimeout(createDevMarker, 3000);
 
-  devProcess = spawn('npx', ['next', 'dev'], {
+  devProcess = spawn('npx', ['next', 'dev', '-p', '3001'], {
     cwd: ROOT_DIR,
     stdio: ['inherit', 'pipe', 'pipe'],
     shell: true,

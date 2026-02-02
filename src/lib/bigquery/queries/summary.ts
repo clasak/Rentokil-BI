@@ -57,7 +57,7 @@ export async function getDataSummary(
     SELECT
       COUNT(DISTINCT RTX_Market_Code) as market_count,
       COUNT(DISTINCT RTX_Region_Code) as region_count,
-      COUNT(DISTINCT RTX_Branch_Codes) as branch_count
+      COUNT(DISTINCT Current_State_Branch_Code) as branch_count
     FROM \`${PROJECT}.S2.VwUnf_Branch\`
     WHERE RTX_Market_Code IS NOT NULL
   `

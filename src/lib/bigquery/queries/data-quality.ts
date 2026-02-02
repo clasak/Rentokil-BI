@@ -120,11 +120,11 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     nullCheckColumns: ['ContractNumber', 'BranchID', 'SellDate'],
   },
   {
-    dataset: 'S4',
+    dataset: 'S2',
     tableName: 'VwUnf_Branch',
     priority: 'critical',
-    nullCheckColumns: ['BranchID', 'BranchName', 'RegionID'],
-    primaryKeyColumn: 'BranchID',
+    nullCheckColumns: ['RTX_Branch_Codes', 'RTX_Branch_Name', 'RTX_Region_Code'],
+    primaryKeyColumn: 'RTX_Branch_Codes',
   },
   {
     dataset: 'S4',
@@ -141,10 +141,10 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
   },
   {
     dataset: 'S4',
-    tableName: 'Dim_Employee_EmployeeID_T1_Vw',
+    tableName: 'Dim_Employee',
     priority: 'high',
-    nullCheckColumns: ['EmployeeID', 'BranchID'],
-    primaryKeyColumn: 'EmployeeID',
+    nullCheckColumns: ['Employee_Num', 'Home_Branch'],
+    primaryKeyColumn: 'Employee_Num',
   },
 
   // S0_TMX Dataset (Source Data) - 10 tables
@@ -152,14 +152,14 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     dataset: 'S0_TMX',
     tableName: 'tmx_lead',
     priority: 'critical',
-    nullCheckColumns: ['lead_id', 'branch_id', 'received_date'],
-    primaryKeyColumn: 'lead_id',
+    nullCheckColumns: ['tmx_lead_sid', 'assigned_bunit_sid', 'received_date'],
+    primaryKeyColumn: 'tmx_lead_sid',
   },
   {
     dataset: 'S0_TMX',
     tableName: 'tmx_employee',
     priority: 'critical',
-    nullCheckColumns: ['employee_id', 'branch_id', 'employee_status'],
+    nullCheckColumns: ['employee_id', 'assigned_bunit_sid', 'employee_status'],
     primaryKeyColumn: 'employee_id',
   },
   {
@@ -172,20 +172,8 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     dataset: 'S0_TMX',
     tableName: 'tmx_business_unit',
     priority: 'high',
-    nullCheckColumns: ['business_unit_id', 'business_unit_name'],
-  },
-  {
-    dataset: 'S0_TMX',
-    tableName: 'tmx_branch',
-    priority: 'high',
-    nullCheckColumns: ['branch_id', 'branch_name'],
-    primaryKeyColumn: 'branch_id',
-  },
-  {
-    dataset: 'S0_TMX',
-    tableName: 'tmx_contract',
-    priority: 'high',
-    nullCheckColumns: ['contract_id', 'customer_id'],
+    nullCheckColumns: ['tmx_business_unit_sid', 'branch_name'],
+    primaryKeyColumn: 'tmx_business_unit_sid',
   },
 
   // W3_Contract_Checker Dataset - 1 table

@@ -7,10 +7,10 @@
 "use client"
 
 // Feature flag to toggle between real BigQuery and mock data
-// Set to false to use mock data (consistent with Platform Admin Console)
-const USE_REAL_DATA = false
+// Set to true for production to use real BigQuery data
+const USE_REAL_DATA = true
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   getDataQualityIssues,
   getReconciliationResults,
@@ -340,10 +340,15 @@ function IssueDetailModal({
 }
 
 export default function DataQualityPage() {
+  const [mounted, setMounted] = useState(false)
   const [selectedIssue, setSelectedIssue] = useState<DataQualityIssue | null>(null)
   const [issueModalOpen, setIssueModalOpen] = useState(false)
   const [severityFilter, setSeverityFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Empty defaults for BigQuery hooks
   const EMPTY_ISSUES: DataQualityIssueReal[] = []
@@ -411,10 +416,25 @@ export default function DataQualityPage() {
     resolved: 0,
   } : mockIssueSummary
 
-  // Real-time validation from validation layer (J4)
-  const validationResult = useMemo(() => runValidation(), [])
-  const validationSummary = useMemo(() => getValidationSummary(), [])
-  const validationIssues = useMemo(() => getFormattedValidationIssues(), [])
+  // Real-time validation from validation layer (J4) - only run client-side to avoid hydration errors
+  const validationResult = useMemo(() => mounted ? runValidation() : {
+    isValid: true,
+    score: 100,
+    issues: [],
+    checks: [],
+    lastValidated: new Date()
+  }, [mounted])
+
+  const validationSummary = useMemo(() => mounted ? getValidationSummary() : {
+    score: 100,
+    status: 'healthy' as const,
+    critical: 0,
+    warning: 0,
+    info: 0,
+    lastChecked: new Date()
+  }, [mounted])
+
+  const validationIssues = useMemo(() => mounted ? getFormattedValidationIssues() : [], [mounted])
 
   // Filter issues
   const filteredIssues = useMemo(() => {

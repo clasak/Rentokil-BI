@@ -87,10 +87,16 @@ export default function PlatformAdminPage() {
             Monitor platform health, data quality, user adoption, and system alerts
           </p>
         </div>
-        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-          <ShieldCheck className="h-3 w-3 mr-1" />
-          Product Owner View
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+            <ShieldCheck className="h-3 w-3 mr-1" />
+            Product Owner View
+          </Badge>
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+            <Activity className="h-3 w-3 mr-1" />
+            Demo Mode - Mock Data
+          </Badge>
+        </div>
       </div>
 
       {/* Main Tabs */}

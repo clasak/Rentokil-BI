@@ -73,6 +73,10 @@ export interface UseOrganizationDataResult {
   getMarketByName: (name: string) => OrganizationMarket | undefined
   getRegionByName: (name: string) => OrganizationRegion | undefined
 
+  // Hierarchical helpers
+  getHierarchyPath: (branchCode: string) => { market: OrganizationMarket | null; region: OrganizationRegion | null; branch: OrganizationBranch | null }
+  getMarketForRegion: (regionCode: string) => OrganizationMarket | undefined
+
   // State
   isLoading: boolean
   error: string | null
@@ -326,6 +330,34 @@ export function useOrganizationData(options?: {
   )
 
   // =============================================================================
+  // Hierarchical helpers (for drill-down navigation)
+  // =============================================================================
+
+  const getHierarchyPath = useCallback(
+    (branchCode: string): { market: OrganizationMarket | null; region: OrganizationRegion | null; branch: OrganizationBranch | null } => {
+      const branch = getBranchByCode(branchCode)
+      if (!branch) {
+        return { market: null, region: null, branch: null }
+      }
+
+      const region = getRegionByCode(branch.region_code)
+      const market = getMarketByCode(branch.market_code)
+
+      return { market: market || null, region: region || null, branch }
+    },
+    [getBranchByCode, getRegionByCode, getMarketByCode]
+  )
+
+  const getMarketForRegion = useCallback(
+    (regionCode: string): OrganizationMarket | undefined => {
+      const region = getRegionByCode(regionCode)
+      if (!region) return undefined
+      return getMarketByCode(region.market_code)
+    },
+    [getRegionByCode, getMarketByCode]
+  )
+
+  // =============================================================================
   // Deduplicated arrays (source data may have duplicates)
   // =============================================================================
 
@@ -391,6 +423,8 @@ export function useOrganizationData(options?: {
     getBranchByCode,
     getMarketByName,
     getRegionByName,
+    getHierarchyPath,
+    getMarketForRegion,
     isLoading,
     error,
     refetch: fetchData,

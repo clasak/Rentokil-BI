@@ -28,6 +28,7 @@ import { Switch } from '@/components/ui/switch'
 import { Wrench, AlertTriangle, Users, ChevronRight, MapPin, Clock } from 'lucide-react'
 import { Account, KPIValue, ServiceEvent, Complaint } from '@/types'
 import type { OpsOverview } from '@/lib/bigquery/queries/ops'
+import { HierarchicalOrganizationFilter } from '@/components/layout/HierarchicalOrganizationFilter'
 
 // Technician display data
 interface TechnicianDisplay {
@@ -364,8 +365,19 @@ export default function OpsPage() {
         )}
       </PageHeader>
 
-      {/* KPI Cards */}
-      <div id="ops-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* Organization Hierarchy Filter */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-1">
+          <HierarchicalOrganizationFilter
+            showCounts
+            showBreadcrumb
+            maxHeight="calc(100vh - 240px)"
+          />
+        </div>
+
+        <div className="lg:col-span-3 space-y-6">
+          {/* KPI Cards */}
+          <div id="ops-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4">
         {opsKpis.map(slug => {
           const kpiValue = kpiValues.get(slug)
           if (!kpiValue) return null
@@ -682,6 +694,8 @@ export default function OpsPage() {
           </Table>
         </CardContent>
       </Card>
+        </div>
+      </div>
     </div>
   )
 }

@@ -239,6 +239,11 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
   'data-quality-issues': ['exec', 'market_vp', 'region_director'],
   'data-quality-score': ['exec', 'market_vp', 'region_director'],
   'data-quality-source-health': ['exec', 'market_vp', 'region_director'],
+  'data-quality-scorecard-dimensions': ['exec', 'market_vp', 'region_director'],
+  'data-quality-details': ['exec', 'market_vp', 'region_director'],
+  'data-quality-historical-trends': ['exec', 'market_vp', 'region_director'],
+  'data-quality-period-comparisons': ['exec', 'market_vp', 'region_director'],
+  'data-quality-alerts': ['exec', 'market_vp', 'region_director'],
 
   // Platform Health Monitoring queries - exec only (admin dashboard)
   'platform-health-metrics': ['exec'],

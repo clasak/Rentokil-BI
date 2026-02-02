@@ -256,7 +256,7 @@ export default function OrganizationHierarchyPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Markets</SelectItem>
-                  {filters.markets.map((m) => (
+                  {filters.markets.filter((m) => m && m.trim()).map((m) => (
                     <SelectItem key={m} value={m}>
                       {m}
                     </SelectItem>
@@ -275,7 +275,7 @@ export default function OrganizationHierarchyPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Regions</SelectItem>
-                    {filters.regions.map((r) => (
+                    {filters.regions.filter((r) => r && r.trim()).map((r) => (
                       <SelectItem key={r} value={r}>
                         {r}
                       </SelectItem>
@@ -417,8 +417,9 @@ export default function OrganizationHierarchyPage() {
                 </TableHeader>
                 <TableBody>
                   {data.map((item, idx) => {
-                    const rowId =
-                      item.branch_code || item.region_code || item.market_code || String(idx)
+                    // Create unique key by combining viewLevel, code, and index
+                    const code = item.branch_code || item.region_code || item.market_code || ''
+                    const rowId = `${viewLevel}-${code}-${idx}`
                     const name = item.branch_name || item.region_name || item.market_name || '-'
                     const canDrillDown = viewLevel !== 'branch'
 

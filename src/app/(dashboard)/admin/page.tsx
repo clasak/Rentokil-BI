@@ -48,6 +48,9 @@ import { AnomalyDetection } from './components/AnomalyDetection'
 // SALTI Dashboard Components
 import { SALTILeadFunnel } from './components/SALTILeadFunnel'
 import { SALTITargetKPIGauge } from './components/SALTITargetKPIGauge'
+
+// Organization Code Discovery
+import { OrgCodeDiscovery } from '@/components/admin/OrgCodeDiscovery'
 import { SALTIFiveTenTwo } from './components/SALTIFiveTenTwo'
 import { SALTISalesResults } from './components/SALTISalesResults'
 import { SALTIPortfolio } from './components/SALTIPortfolio'
@@ -531,6 +534,10 @@ export default function AdminPage() {
           <TabsTrigger value="salti" className="gap-1.5 text-xs px-3">
             <Target className="h-3.5 w-3.5" />
             SALTI
+          </TabsTrigger>
+          <TabsTrigger value="org-codes" className="gap-1.5 text-xs px-3">
+            <Building2 className="h-3.5 w-3.5" />
+            Org Codes
           </TabsTrigger>
         </TabsList>
 
@@ -1063,8 +1070,8 @@ export default function AdminPage() {
                 </Button>
               </div>
               {dataSummaryError && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  Using mock data - BigQuery: {dataSummaryError}
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                  BigQuery Error: {dataSummaryError}
                 </p>
               )}
             </CardHeader>
@@ -1077,7 +1084,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
                     <div className="text-2xl font-bold dark:text-gray-100">
-                      {dataSummary ? dataSummary.markets.toLocaleString() : markets.length}
+                      {dataSummary ? dataSummary.markets.toLocaleString() : '-'}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Markets</div>
                   </div>
@@ -1095,7 +1102,7 @@ export default function AdminPage() {
                   </div>
                   <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
                     <div className="text-2xl font-bold dark:text-gray-100">
-                      {dataSummary ? dataSummary.users.toLocaleString() : users.length}
+                      {dataSummary ? dataSummary.users.toLocaleString() : '-'}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Users</div>
                   </div>
@@ -1216,6 +1223,18 @@ export default function AdminPage() {
 
         {/* Tab 11: SALTI Dashboard - 47 KPIs */}
         <TabsContent value="salti" className="space-y-6">
+          {/* Demo Mode Banner */}
+          <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Demo Mode - Showing simulated SALTI metrics for testing purposes
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Target KPIs Section */}
           {getTargetKPIs(settings.role, settings.userId) && (
             <SALTITargetKPIGauge data={getTargetKPIs(settings.role, settings.userId)!} />
@@ -1244,11 +1263,16 @@ export default function AdminPage() {
             <SALTIHRMetrics data={getHRMetrics(settings.role, settings.userId)!} />
           )}
         </TabsContent>
+
+        {/* Tab: Organization Codes - Code Discovery Tool */}
+        <TabsContent value="org-codes" className="space-y-6">
+          <OrgCodeDiscovery />
+        </TabsContent>
       </Tabs>
 
       {/* Footer */}
       <div className="text-xs text-gray-400 dark:text-gray-500 text-center pt-4">
-        Last refreshed: {lastRefresh.toLocaleTimeString()} • Data is mock/synthetic for demonstration
+        Last refreshed: {lastRefresh.toLocaleTimeString()}
       </div>
     </div>
   )

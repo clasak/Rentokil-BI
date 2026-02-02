@@ -14,7 +14,7 @@ import {
   ChevronDown, Bug, Clock, Layers, BarChart3, BookOpen,
   Briefcase, Building, AlertTriangle, RefreshCw, UserX,
   Percent, FileBarChart, Receipt, LineChart, PieChart, Star,
-  History, Trash2, Eye
+  History, Trash2, Eye, Filter, MapPin
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -38,6 +38,8 @@ import {
   type NavItem,
 } from '@/lib/navigation-config'
 import { NavCollapsibleSection } from './NavCollapsibleSection'
+import { useOrganizationData } from '@/hooks/useOrganizationData'
+import { Badge } from '@/components/ui/badge'
 
 interface SidebarProps {
   onNavigate?: () => void
@@ -48,11 +50,12 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate, isMobile, previewRole, isPreview = false }: SidebarProps) {
   const pathname = usePathname()
-  const { sidebarCollapsed, setSidebarCollapsed, settings: appSettings, isAdmin: storeIsAdmin, exitRolePreview } = useAppStore()
+  const { sidebarCollapsed, setSidebarCollapsed, settings: appSettings, isAdmin: storeIsAdmin, exitRolePreview, organizationFilters, clearOrganizationFilters } = useAppStore()
   const [isClient, setIsClient] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const [recentPagesExpanded, setRecentPagesExpanded] = useState(false)
   const { recentPages, clearRecent, mounted: recentMounted } = useRecentPages()
+  const { getMarketByCode, getRegionByCode, getBranchByCode } = useOrganizationData()
 
   // Use store's isAdmin (set by AuthProvider) - only trust it after client mount
   // When previewing a role, hide admin sections to show exactly what that role sees
@@ -232,6 +235,92 @@ export function Sidebar({ onNavigate, isMobile, previewRole, isPreview = false }
         )}
       </div>
 
+      {/* Organization Filter Indicator */}
+      {isClient && (organizationFilters.selectedMarket || organizationFilters.selectedRegion || organizationFilters.selectedBranch) && (
+        <div className={cn(
+          'px-2 py-2 border-b dark:border-gray-700 bg-blue-50 dark:bg-blue-950/20',
+          isCollapsed && 'px-1'
+        )}>
+          {!isCollapsed ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Filter className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                    Active Filters
+                  </span>
+                </div>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0"
+                      onClick={clearOrganizationFilters}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Clear all filters</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="space-y-0.5 text-xs">
+                {organizationFilters.selectedMarket && (
+                  <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                    <MapPin className="h-3 w-3" />
+                    <span className="truncate">
+                      {getMarketByCode(organizationFilters.selectedMarket)?.market_name || organizationFilters.selectedMarket}
+                    </span>
+                  </div>
+                )}
+                {organizationFilters.selectedRegion && (
+                  <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400 pl-4">
+                    <Building className="h-3 w-3" />
+                    <span className="truncate">
+                      {getRegionByCode(organizationFilters.selectedRegion)?.region_name || organizationFilters.selectedRegion}
+                    </span>
+                  </div>
+                )}
+                {organizationFilters.selectedBranch && (
+                  <div className="flex items-center gap-1 text-green-600 dark:text-green-400 pl-8">
+                    <Building className="h-3 w-3" />
+                    <span className="truncate">
+                      {getBranchByCode(organizationFilters.selectedBranch)?.branch_name || organizationFilters.selectedBranch}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center">
+                  <Badge variant="default" className="h-6 w-6 p-0 rounded-full bg-blue-600">
+                    <Filter className="h-3 w-3 text-white" />
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <div className="space-y-1">
+                  <p className="font-semibold">Active Organization Filters</p>
+                  {organizationFilters.selectedMarket && (
+                    <p className="text-xs">Market: {getMarketByCode(organizationFilters.selectedMarket)?.market_name || organizationFilters.selectedMarket}</p>
+                  )}
+                  {organizationFilters.selectedRegion && (
+                    <p className="text-xs">Region: {getRegionByCode(organizationFilters.selectedRegion)?.region_name || organizationFilters.selectedRegion}</p>
+                  )}
+                  {organizationFilters.selectedBranch && (
+                    <p className="text-xs">Branch: {getBranchByCode(organizationFilters.selectedBranch)?.branch_name || organizationFilters.selectedBranch}</p>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      )}
+
       {/* Navigation */}
       <ScrollArea className="flex-1 py-4">
         {/* Recently Viewed Section */}
@@ -258,16 +347,25 @@ export function Sidebar({ onNavigate, isMobile, previewRole, isPreview = false }
                   <span className="text-xs text-gray-400">({recentPages.length})</span>
                 </div>
                 {recentPagesExpanded && (
-                  <button
+                  <div
                     onClick={(e) => {
                       e.stopPropagation()
                       clearRecent()
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-opacity cursor-pointer"
                     aria-label="Clear recent pages"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        clearRecent()
+                      }
+                    }}
                   >
                     <Trash2 className="h-3 w-3 text-gray-400" />
-                  </button>
+                  </div>
                 )}
               </button>
               {recentPagesExpanded && (
@@ -310,8 +408,8 @@ export function Sidebar({ onNavigate, isMobile, previewRole, isPreview = false }
 
         {/* RTX Power BI Feature Parity - Collapsible Sections */}
         {/* Show if: user is admin OR has rtxReports permission */}
-        {/* Hide when: previewing (static) OR previewing a role (global) */}
-        {(isAdmin || hasPermission(currentRole, 'rtxReports')) && !isPreview && !isRolePreviewActive && (
+        {/* Hide when: previewing (static mode only) */}
+        {(isAdmin || hasPermission(currentRole, 'rtxReports')) && !isPreview && (
           <>
             <Separator className="my-4 mx-2" />
             {!isCollapsed && (
@@ -340,8 +438,8 @@ export function Sidebar({ onNavigate, isMobile, previewRole, isPreview = false }
 
         {/* Governance Section - Admin Console, RTX Discovery, QBR, WBR (ADMIN ONLY) */}
         {/* Show for all admins regardless of role */}
-        {/* Hide when: previewing (static) OR previewing a role (global) */}
-        {isAdmin && !isPreview && !isRolePreviewActive && (
+        {/* Hide when: previewing (static mode only) */}
+        {isAdmin && !isPreview && (
           <>
             <Separator className="my-4 mx-2" />
             {!isCollapsed && (

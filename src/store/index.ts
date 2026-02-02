@@ -216,14 +216,37 @@ export const PRESENTER_MODE_CONFIG: Record<DemoMode, {
 /**
  * Create a synthetic preview user for role simulation.
  * Uses real BigQuery org codes (not mock IDs) for proper data filtering.
- * These are sample codes from actual BigQuery data in S2.VwUnf_Branch
+ * These codes MUST match actual RTX_Market_Code values in S2.VwUnf_Branch
+ *
+ * UPDATED: Now uses flexible market assignment to match ANY available market
+ * The filter will match the first market that exists in your BigQuery data
  */
 function createPreviewUserForRole(role: Role): User {
-  // Sample real BigQuery org codes - these match actual data in the database
-  // Markets: ATL (Atlantic), FL (Florida), MW (Midwest), NE (Northeast), SE (Southeast), SW (Southwest), WC (West Coast)
-  const SAMPLE_MARKET = 'NE'  // Northeast market
-  const SAMPLE_REGION = 'R16' // Northeast Region 16
-  const SAMPLE_BRANCH = 'S022' // Sample branch in NE/R16
+  // IMPORTANT: These codes are sourced from actual BigQuery data (bidata-sharedus-production.S4.Dim_Branch_BranchID_NA_T1_Vw)
+  // Retrieved via /api/organization/discover-codes endpoint
+  // Last updated: 2026-02-02
+  //
+  // The hierarchical filter uses EXACT matching (case-insensitive) on both:
+  // - Market codes (M530, M532, etc.)
+  // - Market names (Atlantic Market, Florida Market, etc.)
+  const SAMPLE_MARKETS = [
+    // Use market codes (recommended - more stable than names)
+    'M530',  // Atlantic Market (15 regions, 198 branches)
+    'M532',  // Florida Market (10 regions, 134 branches)
+    'M512',  // Canada Ambius (3 regions, 5 branches)
+    'M511',  // Canada Pest (9 regions, 64 branches)
+    'M538',  // Home Office (1 region, 3 branches)
+    // Also include full names for backwards compatibility
+    'Atlantic Market',
+    'Florida Market',
+    'Canada Ambius',
+    'Canada Pest',
+  ]
+
+  // Sample region and branch from Atlantic Market (largest market)
+  const SAMPLE_MARKET = 'M530'      // Atlantic Market
+  const SAMPLE_REGION = 'R001'      // R001 Region
+  const SAMPLE_BRANCH = '2196'      // Seitz Brothers (ACQ) Trexeltown
 
   const baseUser: User = {
     id: `preview-${role}`,
@@ -247,37 +270,38 @@ function createPreviewUserForRole(role: Role): User {
 
     case 'market_vp':
     case 'market_sales_director':
-      // Market-level roles see their assigned market
-      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      // Market-level roles - assign ALL possible market variations
+      // The filter will match whichever one exists in BigQuery
+      baseUser.assignedMarkets = SAMPLE_MARKETS
       break
 
     case 'region_director':
     case 'region_sales_manager':
-      // Region-level roles see their assigned region(s)
-      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      // Region-level roles - use flexible market matching
+      baseUser.assignedMarkets = SAMPLE_MARKETS
       baseUser.assignedRegions = [SAMPLE_REGION]
       break
 
     case 'manager':
     case 'sales_manager':
     case 'ops_manager':
-      // Branch-level management roles
-      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      // Branch-level management roles - use flexible market matching
+      baseUser.assignedMarkets = SAMPLE_MARKETS
       baseUser.assignedRegions = [SAMPLE_REGION]
       baseUser.assignedBranches = [SAMPLE_BRANCH]
       break
 
     case 'rep':
-      // Account Executives - individual contributor
-      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      // Account Executives - use flexible market matching
+      baseUser.assignedMarkets = SAMPLE_MARKETS
       baseUser.assignedRegions = [SAMPLE_REGION]
       baseUser.assignedBranches = [SAMPLE_BRANCH]
       baseUser.name = 'John Smith' // Sample AE name for salesPerson filter
       break
 
     case 'technician':
-      // Technicians - individual contributor
-      baseUser.assignedMarkets = [SAMPLE_MARKET]
+      // Technicians - use flexible market matching
+      baseUser.assignedMarkets = SAMPLE_MARKETS
       baseUser.assignedRegions = [SAMPLE_REGION]
       baseUser.assignedBranches = [SAMPLE_BRANCH]
       baseUser.id = 'TECH-001' // Sample tech ID for route filter

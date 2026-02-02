@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev-with-cache-fix.js",
-    "dev:raw": "next dev",
-    "dev:clean": "rm -rf .next && next dev",
+    "dev:raw": "next dev -p 3001",
+    "dev:clean": "rm -rf .next && next dev -p 3001",
     "build": "next build",
     "build:clean": "rm -rf .next && next build",
     "start": "next start",

@@ -164,7 +164,8 @@ export async function getLaborCostAnalysis(
     const result = await bigQueryClient.query<LaborCostAnalysis>(sql, queryOptions)
     return result.rows
   } catch (error) {
-    throw handleBigQueryError(error, 'getLaborCostAnalysis')
+    console.warn('[Payroll] getLaborCostAnalysis table not available or schema mismatch - returning empty data')
+    return [] // Return empty array instead of throwing
   }
 }
 
@@ -206,7 +207,8 @@ export async function getOvertimeTrends(
     const result = await bigQueryClient.query<OvertimeTrend>(sql, queryOptions)
     return result.rows
   } catch (error) {
-    throw handleBigQueryError(error, 'getOvertimeTrends')
+    console.warn('[Payroll] getOvertimeTrends table not available or schema mismatch - returning empty data')
+    return [] // Return empty array instead of throwing
   }
 }
 
@@ -292,7 +294,8 @@ export async function getRevenuePerLaborDollar(
     const result = await bigQueryClient.query<RevenuePerLaborDollar>(sql, queryOptions)
     return result.rows
   } catch (error) {
-    throw handleBigQueryError(error, 'getRevenuePerLaborDollar')
+    console.warn('[Payroll] getRevenuePerLaborDollar table not available or schema mismatch - returning empty data')
+    return [] // Return empty array instead of throwing
   }
 }
 
@@ -347,6 +350,7 @@ export async function getCompensationBenchmarks(
     const result = await bigQueryClient.query<CompensationBenchmark>(sql, queryOptions)
     return result.rows
   } catch (error) {
-    throw handleBigQueryError(error, 'getCompensationBenchmarks')
+    console.warn('[Payroll] getCompensationBenchmarks table not available or schema mismatch - returning empty data')
+    return [] // Return empty array instead of throwing
   }
 }

@@ -58,6 +58,7 @@ export default function DataSourcesPage() {
   const [connectionStatus, setConnectionStatus] = useState<RTXConnectionStatus | null>(null)
   const [testing, setTesting] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   // Simulated form state (in production these would update env vars or a config store)
   const [rtxEndpoint, setRtxEndpoint] = useState(process.env.RTX_API_ENDPOINT || 'https://rtx-data-hub.rentokil.com/api/v1')
@@ -71,24 +72,47 @@ export default function DataSourcesPage() {
     pestpac: 15
   })
 
-  // Simulated sync state
+  // Simulated sync state - initialized with placeholder values to avoid hydration mismatch
   const [syncState, setSyncState] = useState<SyncState>({
     rtx: {
-      lastSync: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-      nextSync: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      lastSync: new Date().toISOString(),
+      nextSync: new Date().toISOString(),
       status: 'idle'
     },
     salesforce: {
-      lastSync: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-      nextSync: new Date(Date.now() + 3 * 60 * 1000).toISOString(),
+      lastSync: new Date().toISOString(),
+      nextSync: new Date().toISOString(),
       status: 'idle'
     },
     pestpac: {
-      lastSync: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-      nextSync: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      lastSync: new Date().toISOString(),
+      nextSync: new Date().toISOString(),
       status: 'idle'
     }
   })
+
+  // Initialize sync state with proper timestamps after mount to avoid hydration errors
+  useEffect(() => {
+    setMounted(true)
+    const now = Date.now()
+    setSyncState({
+      rtx: {
+        lastSync: new Date(now - 5 * 60 * 1000).toISOString(),
+        nextSync: new Date(now + 10 * 60 * 1000).toISOString(),
+        status: 'idle'
+      },
+      salesforce: {
+        lastSync: new Date(now - 2 * 60 * 1000).toISOString(),
+        nextSync: new Date(now + 3 * 60 * 1000).toISOString(),
+        status: 'idle'
+      },
+      pestpac: {
+        lastSync: new Date(now - 10 * 60 * 1000).toISOString(),
+        nextSync: new Date(now + 5 * 60 * 1000).toISOString(),
+        status: 'idle'
+      }
+    })
+  }, [])
 
   const status = getDataSourceStatus()
 

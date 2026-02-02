@@ -150,10 +150,10 @@ export default function UserAdoptionPage() {
               <Info className="h-5 w-5 text-blue-500 mt-0.5" />
               <div>
                 <p className="font-medium text-blue-900 dark:text-blue-100">
-                  Partial Data - Dashboard Tracking Not Yet Instrumented
+                  Limited Tracking - Activity Monitoring Not Implemented
                 </p>
                 <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                  User counts are from Workday employee data. Dashboard view tracking and feature usage will be available once ops_events instrumentation is complete.
+                  User counts are from BigQuery (S0_TMX.Employees_Main). Dashboard view tracking, session analytics, and feature usage require ops_events table implementation.
                 </p>
               </div>
             </div>
@@ -191,7 +191,7 @@ export default function UserAdoptionPage() {
               <UserPlus className="h-10 w-10 text-green-500 opacity-50" />
             </div>
             <div className="text-xs text-green-600 dark:text-green-400 mt-3">
-              New employee records from Workday
+              New employee records from BigQuery
             </div>
           </CardContent>
         </Card>
