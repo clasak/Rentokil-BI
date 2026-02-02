@@ -106,15 +106,16 @@ const ROLE_CASE_SQL = `
 `
 
 // Role count aggregation SQL
+// IMPORTANT: Use COUNT(DISTINCT) because tmx_employee is a historical snapshot table
 const ROLE_COUNTS_SQL = `
-  SUM(CASE WHEN role = 'BM' THEN 1 ELSE 0 END) as branch_managers,
-  SUM(CASE WHEN role = 'OM' THEN 1 ELSE 0 END) as ops_managers,
-  SUM(CASE WHEN role = 'SM' THEN 1 ELSE 0 END) as sales_managers,
-  SUM(CASE WHEN role = 'AE' THEN 1 ELSE 0 END) as ae_sales,
-  SUM(CASE WHEN role = 'TECH' THEN 1 ELSE 0 END) as technicians,
-  SUM(CASE WHEN role = 'CSR' THEN 1 ELSE 0 END) as csr_office,
-  SUM(CASE WHEN role = 'OTHER' THEN 1 ELSE 0 END) as other,
-  COUNT(*) as total
+  COUNT(DISTINCT CASE WHEN role = 'BM' THEN employee_id END) as branch_managers,
+  COUNT(DISTINCT CASE WHEN role = 'OM' THEN employee_id END) as ops_managers,
+  COUNT(DISTINCT CASE WHEN role = 'SM' THEN employee_id END) as sales_managers,
+  COUNT(DISTINCT CASE WHEN role = 'AE' THEN employee_id END) as ae_sales,
+  COUNT(DISTINCT CASE WHEN role = 'TECH' THEN employee_id END) as technicians,
+  COUNT(DISTINCT CASE WHEN role = 'CSR' THEN employee_id END) as csr_office,
+  COUNT(DISTINCT CASE WHEN role = 'OTHER' THEN employee_id END) as other,
+  COUNT(DISTINCT employee_id) as total
 `
 
 // =============================================================================
@@ -140,6 +141,7 @@ export async function getMarketWorkforce(
   const sql = `
     WITH employee_roles AS (
       SELECT
+        employee_id,
         TRIM(home_bunit_division_code) as market_code,
         TRIM(home_bunit_division_name) as market_name,
         TRIM(home_bunit_region_code) as region_code,
@@ -147,6 +149,7 @@ export async function getMarketWorkforce(
         ${ROLE_CASE_SQL} as role
       FROM \`${PROJECT}.S0_TMX.tmx_employee\`
       WHERE employee_status = 'ACT'
+        AND curr_ind = 'Y'
         ${marketCode ? 'AND TRIM(home_bunit_division_code) = @marketCode' : ''}
         ${marketName ? 'AND TRIM(home_bunit_division_name) = @marketName' : ''}
     )
@@ -196,6 +199,7 @@ export async function getRegionWorkforce(
   const sql = `
     WITH employee_roles AS (
       SELECT
+        employee_id,
         TRIM(home_bunit_division_code) as market_code,
         TRIM(home_bunit_division_name) as market_name,
         TRIM(home_bunit_region_code) as region_code,
@@ -204,6 +208,7 @@ export async function getRegionWorkforce(
         ${ROLE_CASE_SQL} as role
       FROM \`${PROJECT}.S0_TMX.tmx_employee\`
       WHERE employee_status = 'ACT'
+        AND curr_ind = 'Y'
         ${marketCode ? 'AND TRIM(home_bunit_division_code) = @marketCode' : ''}
         ${marketName ? 'AND TRIM(home_bunit_division_name) = @marketName' : ''}
         ${regionCode ? 'AND TRIM(home_bunit_region_code) = @regionCode' : ''}
@@ -261,6 +266,7 @@ export async function getBranchWorkforce(
   const sql = `
     WITH employee_roles AS (
       SELECT
+        employee_id,
         TRIM(home_bunit_division_code) as market_code,
         TRIM(home_bunit_division_name) as market_name,
         TRIM(home_bunit_region_code) as region_code,
@@ -270,6 +276,7 @@ export async function getBranchWorkforce(
         ${ROLE_CASE_SQL} as role
       FROM \`${PROJECT}.S0_TMX.tmx_employee\`
       WHERE employee_status = 'ACT'
+        AND curr_ind = 'Y'
         ${marketCode ? 'AND TRIM(home_bunit_division_code) = @marketCode' : ''}
         ${marketName ? 'AND TRIM(home_bunit_division_name) = @marketName' : ''}
         ${regionCode ? 'AND TRIM(home_bunit_region_code) = @regionCode' : ''}
@@ -337,6 +344,7 @@ export async function getWorkforceMarketNames(): Promise<string[]> {
     SELECT DISTINCT TRIM(home_bunit_division_name) as market_name
     FROM \`${PROJECT}.S0_TMX.tmx_employee\`
     WHERE employee_status = 'ACT'
+      AND curr_ind = 'Y'
       AND home_bunit_division_name IS NOT NULL
     ORDER BY market_name
   `
@@ -358,6 +366,7 @@ export async function getWorkforceRegionNames(marketName: string): Promise<strin
     SELECT DISTINCT TRIM(home_bunit_region_name) as region_name
     FROM \`${PROJECT}.S0_TMX.tmx_employee\`
     WHERE employee_status = 'ACT'
+      AND curr_ind = 'Y'
       AND TRIM(home_bunit_division_name) = @marketName
       AND home_bunit_region_name IS NOT NULL
     ORDER BY region_name
@@ -387,6 +396,7 @@ export async function getWorkforceBranchNames(
     SELECT DISTINCT TRIM(home_bunit_description) as branch_name
     FROM \`${PROJECT}.S0_TMX.tmx_employee\`
     WHERE employee_status = 'ACT'
+      AND curr_ind = 'Y'
       AND TRIM(home_bunit_division_name) = @marketName
       AND TRIM(home_bunit_region_name) = @regionName
       AND home_bunit_description IS NOT NULL
