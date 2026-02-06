@@ -100,7 +100,7 @@ export async function getBCGLeadAnalytics(
     const validatedDaysBack = validateNumeric(options.daysBack, 'daysBack', 1, 365) ?? 30
     const validatedLimit = validateNumeric(options.limit, 'limit', 1, 1000) ?? 100
 
-    let whereClause = `DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${validatedDaysBack} DAY)`
+    let whereClause = `DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
     if (validatedMarket) whereClause += ` AND market_type = @market`
 
     const sql = `
@@ -116,10 +116,13 @@ export async function getBCGLeadAnalytics(
       WHERE ${whereClause}
       GROUP BY period, market_type, lead_source
       ORDER BY period DESC, total_leads DESC
-      LIMIT ${validatedLimit}
+      LIMIT @resultLimit
     `
 
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: validatedDaysBack,
+      resultLimit: validatedLimit,
+    }
     if (validatedMarket) params.market = validatedMarket
 
     const result = await bigQueryClient.queryWithParams<BCGLeadAnalytics>(sql, params)
@@ -143,7 +146,7 @@ export async function getBCGSalesAnalytics(
     const validatedDaysBack = validateNumeric(options.daysBack, 'daysBack', 1, 365) ?? 30
     const validatedLimit = validateNumeric(options.limit, 'limit', 1, 1000) ?? 100
 
-    const whereClause = `sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${validatedDaysBack} DAY)`
+    const whereClause = `sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
 
     const sql = `
       SELECT
@@ -159,10 +162,15 @@ export async function getBCGSalesAnalytics(
       WHERE ${whereClause}
       GROUP BY sell_date_year_month, product_group, service_type_desc
       ORDER BY sell_date_year_month DESC, total_contracts DESC
-      LIMIT ${validatedLimit}
+      LIMIT @resultLimit
     `
 
-    const result = await bigQueryClient.query<BCGSalesAnalytics>(sql)
+    const params: Record<string, unknown> = {
+      daysBack: validatedDaysBack,
+      resultLimit: validatedLimit,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGSalesAnalytics>(sql, params)
     return result.rows
   } catch (error) {
     throw handleBigQueryError(error, 'getBCGSalesAnalytics', options as Record<string, unknown>)
@@ -177,7 +185,7 @@ export async function getBCGCancellationAnalytics(
 ): Promise<BCGCancellationAnalytics[]> {
   const { daysBack = 90, market, limit = 50 } = options
 
-  let whereClause = `DATE(cancel_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(cancel_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -204,11 +212,14 @@ export async function getBCGCancellationAnalytics(
     FROM cancel_data
     GROUP BY period, market
     ORDER BY period DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGCancellationAnalytics>(sql, params)
@@ -226,7 +237,7 @@ export async function getBCGPNIAnalytics(
 ): Promise<BCGPNIAnalytics[]> {
   const { daysBack = 30, market, limit = 100 } = options
 
-  let whereClause = `DATE(service_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(service_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -241,11 +252,14 @@ export async function getBCGPNIAnalytics(
     WHERE ${whereClause}
     GROUP BY branch, market
     ORDER BY total_pni DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGPNIAnalytics>(sql, params)
@@ -270,14 +284,19 @@ export async function getBCGGLActivity(
       SUM(COALESCE(amount, 0)) as total_amount,
       COUNT(*) as transaction_count
     FROM \`${PROJECT}.${DATASET}.DR_GLActivity\`
-    WHERE DATE(transaction_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+    WHERE DATE(transaction_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
     GROUP BY period, account_type
     ORDER BY period DESC, total_amount DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const result = await bigQueryClient.query<BCGGLActivity>(sql)
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGGLActivity>(sql, params)
     return result.rows
   } catch (error) {
     throw handleBigQueryError(error, 'getBCGGLActivity', options as Record<string, unknown>)
@@ -332,7 +351,7 @@ export async function getBCGTerminations(
 ): Promise<BCGTermination[]> {
   const { daysBack = 90, market, limit = 50 } = options
 
-  let whereClause = `DATE(term_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(term_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -353,11 +372,14 @@ export async function getBCGTerminations(
     WHERE ${whereClause}
     GROUP BY period, market, region
     ORDER BY period DESC, total_terminations DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGTermination>(sql, params)
@@ -391,7 +413,7 @@ export async function getBCGWorkOrders(
 ): Promise<BCGWorkOrder[]> {
   const { daysBack = 30, market, limit = 100 } = options
 
-  let whereClause = `DATE(work_order_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(work_order_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -408,11 +430,14 @@ export async function getBCGWorkOrders(
     WHERE ${whereClause}
     GROUP BY period, branch, market
     ORDER BY period DESC, total_work_orders DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGWorkOrder>(sql, params)
@@ -447,7 +472,7 @@ export async function getBCGTechWorkOrders(
 ): Promise<BCGTechWorkOrder[]> {
   const { daysBack = 30, market, limit = 100 } = options
 
-  let whereClause = `DATE(work_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(work_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -468,11 +493,14 @@ export async function getBCGTechWorkOrders(
     WHERE ${whereClause}
     GROUP BY technician_id, technician_name, branch
     ORDER BY total_work_orders DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGTechWorkOrder>(sql, params)
@@ -507,7 +535,7 @@ export async function getBCGPortfolioDaily(
 ): Promise<BCGPortfolioDaily[]> {
   const { daysBack = 30, market, limit = 100 } = options
 
-  let whereClause = `DATE(snapshot_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(snapshot_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -525,11 +553,14 @@ export async function getBCGPortfolioDaily(
     WHERE ${whereClause}
     GROUP BY date, market, region
     ORDER BY date DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGPortfolioDaily>(sql, params)
@@ -564,7 +595,7 @@ export async function getBCGPortfolioMonthly(
 ): Promise<BCGPortfolioMonthly[]> {
   const { daysBack = 365, market, limit = 24 } = options
 
-  let whereClause = `DATE(snapshot_month) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(snapshot_month) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -582,11 +613,14 @@ export async function getBCGPortfolioMonthly(
     WHERE ${whereClause}
     GROUP BY period, market, region
     ORDER BY period DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGPortfolioMonthly>(sql, params)
@@ -620,7 +654,7 @@ export async function getBCGPayrollBranch(
 ): Promise<BCGPayrollBranch[]> {
   const { daysBack = 90, market, limit = 100 } = options
 
-  let whereClause = `DATE(pay_period_end) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(pay_period_end) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -637,11 +671,14 @@ export async function getBCGPayrollBranch(
     WHERE ${whereClause}
     GROUP BY period, branch, market
     ORDER BY period DESC, total_payroll DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGPayrollBranch>(sql, params)
@@ -690,11 +727,15 @@ export async function getBCGMRLTVSummary(
     FROM \`${PROJECT}.${DATASET}.MRLTVSummary\`
     GROUP BY cohort_period, market, product_group
     ORDER BY cohort_period DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const result = await bigQueryClient.query<BCGMRLTVSummary>(sql)
+    const params: Record<string, unknown> = {
+      resultLimit: limit,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGMRLTVSummary>(sql, params)
     return result.rows
   } catch (error) {
     throw handleBigQueryError(error, 'getBCGMRLTVSummary', options as Record<string, unknown>)
@@ -738,11 +779,13 @@ export async function getBCGMRLTVConversion(
     WHERE ${whereClause}
     GROUP BY period, market, lead_source
     ORDER BY period DESC, leads DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGMRLTVConversion>(sql, params)
@@ -776,7 +819,7 @@ export async function getBCGBranchWOCompleted(
 ): Promise<BCGBranchWOCompleted[]> {
   const { daysBack = 30, market, limit = 100 } = options
 
-  let whereClause = `DATE(service_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(service_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -793,11 +836,14 @@ export async function getBCGBranchWOCompleted(
     WHERE ${whereClause}
     GROUP BY branch, market, date
     ORDER BY date DESC, branch
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGBranchWOCompleted>(sql, params)
@@ -832,7 +878,7 @@ export async function getBCGWOSupervisor(
 ): Promise<BCGWOSupervisor[]> {
   const { daysBack = 30, market, limit = 100 } = options
 
-  let whereClause = `DATE(report_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)`
+  let whereClause = `DATE(report_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
@@ -850,11 +896,14 @@ export async function getBCGWOSupervisor(
     WHERE ${whereClause}
     GROUP BY supervisor_id, supervisor_name, branch
     ORDER BY total_work_orders DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
     if (market) params.market = market
 
     const result = await bigQueryClient.queryWithParams<BCGWOSupervisor>(sql, params)
@@ -900,7 +949,7 @@ export async function getBCGSalesKPIs(
         COUNTIF(cancel_date IS NOT NULL) as canceled_contracts,
         AVG(DATE_DIFF(COALESCE(start_date, cancel_date, CURRENT_DATE('America/New_York')), sell_date, DAY)) as avg_cycle_days
       FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
-      WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+      WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
     ),
     lead_metrics AS (
       SELECT
@@ -908,7 +957,7 @@ export async function getBCGSalesKPIs(
         COUNTIF(lead_type LIKE '%Propose%' OR lead_type = 'Proposed') as proposals,
         COUNTIF(lead_type = 'Sold' OR lead_type LIKE '%Won%') as sold
       FROM \`${PROJECT}.${DATASET}.DR_Leads\`
-      WHERE DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+      WHERE DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
     ),
     pipeline_aging AS (
       SELECT
@@ -923,7 +972,7 @@ export async function getBCGSalesKPIs(
         COUNTIF(DATE_DIFF(CURRENT_DATE('America/New_York'), sell_date, DAY) > 21 AND start_date IS NULL AND cancel_date IS NULL) as stalled,
         SUM(CASE WHEN DATE_DIFF(CURRENT_DATE('America/New_York'), sell_date, DAY) > 21 AND start_date IS NULL AND cancel_date IS NULL THEN COALESCE(contract_value, 0) ELSE 0 END) as stalled_value
       FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
-      WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+      WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
         AND start_date IS NULL
         AND cancel_date IS NULL
     )
@@ -946,7 +995,11 @@ export async function getBCGSalesKPIs(
   `
 
   try {
-    const result = await bigQueryClient.query<BCGSalesKPIs>(sql)
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGSalesKPIs>(sql, params)
     return result.rows[0] || {
       pipeline_value: 0,
       pipeline_30_day: 0,
@@ -1003,14 +1056,18 @@ export async function getBCGPipelineByStage(
       -- DR_Leads table does not have a direct value field
       COUNT(*) * 450 as value
     FROM \`${PROJECT}.${DATASET}.DR_Leads\`
-    WHERE DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+    WHERE DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
       AND lead_type NOT IN ('Sold', 'Won', 'Closed Won', 'Cancelled', 'Lost', 'Closed Lost')
     GROUP BY stage, stage_order
     ORDER BY stage_order
   `
 
   try {
-    const result = await bigQueryClient.query<BCGPipelineStage>(sql)
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGPipelineStage>(sql, params)
     return result.rows
   } catch (error) {
     throw handleBigQueryError(error, 'getBCGPipelineByStage', options as Record<string, unknown>)
@@ -1052,15 +1109,20 @@ export async function getBCGRepPerformance(
       ROUND(SAFE_DIVIDE(COUNTIF(start_date IS NOT NULL), COUNT(*)) * 100, 1) as win_rate,
       AVG(COALESCE(contract_value, 0)) as avg_deal_size
     FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
-    WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+    WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
       AND sales_person IS NOT NULL
     GROUP BY sales_person, sales_person_id
     ORDER BY total_contracts DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const result = await bigQueryClient.query<BCGRepPerformance>(sql)
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGRepPerformance>(sql, params)
     return result.rows
   } catch (error) {
     throw handleBigQueryError(error, 'getBCGRepPerformance', options as Record<string, unknown>)
@@ -1106,15 +1168,20 @@ export async function getBCGAtRiskLeads(
       COALESCE(branch, 'Unknown') as branch,
       FORMAT_DATE('%Y-%m-%d', DATE(received_date)) as last_activity_date
     FROM \`${PROJECT}.${DATASET}.DR_Leads\`
-    WHERE DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+    WHERE DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
       AND lead_type NOT IN ('Sold', 'Won', 'Closed Won', 'Cancelled', 'Lost', 'Closed Lost')
       AND DATE_DIFF(CURRENT_DATE('America/New_York'), DATE(received_date), DAY) > 14
     ORDER BY days_in_stage DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const result = await bigQueryClient.query<BCGAtRiskLead>(sql)
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGAtRiskLead>(sql, params)
     return result.rows
   } catch (error) {
     throw handleBigQueryError(error, 'getBCGAtRiskLeads', options as Record<string, unknown>)
@@ -1148,14 +1215,19 @@ export async function getBCGSalesToday(
       SUM(COALESCE(contract_value, 0)) as total_value,
       COALESCE(product_group, 'Unknown') as product_group
     FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
-    WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+    WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
     GROUP BY date, product_group
     ORDER BY date DESC, new_contracts DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const result = await bigQueryClient.query<BCGSalesToday>(sql)
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGSalesToday>(sql, params)
     return result.rows
   } catch (error) {
     throw handleBigQueryError(error, 'getBCGSalesToday', options as Record<string, unknown>)
@@ -1193,15 +1265,20 @@ export async function getBCGBacklog(
       COALESCE(sales_person, 'Unknown') as sales_person,
       COALESCE(branch, 'Unknown') as branch
     FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
-    WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL ${daysBack} DAY)
+    WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
       AND start_date IS NULL
       AND cancel_date IS NULL
     ORDER BY days_pending DESC
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
   try {
-    const result = await bigQueryClient.query<BCGBacklogItem>(sql)
+    const params: Record<string, unknown> = {
+      daysBack: daysBack,
+      resultLimit: limit,
+    }
+
+    const result = await bigQueryClient.queryWithParams<BCGBacklogItem>(sql, params)
     return result.rows
   } catch (error) {
     throw handleBigQueryError(error, 'getBCGBacklog', options as Record<string, unknown>)

@@ -68,7 +68,7 @@ const EMPTY_BRANCH_LIST: BranchListDisplay = {
 }
 
 function transformBigQueryData(bqData: BranchOverview[]): BranchListDisplay {
-  const branches = bqData.map(b => ({
+  const branches = (bqData || []).map(b => ({
     id: b.branch_id || 'unknown',
     name: b.branch_name || 'Unknown Branch',
     region: b.region || 'Unknown',
@@ -108,6 +108,8 @@ export default function BranchListPage() {
     filters: { daysBack: 30, limit: 200 },
     defaultData: EMPTY_BRANCH_LIST,
     transformBigQueryData,
+    includeOrgFilters: true, // Branch overview - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const branches = branchData?.branches || []

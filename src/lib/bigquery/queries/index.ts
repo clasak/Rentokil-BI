@@ -54,6 +54,10 @@ export {
   getBacklog,
   getCanceledAgreements,
   getStartRate,
+  getSalesMarkets,
+  getSalesRegions,
+  getSalesBranches,
+  getSalesFilterHierarchy,
   type SpeedToInstall,
   type SalesToday,
   type BacklogItem,
@@ -69,11 +73,15 @@ export {
   getAtRiskLeads,
   getSalesPipelineSummary,
   getSalesKPIs,
+  getTopOpportunities,
+  getOpportunityById,
   type PipelineByStage,
   type RepPerformance,
   type AtRiskLead,
   type SalesPipelineSummary,
   type SalesKPIs,
+  type TopOpportunity,
+  type OpportunityDetail,
   type SalesPipelineQueryOptions,
 } from './sales-pipeline'
 
@@ -83,6 +91,7 @@ export {
   getARSummary,
   getARByBranch,
   getARDetails,
+  getInvoiceById,
   getRevenueProjections,
   getProjectionAccuracy,
   getVarianceAnalysis,
@@ -148,9 +157,18 @@ export {
   getOpsOverview,
   getOpsNational,
   getOpsNewStarts,
+  getOpsAccounts,
+  getOpsServiceEvents,
+  getOpsComplaints,
+  getTechnicianRoute,
   type OpsOverview,
   type OpsNational,
   type OpsNewStarts,
+  type OpsAccount,
+  type OpsServiceEvent,
+  type OpsComplaint,
+  type TechnicianRouteStop,
+  type TechnicianRouteQueryOptions,
   type OpsQueryOptions,
 } from './ops'
 
@@ -162,6 +180,15 @@ export {
   type KPIDetail,
   type ExecutiveQueryOptions,
 } from './executive'
+
+// KPI Historical Comparison queries
+export {
+  getKPIHistoricalComparisons,
+  getKPIMonthlyTrends,
+  type KPIHistoricalComparison,
+  type KPIMonthlyTrend,
+  type KPIHistoricalOptions,
+} from './kpi-historical'
 
 // Branch/Region/Market queries
 export {
@@ -231,8 +258,14 @@ export {
 export {
   getHRRetention,
   getPeopleOverview,
+  getRetentionByDepartment,
+  getTerminationReasons,
+  getHeadcountSummary,
   type HRRetention,
   type PeopleOverview,
+  type RetentionByDepartment,
+  type TerminationReason,
+  type HeadcountSummary,
   type HRQueryOptions,
 } from './hr'
 
@@ -240,6 +273,7 @@ export {
 export {
   getTechProductivity,
   getTechProductivitySummary,
+  getTechnicianList,
   type TechProductivity,
   type TechProductivitySummary,
   type WorkforceQueryOptions,
@@ -337,6 +371,13 @@ export {
   getBCGMRLTVConversion,
   getBCGBranchWOCompleted,
   getBCGWOSupervisor,
+  // BCG Sales Page queries
+  getBCGSalesKPIs,
+  getBCGPipelineByStage,
+  getBCGRepPerformance,
+  getBCGAtRiskLeads,
+  getBCGSalesToday,
+  getBCGBacklog,
   // Core types
   type BCGLeadAnalytics,
   type BCGSalesAnalytics,
@@ -436,12 +477,14 @@ export {
   getCrossFunctionalTrends,
   getCrossFunctionalSummary,
   getCrossFunctionalByMarket,
+  getDataQualityDiagnostics,
   type CrossFunctionalKPI,
   type DepartmentHealth,
   type CrossFunctionalTrend,
   type CrossFunctionalSummary,
   type CrossFunctionalQueryOptions,
   type MarketBreakdown,
+  type DataQualityDiagnostic,
 } from './cross-functional'
 
 // Data Freshness SLA Tracking queries
@@ -600,6 +643,7 @@ export {
 export {
   getPlatformHealthMetrics,
   getFailedJobs,
+  getETLJobStats,
   type PlatformHealthMetrics,
   type FailedJob,
 } from './platform-health'
@@ -619,3 +663,31 @@ export {
   type AnomalyAlert,
   type AnomalySeverity,
 } from './anomaly-detection'
+
+// Revenue Forecasting queries
+// W3_Contract_Checker.T0_unf_Contract_All - Historical revenue for time series forecasting
+export {
+  getHistoricalRevenue,
+  getRevenueKPIs,
+  getForecastMetrics,
+  type HistoricalRevenueRow,
+  type RevenueKPIs,
+  type ForecastMetrics,
+} from './forecast'
+
+// Account Details queries
+// W3_Contract_Checker, S4, S0_TMX, Reports - Comprehensive account information
+export {
+  getAccountDetails,
+  getAccountOpportunities,
+  getAccountServiceHistory,
+  getAccountComplaints,
+  getAccountInvoices,
+  getAccountOwner,
+  type AccountDetails,
+  type AccountOpportunity,
+  type ServiceEvent,
+  type AccountComplaint,
+  type AccountInvoice,
+  type AccountOwner,
+} from './accounts'

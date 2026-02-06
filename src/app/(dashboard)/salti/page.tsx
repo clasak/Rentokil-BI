@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select'
 import { PageHeader } from '@/components/layout/PageHeader'
 import {
-  RefreshCw, Download, BarChart3, Calendar
+  RefreshCw, Download, BarChart3, Calendar, AlertTriangle, FileText, ExternalLink, Mail
 } from 'lucide-react'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import type { SALTIOverview } from '@/lib/bigquery/queries/salti'
@@ -35,8 +35,9 @@ interface SALTIDisplay {
 
 // Transform BigQuery data
 function transformBigQueryData(bqData: SALTIOverview[]): SALTIDisplay {
+  const safeData = bqData || []
   // Aggregate across all reps
-  const totals = bqData.reduce((acc, rep) => ({
+  const totals = safeData.reduce((acc, rep) => ({
     mqlCount: acc.mqlCount + (rep.mql_count || 0),
     sqlCount: acc.sqlCount + (rep.sql_count || 0),
     scheduledCount: acc.scheduledCount + (rep.scheduled_count || 0),
@@ -45,14 +46,14 @@ function transformBigQueryData(bqData: SALTIOverview[]): SALTIDisplay {
     soldCount: acc.soldCount + (rep.sold_count || 0),
   }), { mqlCount: 0, sqlCount: 0, scheduledCount: 0, inspectedCount: 0, proposedCount: 0, soldCount: 0 })
 
-  const avgCloseRate = bqData.length > 0
-    ? bqData.reduce((sum, r) => sum + (r.close_rate || 0), 0) / bqData.length
+  const avgCloseRate = safeData.length > 0
+    ? safeData.reduce((sum, r) => sum + (r.close_rate || 0), 0) / safeData.length
     : 0
-  const avgScheduleRate = bqData.length > 0
-    ? bqData.reduce((sum, r) => sum + (r.schedule_rate || 0), 0) / bqData.length
+  const avgScheduleRate = safeData.length > 0
+    ? safeData.reduce((sum, r) => sum + (r.schedule_rate || 0), 0) / safeData.length
     : 0
-  const avgWinRate = bqData.length > 0
-    ? bqData.reduce((sum, r) => sum + (r.win_rate || 0), 0) / bqData.length
+  const avgWinRate = safeData.length > 0
+    ? safeData.reduce((sum, r) => sum + (r.win_rate || 0), 0) / safeData.length
     : 0
 
   return {
@@ -90,13 +91,15 @@ export default function SALTIPage() {
     dataSource,
     responseTime,
     error,
+    errorType,
     refetch,
   } = useBigQueryData<SALTIOverview[], SALTIDisplay>({
     queryName: 'salti-overview',
     filters: { daysBack: 30 },
     defaultData: EMPTY_SALTI_OVERVIEW,
     transformBigQueryData,
-    includeOrgFilters: true,
+    includeOrgFilters: true,  // Include market/region/branch filters from UI
+    includeRoleFilters: false, // SALTI is an overview dashboard - don't filter by individual user
   })
 
   const handleRefresh = () => {
@@ -141,6 +144,55 @@ export default function SALTIPage() {
         </Button>
       </PageHeader>
 
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading SALTI Overview</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">salti-overview</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=SALTI Dashboard Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}\nQuery: salti-overview\nType: ${errorType || 'Unknown'}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* SALTI Overview - BigQuery Data */}
       <Card>
         <CardHeader>
@@ -153,7 +205,7 @@ export default function SALTIPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div id="salti-lead-funnel" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <p className="text-sm text-muted-foreground">MQL</p>
               <p className="text-2xl font-bold">{bqOverview.overview.mqlCount.toLocaleString()}</p>
@@ -198,7 +250,7 @@ export default function SALTIPage() {
       </Card>
 
       {/* Navigation to Detail Pages */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div id="salti-nav-cards" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/salti/daily-check-in'}>
           <CardContent className="pt-6">
             <h3 className="font-semibold mb-2">Daily Check-In</h3>

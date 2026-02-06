@@ -26,7 +26,7 @@ import type { BacklogItem as BQBacklogItem } from '@/lib/bigquery/queries/sales'
 // Transform BigQuery data to component format
 // Uses deterministic logic based on actual data - NO random values
 function transformBQToBacklogItems(bqData: BQBacklogItem[]): BacklogItem[] {
-  return bqData.map((d) => {
+  return (bqData || []).map((d) => {
     const daysSinceSold = d.days_since_sold
     const isAtRisk = daysSinceSold > 21
 

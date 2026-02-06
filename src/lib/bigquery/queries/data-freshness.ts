@@ -210,11 +210,42 @@ function buildTimestampSQL(sla: SLADefinition, project: string): string {
 
 const PROJECT = BIGQUERY_CONFIG.projectId
 
+// =============================================================================
+// Cache (60s TTL with in-flight deduplication)
+// Prevents redundant BigQuery calls when getDataFreshness is called multiple
+// times concurrently from data-quality.ts functions.
+// =============================================================================
+
+let freshnessCache: { data: DataFreshnessSummary; timestamp: number } | null = null
+let freshnessInflight: Promise<DataFreshnessSummary> | null = null
+const FRESHNESS_CACHE_TTL_MS = 60_000
+
 /**
  * Get data freshness for all tracked source systems
  * Checks table metadata to determine when ETL last updated each table
+ * Results are cached for 60s with in-flight deduplication.
  */
 export async function getDataFreshness(): Promise<DataFreshnessSummary> {
+  // Return cached result if fresh
+  if (freshnessCache && Date.now() - freshnessCache.timestamp < FRESHNESS_CACHE_TTL_MS) {
+    return freshnessCache.data
+  }
+  // Deduplicate concurrent in-flight requests
+  if (freshnessInflight) return freshnessInflight
+
+  freshnessInflight = fetchDataFreshness().then(result => {
+    freshnessCache = { data: result, timestamp: Date.now() }
+    freshnessInflight = null
+    return result
+  }).catch(err => {
+    freshnessInflight = null
+    throw err
+  })
+
+  return freshnessInflight
+}
+
+async function fetchDataFreshness(): Promise<DataFreshnessSummary> {
   const results: DataFreshnessSLA[] = []
 
   // Run all queries in parallel for better performance

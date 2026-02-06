@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ import {
   Calendar,
   DollarSign,
   Filter,
+  RefreshCw,
 } from 'lucide-react'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -89,10 +91,11 @@ const EMPTY_CANCEL_DATA: CancelData = {
 
 
 function transformBigQueryCancellations(bqData: LeadCancellation[]): CancelData {
-  const totalCount = bqData.reduce((sum, d) => sum + d.count, 0)
+  const safeData = bqData || []
+  const totalCount = safeData.reduce((sum, d) => sum + d.count, 0)
   const avgValue = 2500 // Estimated average value per cancel
 
-  const reasonData: CancelReason[] = bqData.map((d, index) => {
+  const reasonData: CancelReason[] = safeData.map((d, index) => {
     const matchingReason = CANCEL_REASONS.find((r) =>
       r.reason.toLowerCase().includes(d.cancel_reason.toLowerCase()) ||
       d.cancel_reason.toLowerCase().includes(r.reason.toLowerCase())
@@ -159,12 +162,16 @@ export default function LeadCancelsPage() {
     isLoading,
     dataSource,
     responseTime,
+    error,
+    errorType,
     refetch,
   } = useBigQueryData<LeadCancellation[], CancelData>({
     queryName: 'lead-cancellations',
     filters: { daysBack: parseInt(dateRange) },
     defaultData: EMPTY_CANCEL_DATA,
     transformBigQueryData: transformBigQueryCancellations,
+    includeOrgFilters: true, // Lead analytics - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Refetch when filters change
@@ -183,6 +190,7 @@ export default function LeadCancelsPage() {
         ]}
         dataSource={dataSource}
         responseTime={responseTime}
+        error={error}
         onRefresh={refetch}
         isLoading={isLoading}
       >
@@ -203,6 +211,45 @@ export default function LeadCancelsPage() {
           </Select>
         </div>
       </PageHeader>
+
+      {/* Error State */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Lead Cancellations</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context */}
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">lead-cancellations</p>
+                </div>
+              </div>
+            )}
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

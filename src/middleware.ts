@@ -46,7 +46,8 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Public routes that don't require authentication
-  const publicPaths = ['/login', '/auth/callback', '/api']
+  // Note: /api/bigquery/query handles its own auth via getUser() - only exempt truly public APIs
+  const publicPaths = ['/login', '/auth/callback', '/api/health', '/api/bigquery/health']
   const isPublicPath = publicPaths.some(path => request.nextUrl.pathname.startsWith(path))
 
   // Onboarding is accessible only to authenticated users
@@ -68,6 +69,9 @@ export async function middleware(request: NextRequest) {
       supabaseResponse.cookies.set('onboarding_complete', 'true', {
         path: '/',
         maxAge: 31536000, // 1 year
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
       })
       url.pathname = '/'
       return NextResponse.redirect(url)
@@ -83,6 +87,9 @@ export async function middleware(request: NextRequest) {
       supabaseResponse.cookies.set('onboarding_complete', 'true', {
         path: '/',
         maxAge: 31536000, // 1 year
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
       })
       return supabaseResponse
     }
@@ -98,6 +105,9 @@ export async function middleware(request: NextRequest) {
       supabaseResponse.cookies.set('onboarding_complete', 'true', {
         path: '/',
         maxAge: 31536000, // 1 year
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
       })
       return supabaseResponse
     }

@@ -61,6 +61,8 @@ function AtRiskPageContent() {
     filters: { daysBack: 90 },
     defaultData: EMPTY_AT_RISK_LEADS,
     transformBigQueryData: transformAtRiskLeads,
+    includeOrgFilters: true, // Lead service at-risk - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch risk reasons from BigQuery
@@ -72,6 +74,8 @@ function AtRiskPageContent() {
     filters: { daysBack: 90 },
     defaultData: EMPTY_RISK_REASONS,
     transformBigQueryData: transformRiskReasons,
+    includeOrgFilters: true, // Lead service at-risk - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Update filter when URL param changes

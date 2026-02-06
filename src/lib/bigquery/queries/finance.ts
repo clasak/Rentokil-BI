@@ -71,6 +71,7 @@ export interface FinanceQueryOptions {
   region?: string
   branch?: string
   limit?: number
+  invoiceNumber?: string
 }
 
 // =============================================================================
@@ -123,7 +124,9 @@ export async function getARAging(
     if (market) params.market = market
     if (region) params.region = region
 
+    console.log('[Finance] getARAging executing with params:', JSON.stringify(params))
     const result = await bigQueryClient.queryWithParams<ARAging>(sql, params)
+    console.log(`[Finance] getARAging returned ${result.rows.length} rows`, result.rows.length > 0 ? 'Sample:' : '(empty)', result.rows.slice(0, 3))
     return result.rows
   } catch (error) {
     console.error('[Finance] getARAging failed:', error)
@@ -272,6 +275,51 @@ export async function getARDetails(
   } catch (error) {
     console.error('[Finance] getARDetails failed:', error)
     return []
+  }
+}
+
+/**
+ * Get a single invoice by invoice number
+ * Used for invoice detail page - supports role/org filtering for security
+ */
+export async function getInvoiceById(
+  options: FinanceQueryOptions = {}
+): Promise<ARDetailRecord | null> {
+  const { invoiceNumber } = options
+
+  if (!invoiceNumber) {
+    console.error('[Finance] getInvoiceById: invoiceNumber is required')
+    return null
+  }
+
+  // Note: includeOrgFilters and includeRoleFilters will be injected by the API layer
+  // This ensures users can only see invoices they have access to
+  const sql = `
+    SELECT
+      COALESCE(Invoice_number, 'Unknown') as invoice_number,
+      COALESCE(CAST(CUSTNUM AS STRING), '') as customer_number,
+      COALESCE(RTX_Branch_Codes, '') as branch_code,
+      COALESCE(RTX_Branch_Name, 'Unknown') as branch_name,
+      COALESCE(RTX_Market_Name, 'Unknown') as market_name,
+      COALESCE(RTX_Region_Name, 'Unknown') as region_name,
+      FORMAT_DATE('%Y-%m-%d', DATE(invoice_date)) as invoice_date,
+      COALESCE(Original_Amount, 0) as original_amount,
+      COALESCE(Paid_Amount, 0) as paid_amount,
+      COALESCE(Outstanding_Amount, 0) as outstanding_amount,
+      COALESCE(Days, 0) as days_outstanding,
+      COALESCE(Age, 'Unknown') as aging_bucket
+    FROM \`${PROJECT}.${AR_DATASET}.${AR_TABLE}\`
+    WHERE Invoice_number = @invoiceNumber
+    LIMIT 1
+  `
+
+  try {
+    const params = { invoiceNumber }
+    const result = await bigQueryClient.queryWithParams<ARDetailRecord>(sql, params)
+    return result.rows.length > 0 ? result.rows[0] : null
+  } catch (error) {
+    console.error('[Finance] getInvoiceById failed:', error)
+    return null
   }
 }
 

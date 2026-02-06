@@ -17,6 +17,9 @@ import {
   RefreshCw,
   History,
   Clock,
+  AlertTriangle,
+  ExternalLink,
+  Mail,
 } from 'lucide-react'
 // BigQuery-only - no mock data fallback
 import { useBigQueryData } from '@/hooks/useBigQueryData'
@@ -40,6 +43,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { useEffectiveRole } from '@/hooks/useEffectiveRole'
 import { useState, useEffect } from 'react'
 import { useRecentPages } from '@/hooks/useRecentPages'
+import { formatCurrency } from '@/lib/utils'
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
@@ -83,7 +87,7 @@ interface PipelineItem {
 
 // Transform pipeline data from BigQuery
 function transformPipelineData(bqData: AEPipeline[]): PipelineItem[] {
-  return bqData.map(p => ({
+  return (bqData || []).map(p => ({
     id: p.opportunity_id,
     companyName: p.account_name || `Lead ${p.opportunity_id}`,
     service: 'Pest Control', // Default - BigQuery doesn't have service type yet
@@ -101,7 +105,7 @@ const EMPTY_PIPELINE: PipelineItem[] = []
 // Transform BigQuery data to display stats
 function transformBigQueryData(bqData: AETracker[]): AEStats {
   // Sum up all AE data (or filter for specific AE)
-  const totals = bqData.reduce(
+  const totals = (bqData || []).reduce(
     (acc, ae) => ({
       opportunities: acc.opportunities + toBigQueryNumber(ae.opportunities_created),
       won: acc.won + toBigQueryNumber(ae.opportunities_won),
@@ -137,15 +141,6 @@ const EMPTY_AE_STATS: AEStats = {
   monthlyGoal: 50000,
   goalProgress: 0,
   proposalToSaleRate: 0,
-}
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
 }
 
 function formatDate(dateStr: string): string {
@@ -196,6 +191,7 @@ export default function AccountExecutiveDashboard() {
     isLoading: isBQLoading,
     dataSource,
     responseTime,
+    error: bqError,
     refetch: refetchBQ,
   } = useBigQueryData<AETracker[], AEStats>({
     queryName: 'ae-tracker',
@@ -209,6 +205,7 @@ export default function AccountExecutiveDashboard() {
   const {
     data: bqPipeline,
     isLoading: isPipelineLoading,
+    error: pipelineError,
     refetch: refetchPipeline,
   } = useBigQueryData<AEPipeline[], PipelineItem[]>({
     queryName: 'ae-pipeline',
@@ -222,6 +219,7 @@ export default function AccountExecutiveDashboard() {
   const {
     data: compensationData,
     isLoading: isCompLoading,
+    error: compError,
     refetch: refetchComp,
   } = useBigQueryData<AECompensationSummary | null, AECompensationSummary | null>({
     queryName: 'ae-compensation-summary',
@@ -245,12 +243,13 @@ export default function AccountExecutiveDashboard() {
   const {
     data: salesDetails,
     isLoading: isSalesLoading,
+    error: salesError,
     refetch: refetchSales,
   } = useBigQueryData<AESalesDetail[], AESalesDetail[]>({
     queryName: 'ae-sales-details',
     filters: { daysBack: 90, limit: 50 },
     defaultData: [],
-    transformBigQueryData: (data) => data.map(s => ({
+    transformBigQueryData: (data) => (data || []).map(s => ({
       salesId: s.salesId,
       customerName: s.customerName,
       productGroup: s.productGroup,
@@ -285,12 +284,13 @@ export default function AccountExecutiveDashboard() {
   const {
     data: integratedData,
     isLoading: isIntegratedLoading,
+    error: integratedError,
     refetch: refetchIntegrated,
   } = useBigQueryData<AEIntegratedDashboard, AEIntegratedDashboard>({
     queryName: 'ae-integrated-dashboard',
     filters: { daysBack: 90 },
     defaultData: EMPTY_INTEGRATED,
-    transformBigQueryData: (data) => ({
+    transformBigQueryData: (data) => data ? ({
       openOpportunities: toBigQueryNumber(data.openOpportunities),
       proposalsDelivered: toBigQueryNumber(data.proposalsDelivered),
       pipelineValue: toBigQueryNumber(data.pipelineValue),
@@ -300,7 +300,7 @@ export default function AccountExecutiveDashboard() {
       isqValue: toBigQueryNumber(data.isqValue),
       startRate: toBigQueryNumber(data.startRate),
       avgDealSize: toBigQueryNumber(data.avgDealSize),
-    }),
+    }) : EMPTY_INTEGRATED,
     includeRoleFilters: true,
   })
 
@@ -321,6 +321,7 @@ export default function AccountExecutiveDashboard() {
 
   // Show loading state while BigQuery data is being fetched
   const isLoading = isBQLoading && isIntegratedLoading && isCompLoading
+  const hasError = bqError || pipelineError || compError || salesError || integratedError
 
   if (isLoading) {
     return (
@@ -330,6 +331,85 @@ export default function AccountExecutiveDashboard() {
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-32 bg-gray-200 animate-pulse rounded-lg" />
           ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Error state - show comprehensive error card
+  if (hasError) {
+    const errorMsg = bqError || pipelineError || compError || salesError || integratedError || 'Unknown error'
+    const errorSource = bqError ? 'AE Tracker' : pipelineError ? 'Pipeline' : compError ? 'Compensation' : salesError ? 'Sales Details' : 'Integrated Dashboard'
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Dashboard</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Welcome back, {profile?.name || 'Account Executive'} • Account Executive
+          </p>
+        </div>
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Dashboard Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {errorMsg}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorSource}</p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">BigQuery</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  refetchBQ()
+                  refetchPipeline()
+                  refetchComp()
+                  refetchSales()
+                  refetchIntegrated()
+                }}
+              >
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const subject = encodeURIComponent('Dashboard Error - AE Page')
+                  const body = encodeURIComponent(`Error: ${errorMsg}\n\nSource: ${errorSource}\n\nPlease investigate.`)
+                  window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     )

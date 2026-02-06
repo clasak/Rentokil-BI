@@ -22,10 +22,12 @@ import { handleBigQueryError } from '../error-handler'
 // =============================================================================
 
 export type AnomalySeverity = 'critical' | 'warning' | 'info'
+export type AnomalyStatus = 'active' | 'investigating' | 'resolved'
 
 export interface AnomalyAlert {
   id: string
   severity: AnomalySeverity
+  status: AnomalyStatus
   description: string
   detectionTime: Date
   likelyCause: string
@@ -168,6 +170,7 @@ export async function getAnomalyAlerts(): Promise<AnomalyAlert[]> {
         return {
           id: `anomaly-${row.sell_date}-${index}`,
           severity: row.severity as AnomalySeverity,
+          status: 'active' as AnomalyStatus,
           description,
           detectionTime: new Date(),
           likelyCause,

@@ -58,6 +58,8 @@ export default function HandoffsPage() {
     filters: { daysBack: 90 },
     defaultData: EMPTY_HANDOFF_METRICS,
     transformBigQueryData: transformHandoffMetrics,
+    includeOrgFilters: true, // Lead service handoffs - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch BD→Sales leads
@@ -66,10 +68,12 @@ export default function HandoffsPage() {
     isLoading: isLoadingBD,
     refetch: refetchBD,
   } = useBigQueryData<BQHandoffLeadRow[], HandoffLead[]>({
-    queryName: 'lead-service-handoff-leads-bd',
+    queryName: 'lead-service-handoff-leads-intake',
     filters: { daysBack: 90 },
     defaultData: EMPTY_HANDOFF_LEADS,
     transformBigQueryData: transformHandoffLeads,
+    includeOrgFilters: true, // Lead service handoffs - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch Sales→Ops leads
@@ -82,6 +86,8 @@ export default function HandoffsPage() {
     filters: { daysBack: 90 },
     defaultData: EMPTY_HANDOFF_LEADS,
     transformBigQueryData: transformHandoffLeads,
+    includeOrgFilters: true, // Lead service handoffs - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const isLoading = isLoadingMetrics || isLoadingBD || isLoadingOps

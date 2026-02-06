@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
-import { getTechnicianCapacity, getBranches, getUsers } from '@/lib/data'
+import { useOrganizationData } from '@/hooks/useOrganizationData'
 import { calculateKPIValues } from '@/lib/kpi-calculations'
+import type { BranchWorkforce } from '@/lib/bigquery/queries/organization-workforce'
 import { KPICard } from '@/components/features/KPICard'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table, TableBody, TableCell, TableHead,
@@ -23,7 +23,7 @@ import {
   Users, MapPin, Clock, AlertTriangle, TrendingUp, DollarSign,
   TrendingDown, AlertCircle
 } from 'lucide-react'
-import { KPIValue, TechnicianCapacity } from '@/types'
+import { KPIValue } from '@/types'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import type {
   LaborCostAnalysis,
@@ -41,14 +41,40 @@ const EMPTY_BENCHMARKS: CompensationBenchmark[] = []
 export default function PeoplePage() {
   const [mounted, setMounted] = useState(false)
   const { settings } = useAppStore()
-  const [capacity, setCapacity] = useState<TechnicianCapacity[]>([])
   const [kpiValues, setKpiValues] = useState<Map<string, KPIValue>>(new Map())
 
   useEffect(() => {
     setMounted(true)
-    setCapacity(getTechnicianCapacity())
     setKpiValues(calculateKPIValues(settings.role, settings.userId))
   }, [settings])
+
+  // Branch workforce data from BigQuery (real employee headcounts by role)
+  const {
+    data: workforceData,
+    isLoading: workforceLoading,
+  } = useBigQueryData<BranchWorkforce[], BranchWorkforce[]>({
+    queryName: 'branch-workforce',
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: true, // Filter to user's market/region/branch
+    includeRoleFilters: false, // No user-specific filtering needed
+  })
+
+  // Explicit transform for labor cost data with null handling
+  function transformLaborCostData(bqData: LaborCostAnalysis[]): LaborCostAnalysis[] {
+    return (bqData || []).map(row => ({
+      period: row.period ?? '',
+      market: row.market ?? '',
+      region: row.region,
+      branch: row.branch,
+      total_labor_cost: row.total_labor_cost ?? 0,
+      regular_pay: row.regular_pay ?? 0,
+      overtime_pay: row.overtime_pay ?? 0,
+      headcount: row.headcount ?? 0,
+      avg_hourly_rate: row.avg_hourly_rate ?? 0,
+      change_from_prior_month: row.change_from_prior_month ?? 0,
+    }))
+  }
 
   // BigQuery data for payroll analytics
   const {
@@ -59,10 +85,22 @@ export default function PeoplePage() {
     queryName: 'labor-cost-analysis',
     filters: { daysBack: 90 },
     defaultData: EMPTY_LABOR_COST,
-    transformBigQueryData: (data) => data,
+    transformBigQueryData: transformLaborCostData,
     includeOrgFilters: true,
     includeRoleFilters: true,
   })
+
+  // Explicit transform for overtime trends with null handling
+  function transformOvertimeData(bqData: OvertimeTrend[]): OvertimeTrend[] {
+    return (bqData || []).map(row => ({
+      period: row.period ?? '',
+      market: row.market ?? '',
+      overtime_hours: row.overtime_hours ?? 0,
+      overtime_cost: row.overtime_cost ?? 0,
+      overtime_pct_of_total: row.overtime_pct_of_total ?? 0,
+      total_hours: row.total_hours ?? 0,
+    }))
+  }
 
   const {
     data: overtimeData,
@@ -71,10 +109,24 @@ export default function PeoplePage() {
     queryName: 'overtime-trends',
     filters: { daysBack: 365 },
     defaultData: EMPTY_OVERTIME,
-    transformBigQueryData: (data) => data,
+    transformBigQueryData: transformOvertimeData,
     includeOrgFilters: true,
     includeRoleFilters: true,
   })
+
+  // Explicit transform for revenue per labor dollar with null handling
+  function transformRevenuePerDollarData(bqData: RevenuePerLaborDollar[]): RevenuePerLaborDollar[] {
+    return (bqData || []).map(row => ({
+      period: row.period ?? '',
+      market: row.market ?? '',
+      region: row.region,
+      branch: row.branch,
+      total_revenue: row.total_revenue ?? 0,
+      total_labor_cost: row.total_labor_cost ?? 0,
+      revenue_per_labor_dollar: row.revenue_per_labor_dollar ?? 0,
+      efficiency_rating: row.efficiency_rating ?? 'N/A',
+    }))
+  }
 
   const {
     data: revPerDollarData,
@@ -83,10 +135,23 @@ export default function PeoplePage() {
     queryName: 'revenue-per-labor-dollar',
     filters: { daysBack: 90 },
     defaultData: EMPTY_REVENUE_PER_DOLLAR,
-    transformBigQueryData: (data) => data,
+    transformBigQueryData: transformRevenuePerDollarData,
     includeOrgFilters: true,
     includeRoleFilters: true,
   })
+
+  // Explicit transform for compensation benchmarks with null handling
+  function transformBenchmarksData(bqData: CompensationBenchmark[]): CompensationBenchmark[] {
+    return (bqData || []).map(row => ({
+      position_title: row.position_title ?? '',
+      market: row.market ?? '',
+      avg_hourly_rate: row.avg_hourly_rate ?? 0,
+      min_hourly_rate: row.min_hourly_rate ?? 0,
+      max_hourly_rate: row.max_hourly_rate ?? 0,
+      median_hourly_rate: row.median_hourly_rate ?? 0,
+      employee_count: row.employee_count ?? 0,
+    }))
+  }
 
   const {
     data: benchmarksData,
@@ -95,7 +160,7 @@ export default function PeoplePage() {
     queryName: 'compensation-benchmarks',
     filters: { daysBack: 90 },
     defaultData: EMPTY_BENCHMARKS,
-    transformBigQueryData: (data) => data,
+    transformBigQueryData: transformBenchmarksData,
     includeOrgFilters: true,
     includeRoleFilters: true,
   })
@@ -115,38 +180,48 @@ export default function PeoplePage() {
   const revPerDollar = latestRevPerDollar?.revenue_per_labor_dollar || 0
   const efficiencyRating = latestRevPerDollar?.efficiency_rating || 'N/A'
 
+  // Use BigQuery organization data instead of mock branches
+  const { branches: orgBranches, isLoading: orgLoading } = useOrganizationData()
+
   const peopleKpis = ['capacity_utilization', 'scheduling_pressure_index']
-  const branches = getBranches()
-  const users = getUsers()
 
-  // Get recent capacity data
-  const today = new Date()
-  const recentCapacity = capacity.filter(c =>
-    c.date >= new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000) &&
-    c.date <= today
-  )
+  // Build workforce lookup map from BigQuery data
+  const workforceLookup = new Map<string, BranchWorkforce>()
+  workforceData.forEach(b => workforceLookup.set(b.branch_code, b))
 
-  // Branch utilization summary
-  const branchUtilization = branches.map(branch => {
-    const branchCap = recentCapacity.filter(c => c.branchId === branch.id)
-    const avgUtilization = branchCap.length > 0
-      ? branchCap.reduce((sum, c) => sum + c.utilization, 0) / branchCap.length
-      : 0
-    const overutilizedDays = branchCap.filter(c => c.utilization > 1).length
-    const totalHours = branchCap.reduce((sum, c) => sum + c.availableHours, 0)
-    const usedHours = branchCap.reduce((sum, c) => sum + c.usedHours, 0)
+  // Total workforce counts from BigQuery
+  const totalTechnicians = workforceData.reduce((sum, b) => sum + b.technicians, 0)
+  const totalAEs = workforceData.reduce((sum, b) => sum + b.ae_sales, 0)
+  const totalStaff = workforceData.reduce((sum, b) => sum + b.total, 0)
 
-    return {
-      id: branch.id,
-      name: branch.name,
-      market: branch.name.split(' - ')[0],
-      utilization: avgUtilization,
-      overutilizedDays,
-      totalHours,
-      usedHours,
-      techCount: new Set(branchCap.map(c => c.technicianId)).size,
-    }
-  }).sort((a, b) => b.utilization - a.utilization)
+  // Map OrganizationBranch to expected structure for backward compatibility
+  const branches = orgBranches.map(branch => ({
+    id: branch.branch_code,
+    name: branch.branch_name,
+    regionId: branch.region_code,
+    marketId: branch.market_code,
+    city: branch.city,
+    state: branch.state,
+  }))
+
+  // Branch workforce summary using BigQuery data
+  const branchWorkforceSummary = workforceData
+    .filter(b => b.total > 0)
+    .map(b => ({
+      id: b.branch_code,
+      name: b.branch_name,
+      market: b.market_name,
+      techCount: b.technicians,
+      aeCount: b.ae_sales,
+      bmCount: b.branch_managers,
+      omCount: b.ops_managers,
+      smCount: b.sales_managers,
+      csrCount: b.csr_office,
+      total: b.total,
+      // Estimate utilization from staffing ratio (techs vs total field staff)
+      staffingRatio: b.total > 0 ? (b.technicians + b.ae_sales) / b.total : 0,
+    }))
+    .sort((a, b) => b.total - a.total)
 
   // Weekly heatmap data (simulated) - use deterministic values based on branch index
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -158,28 +233,20 @@ export default function PeoplePage() {
     }), {})
   })) : []
 
-  // Capacity distribution chart
-  const capacityDistribution = [
-    { range: '<60%', count: branchUtilization.filter(b => b.utilization < 0.6).length, fill: '#3b82f6' },
-    { range: '60-80%', count: branchUtilization.filter(b => b.utilization >= 0.6 && b.utilization < 0.8).length, fill: '#22c55e' },
-    { range: '80-95%', count: branchUtilization.filter(b => b.utilization >= 0.8 && b.utilization < 0.95).length, fill: '#84cc16' },
-    { range: '95-100%', count: branchUtilization.filter(b => b.utilization >= 0.95 && b.utilization <= 1).length, fill: '#f59e0b' },
-    { range: '>100%', count: branchUtilization.filter(b => b.utilization > 1).length, fill: '#ef4444' },
+  // Workforce distribution chart - branches by staff size
+  const staffDistribution = [
+    { range: '1-5', count: branchWorkforceSummary.filter(b => b.total >= 1 && b.total <= 5).length, fill: '#3b82f6' },
+    { range: '6-15', count: branchWorkforceSummary.filter(b => b.total >= 6 && b.total <= 15).length, fill: '#22c55e' },
+    { range: '16-30', count: branchWorkforceSummary.filter(b => b.total >= 16 && b.total <= 30).length, fill: '#84cc16' },
+    { range: '31-50', count: branchWorkforceSummary.filter(b => b.total >= 31 && b.total <= 50).length, fill: '#f59e0b' },
+    { range: '50+', count: branchWorkforceSummary.filter(b => b.total > 50).length, fill: '#ef4444' },
   ]
 
-  const getUtilizationColor = (util: number): string => {
-    if (util > 1) return 'text-red-600'
-    if (util > 0.95) return 'text-orange-600'
-    if (util > 0.8) return 'text-green-600'
-    if (util > 0.6) return 'text-blue-600'
-    return 'text-gray-600'
-  }
-
-  const getUtilizationBadge = (util: number) => {
-    if (util > 1) return <Badge variant="danger">Overutilized</Badge>
-    if (util > 0.95) return <Badge variant="warning">At Capacity</Badge>
-    if (util > 0.8) return <Badge variant="success">Optimal</Badge>
-    return <Badge variant="secondary">Underutilized</Badge>
+  const getStaffBadge = (total: number) => {
+    if (total > 50) return <Badge variant="default">Large</Badge>
+    if (total > 30) return <Badge variant="success">Mid-Large</Badge>
+    if (total > 15) return <Badge variant="warning">Medium</Badge>
+    return <Badge variant="secondary">Small</Badge>
   }
 
   const getEfficiencyBadgeVariant = (rating: string) => {
@@ -229,13 +296,13 @@ export default function PeoplePage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <Users className="h-6 w-6 text-purple-600" />
+                  <div className="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                    <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Total Technicians</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Technicians</div>
                     <div className="text-2xl font-bold">
-                      {users.filter(u => u.title?.includes('Technician') || u.title?.includes('Specialist')).length}
+                      {workforceLoading ? '...' : totalTechnicians.toLocaleString()}
                     </div>
                   </div>
                 </div>
@@ -245,13 +312,16 @@ export default function PeoplePage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                    <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Overutilized Branches</div>
-                    <div className="text-2xl font-bold text-red-600">
-                      {branchUtilization.filter(b => b.utilization > 1).length}
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Staff</div>
+                    <div className="text-2xl font-bold">
+                      {workforceLoading ? '...' : totalStaff.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {workforceLoading ? '' : `${branchWorkforceSummary.length} branches`}
                     </div>
                   </div>
                 </div>
@@ -260,30 +330,36 @@ export default function PeoplePage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Capacity Distribution */}
+            {/* Workforce Distribution */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
-                  Capacity Distribution
+                  Branch Size Distribution
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64 [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={capacityDistribution}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="range" />
-                      <YAxis />
-                      <Tooltip cursor={false} />
-                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                        {capacityDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                {workforceLoading ? (
+                  <div className="h-64 flex items-center justify-center text-gray-500">
+                    Loading workforce data...
+                  </div>
+                ) : (
+                  <div className="h-64 [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={staffDistribution}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="range" />
+                        <YAxis />
+                        <Tooltip cursor={false} />
+                        <Bar dataKey="count" name="Branches" radius={[4, 4, 0, 0]}>
+                          {staffDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -359,57 +435,55 @@ export default function PeoplePage() {
             </Card>
           </div>
 
-          {/* Branch Utilization Table */}
+          {/* Branch Workforce Table */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                Branch Capacity Summary
+                Branch Workforce Summary
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Branch</TableHead>
-                    <TableHead>Market</TableHead>
-                    <TableHead className="text-right">Technicians</TableHead>
-                    <TableHead className="text-right">Used / Available Hours</TableHead>
-                    <TableHead>Utilization</TableHead>
-                    <TableHead className="text-right">Overutilized Days</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {branchUtilization.slice(0, 15).map(branch => (
-                    <TableRow key={branch.id}>
-                      <TableCell className="font-medium">{branch.name.split(' - ')[1] || branch.name}</TableCell>
-                      <TableCell className="text-gray-500">{branch.market}</TableCell>
-                      <TableCell className="text-right">{branch.techCount}</TableCell>
-                      <TableCell className="text-right">
-                        {branch.usedHours.toFixed(0)} / {branch.totalHours.toFixed(0)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress
-                            value={Math.min(branch.utilization * 100, 120)}
-                            className="w-24 h-2"
-                          />
-                          <span className={`text-sm font-medium ${getUtilizationColor(branch.utilization)}`}>
-                            {(branch.utilization * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className={branch.overutilizedDays > 0 ? 'text-red-600 font-medium' : ''}>
-                          {branch.overutilizedDays}
-                        </span>
-                      </TableCell>
-                      <TableCell>{getUtilizationBadge(branch.utilization)}</TableCell>
+              {workforceLoading ? (
+                <div className="py-12 text-center text-gray-500">
+                  Loading workforce data...
+                </div>
+              ) : branchWorkforceSummary.length === 0 ? (
+                <div className="py-12 text-center text-gray-500">
+                  No workforce data available
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Branch</TableHead>
+                      <TableHead>Market</TableHead>
+                      <TableHead className="text-right">BMs</TableHead>
+                      <TableHead className="text-right">Techs</TableHead>
+                      <TableHead className="text-right">AEs</TableHead>
+                      <TableHead className="text-right">Ops Mgrs</TableHead>
+                      <TableHead className="text-right">CSR</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>Size</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {branchWorkforceSummary.slice(0, 20).map(branch => (
+                      <TableRow key={branch.id}>
+                        <TableCell className="font-medium">{branch.name}</TableCell>
+                        <TableCell className="text-gray-500">{branch.market}</TableCell>
+                        <TableCell className="text-right">{branch.bmCount}</TableCell>
+                        <TableCell className="text-right font-medium">{branch.techCount}</TableCell>
+                        <TableCell className="text-right">{branch.aeCount}</TableCell>
+                        <TableCell className="text-right">{branch.omCount}</TableCell>
+                        <TableCell className="text-right">{branch.csrCount}</TableCell>
+                        <TableCell className="text-right font-bold">{branch.total}</TableCell>
+                        <TableCell>{getStaffBadge(branch.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

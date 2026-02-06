@@ -16,6 +16,47 @@ import { handleBigQueryError } from '../error-handler'
 import { getDataFreshness, type DataFreshnessSLA } from './data-freshness'
 
 // =============================================================================
+// Query Result Cache (60s TTL with in-flight deduplication)
+// =============================================================================
+// Prevents redundant BigQuery calls when multiple API requests hit the same
+// functions concurrently (e.g., the data-quality page fires 3 hooks that all
+// internally call getDataFreshness, getNullRates, getDuplicateRates).
+
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+}
+
+const queryCache = new Map<string, CacheEntry<unknown>>()
+const inflightQueries = new Map<string, Promise<unknown>>()
+const CACHE_TTL_MS = 60_000 // 60 seconds
+
+async function getOrCompute<T>(key: string, compute: () => Promise<T>): Promise<T> {
+  // Check cache first
+  const cached = queryCache.get(key)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data as T
+  }
+
+  // Check if computation is already in flight
+  const inflight = inflightQueries.get(key)
+  if (inflight) return inflight as Promise<T>
+
+  // Start computation, track in-flight, and cache result
+  const promise = compute().then(result => {
+    queryCache.set(key, { data: result, timestamp: Date.now() })
+    inflightQueries.delete(key)
+    return result
+  }).catch(err => {
+    inflightQueries.delete(key)
+    throw err
+  })
+
+  inflightQueries.set(key, promise)
+  return promise
+}
+
+// =============================================================================
 // Types
 // =============================================================================
 
@@ -102,6 +143,7 @@ interface CriticalTableConfig {
   priority: 'critical' | 'high' | 'medium'
   nullCheckColumns?: string[]  // Columns to check for NULL rates
   primaryKeyColumn?: string    // Primary key for duplicate detection
+  dateColumn?: string          // Date column for scoping queries to recent data (last 90 days)
 }
 
 const CRITICAL_TABLES: CriticalTableConfig[] = [
@@ -110,14 +152,16 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     dataset: 'S4',
     tableName: 'Fact_Leads_Acc_Daily_Dtls_Snp',
     priority: 'critical',
-    nullCheckColumns: ['LeadID', 'BranchID', 'SnapshotDate'],
-    primaryKeyColumn: 'LeadID',
+    nullCheckColumns: ['lead_ID', 'branch_ID', 'SnapshotDate'],
+    primaryKeyColumn: 'lead_ID',
+    dateColumn: 'SnapshotDate',
   },
   {
     dataset: 'S4',
     tableName: 'Fact_ContractSales_Txn_Na_Daily_Dtl_Vw',
     priority: 'critical',
     nullCheckColumns: ['ContractNumber', 'BranchID', 'SellDate'],
+    dateColumn: 'SellDate',
   },
   {
     dataset: 'S2',
@@ -125,6 +169,7 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     priority: 'critical',
     nullCheckColumns: ['RTX_Branch_Codes', 'RTX_Branch_Name', 'RTX_Region_Code'],
     primaryKeyColumn: 'RTX_Branch_Codes',
+    // No dateColumn -- dimension table, small
   },
   {
     dataset: 'S4',
@@ -138,6 +183,7 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     priority: 'high',
     nullCheckColumns: ['CustomerID', 'CustomerName'],
     primaryKeyColumn: 'CustomerID',
+    // No dateColumn -- dimension table
   },
   {
     dataset: 'S4',
@@ -145,6 +191,7 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     priority: 'high',
     nullCheckColumns: ['Employee_Num', 'Home_Branch'],
     primaryKeyColumn: 'Employee_Num',
+    // No dateColumn -- dimension table
   },
 
   // S0_TMX Dataset (Source Data) - 10 tables
@@ -154,6 +201,7 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     priority: 'critical',
     nullCheckColumns: ['tmx_lead_sid', 'assigned_bunit_sid', 'received_date'],
     primaryKeyColumn: 'tmx_lead_sid',
+    dateColumn: 'received_date',
   },
   {
     dataset: 'S0_TMX',
@@ -161,12 +209,14 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     priority: 'critical',
     nullCheckColumns: ['employee_id', 'assigned_bunit_sid', 'employee_status'],
     primaryKeyColumn: 'employee_id',
+    // No dateColumn -- dimension-like table
   },
   {
     dataset: 'S0_TMX',
     tableName: 'Inspections',
     priority: 'critical',
     nullCheckColumns: ['InspectionID', 'DateInspected'],
+    dateColumn: 'DateInspected',
   },
   {
     dataset: 'S0_TMX',
@@ -174,6 +224,7 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     priority: 'high',
     nullCheckColumns: ['tmx_business_unit_sid', 'branch_name'],
     primaryKeyColumn: 'tmx_business_unit_sid',
+    // No dateColumn -- dimension table, small
   },
 
   // W3_Contract_Checker Dataset - 1 table
@@ -182,6 +233,7 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     tableName: 'T0_unf_Contract_All',
     priority: 'critical',
     nullCheckColumns: ['ContractNumber', 'CustomerID', 'SellDate', 'BranchID'],
+    dateColumn: 'SellDate',
   },
 
   // BCG_RTD_DB Dataset (Analytics) - 10 tables
@@ -189,19 +241,22 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     dataset: 'BCG_RTD_DB',
     tableName: 'DR_Leads',
     priority: 'critical',
-    nullCheckColumns: ['LeadID', 'BranchID', 'ReceivedDate'],
+    nullCheckColumns: ['lead_ID', 'branch_ID', 'ReceivedDate'],
+    dateColumn: 'ReceivedDate',
   },
   {
     dataset: 'BCG_RTD_DB',
     tableName: 'DR_ContractSales',
     priority: 'critical',
     nullCheckColumns: ['ContractID', 'SellDate'],
+    dateColumn: 'SellDate',
   },
   {
     dataset: 'BCG_RTD_DB',
     tableName: 'DR_Cancels',
     priority: 'high',
     nullCheckColumns: ['CancelID', 'CancelDate'],
+    dateColumn: 'CancelDate',
   },
 
   // Reports Dataset (Finance) - 5 tables
@@ -210,6 +265,7 @@ const CRITICAL_TABLES: CriticalTableConfig[] = [
     tableName: 'VwUnf_dim_ar_detail',
     priority: 'critical',
     nullCheckColumns: ['CustomerID', 'InvoiceDate'],
+    dateColumn: 'InvoiceDate',
   },
   {
     dataset: 'Reports',
@@ -274,6 +330,7 @@ function getDataSourceName(dataset: string): string {
 export async function getTableHealthMetrics(
   options?: DataQualityQueryOptions
 ): Promise<TableHealthMetric[]> {
+  return getOrCompute('table-health-metrics', async () => {
   try {
     const project = BIGQUERY_CONFIG.projectId
     const tableList = CRITICAL_TABLES.map(t => `'${t.tableName}'`).join(', ')
@@ -330,39 +387,58 @@ export async function getTableHealthMetrics(
     console.error('[Data Quality] getTableHealthMetrics failed:', error)
     return []
   }
+  }) // end getOrCompute
 }
 
 /**
  * Get NULL rates for critical columns
+ * Cached for 60s, queries run in parallel, scoped to last 90 days where possible
  */
 async function getNullRates(): Promise<Map<string, number>> {
-  try {
-    const project = BIGQUERY_CONFIG.projectId
-    const nullRatesMap = new Map<string, number>()
+  return getOrCompute('null-rates', async () => {
+    try {
+      const project = BIGQUERY_CONFIG.projectId
+      const nullRatesMap = new Map<string, number>()
 
-    // Query NULL rates for tables with configured columns
-    const tablesWithNullChecks = CRITICAL_TABLES.filter(t => t.nullCheckColumns && t.nullCheckColumns.length > 0)
+      const tablesWithNullChecks = CRITICAL_TABLES.filter(t => t.nullCheckColumns && t.nullCheckColumns.length > 0)
 
-    for (const table of tablesWithNullChecks.slice(0, 5)) { // Limit to 5 tables for performance
-      if (!table.nullCheckColumns) continue
+      // Run all table queries in parallel instead of sequentially
+      const results = await Promise.all(
+        tablesWithNullChecks.slice(0, 5).map(async (table) => {
+          if (!table.nullCheckColumns) return null
+          try {
+            const columnChecks = table.nullCheckColumns.map(col => `
+              COUNTIF(${col} IS NULL) as ${col}_null_count,
+              ROUND(SAFE_DIVIDE(COUNTIF(${col} IS NULL), COUNT(*)) * 100, 2) as ${col}_null_rate
+            `).join(',')
 
-      // Query all columns for this table in a single query
-      const columnChecks = table.nullCheckColumns.map(col => `
-        COUNTIF(${col} IS NULL) as ${col}_null_count,
-        ROUND(SAFE_DIVIDE(COUNTIF(${col} IS NULL), COUNT(*)) * 100, 2) as ${col}_null_rate
-      `).join(',')
+            // Scope to last 90 days for fact tables to avoid full table scans
+            const dateFilter = table.dateColumn
+              ? `WHERE ${table.dateColumn} >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)`
+              : ''
 
-      try {
-        const sql = `
-          SELECT
-            COUNT(*) as total_count,
-            ${columnChecks}
-          FROM \`${project}.${table.dataset}.${table.tableName}\`
-          LIMIT 1
-        `
+            const sql = `
+              SELECT
+                COUNT(*) as total_count,
+                ${columnChecks}
+              FROM \`${project}.${table.dataset}.${table.tableName}\`
+              ${dateFilter}
+              LIMIT 1
+            `
 
-        const result = await bigQueryClient.query<Record<string, number | null>>(sql)
-        if (result.rows.length > 0) {
+            const result = await bigQueryClient.query<Record<string, number | null>>(sql)
+            return { table, result }
+          } catch (error) {
+            console.error(`[Data Quality] Error checking NULL rates for ${table.dataset}.${table.tableName}:`, error)
+            return null
+          }
+        })
+      )
+
+      for (const entry of results) {
+        if (!entry) continue
+        const { table, result } = entry
+        if (result.rows.length > 0 && table.nullCheckColumns) {
           const row = result.rows[0]
           for (const column of table.nullCheckColumns) {
             const rateKey = `${column}_null_rate`
@@ -371,68 +447,81 @@ async function getNullRates(): Promise<Map<string, number>> {
             nullRatesMap.set(key, typeof rate === 'number' ? rate : 0)
           }
         }
-      } catch (error) {
-        // Skip individual table errors
-        console.error(`[Data Quality] Error checking NULL rates for ${table.dataset}.${table.tableName}:`, error)
       }
-    }
 
-    return nullRatesMap
-  } catch (error) {
-    console.error('[Data Quality] getNullRates failed:', error)
-    return new Map()
-  }
+      return nullRatesMap
+    } catch (error) {
+      console.error('[Data Quality] getNullRates failed:', error)
+      return new Map()
+    }
+  }) // end getOrCompute
 }
 
 /**
  * Get duplicate rates for tables with primary keys
+ * Cached for 60s, queries run in parallel, scoped to last 90 days where possible
  */
 async function getDuplicateRates(): Promise<Map<string, number>> {
-  try {
-    const project = BIGQUERY_CONFIG.projectId
-    const duplicateRatesMap = new Map<string, number>()
+  return getOrCompute('duplicate-rates', async () => {
+    try {
+      const project = BIGQUERY_CONFIG.projectId
+      const duplicateRatesMap = new Map<string, number>()
 
-    // Query duplicate rates for tables with configured primary keys
-    const tablesWithPKs = CRITICAL_TABLES.filter(t => t.primaryKeyColumn)
+      const tablesWithPKs = CRITICAL_TABLES.filter(t => t.primaryKeyColumn)
 
-    for (const table of tablesWithPKs.slice(0, 5)) { // Limit to 5 tables for performance
-      if (!table.primaryKeyColumn) continue
+      interface DuplicateRateResult {
+        total_rows: number
+        unique_rows: number
+        duplicate_count: number
+        duplicate_rate: number | null
+      }
 
-      try {
-        const sql = `
-          SELECT
-            COUNT(*) as total_rows,
-            COUNT(DISTINCT ${table.primaryKeyColumn}) as unique_rows,
-            COUNT(*) - COUNT(DISTINCT ${table.primaryKeyColumn}) as duplicate_count,
-            ROUND(SAFE_DIVIDE(COUNT(*) - COUNT(DISTINCT ${table.primaryKeyColumn}), COUNT(*)) * 100, 2) as duplicate_rate
-          FROM \`${project}.${table.dataset}.${table.tableName}\`
-          WHERE ${table.primaryKeyColumn} IS NOT NULL
-        `
+      // Run all table queries in parallel instead of sequentially
+      const results = await Promise.all(
+        tablesWithPKs.slice(0, 5).map(async (table) => {
+          if (!table.primaryKeyColumn) return null
+          try {
+            // Scope to last 90 days for fact tables to avoid full table scans
+            const dateFilter = table.dateColumn
+              ? `AND ${table.dateColumn} >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)`
+              : ''
 
-        interface DuplicateRateResult {
-          total_rows: number
-          unique_rows: number
-          duplicate_count: number
-          duplicate_rate: number | null
-        }
+            const sql = `
+              SELECT
+                COUNT(*) as total_rows,
+                COUNT(DISTINCT ${table.primaryKeyColumn}) as unique_rows,
+                COUNT(*) - COUNT(DISTINCT ${table.primaryKeyColumn}) as duplicate_count,
+                ROUND(SAFE_DIVIDE(COUNT(*) - COUNT(DISTINCT ${table.primaryKeyColumn}), COUNT(*)) * 100, 2) as duplicate_rate
+              FROM \`${project}.${table.dataset}.${table.tableName}\`
+              WHERE ${table.primaryKeyColumn} IS NOT NULL
+              ${dateFilter}
+            `
 
-        const result = await bigQueryClient.query<DuplicateRateResult>(sql)
+            const result = await bigQueryClient.query<DuplicateRateResult>(sql)
+            return { table, result }
+          } catch (error) {
+            console.error(`[Data Quality] Error checking duplicate rate for ${table.dataset}.${table.tableName}:`, error)
+            return null
+          }
+        })
+      )
+
+      for (const entry of results) {
+        if (!entry) continue
+        const { result, table } = entry
         if (result.rows.length > 0) {
           const rate = result.rows[0].duplicate_rate || 0
           const key = `${table.dataset}.${table.tableName}`
           duplicateRatesMap.set(key, typeof rate === 'number' ? rate : 0)
         }
-      } catch (error) {
-        // Skip individual table errors
-        console.error(`[Data Quality] Error checking duplicate rate for ${table.dataset}.${table.tableName}:`, error)
       }
-    }
 
-    return duplicateRatesMap
-  } catch (error) {
-    console.error('[Data Quality] getDuplicateRates failed:', error)
-    return new Map()
-  }
+      return duplicateRatesMap
+    } catch (error) {
+      console.error('[Data Quality] getDuplicateRates failed:', error)
+      return new Map()
+    }
+  }) // end getOrCompute
 }
 
 /**
@@ -734,7 +823,7 @@ export async function getDataSourceHealthReal(): Promise<DataSourceHealthReal[]>
 export async function getDataQualityDetails(
   dimension: string
 ): Promise<any[]> {
-  const PROJECT = process.env.BIGQUERY_PROJECT_ID || 'bidata-sharedus-production'
+  const PROJECT = BIGQUERY_CONFIG.projectId
 
   try {
     let sql = ''
@@ -743,18 +832,18 @@ export async function getDataQualityDetails(
       case 'Accuracy':
         sql = `
           SELECT
-            AccountID as id,
-            'Invalid Account Name' as issue_type,
-            AccountName as field_name,
-            AccountName as current_value,
+            CAST(salesID AS STRING) as id,
+            'Invalid Customer Name' as issue_type,
+            customer_name as field_name,
+            customer_name as current_value,
             'Valid alphanumeric name' as expected_value,
             CAST(SellDate AS STRING) as created_date
           FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\`
           WHERE SellDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
             AND (
-              AccountName IS NULL
-              OR TRIM(AccountName) = ''
-              OR LENGTH(AccountName) <= 2
+              customer_name IS NULL
+              OR TRIM(customer_name) = ''
+              OR LENGTH(customer_name) <= 2
             )
           LIMIT 100
         `
@@ -790,7 +879,7 @@ export async function getDataQualityDetails(
       case 'Consistency':
         sql = `
           SELECT
-            ContractNumber as id,
+            CAST(salesID AS STRING) as id,
             'Invalid Date Format' as issue_type,
             'SellDate' as field_name,
             CAST(SellDate AS STRING) as current_value,
@@ -853,22 +942,24 @@ export async function getDataQualityDetails(
         sql = `
           WITH duplicates AS (
             SELECT
-              AccountID,
+              customer_name,
+              SellDate,
               COUNT(*) as duplicate_count
             FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\`
             WHERE SellDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
-            GROUP BY AccountID
+              AND customer_name IS NOT NULL
+            GROUP BY customer_name, SellDate
             HAVING COUNT(*) > 1
           )
           SELECT
-            c.AccountID as id,
+            CAST(c.salesID AS STRING) as id,
             'Duplicate Record' as issue_type,
-            'AccountID' as field_name,
-            CAST(c.AccountID AS STRING) as current_value,
-            'Unique AccountID' as expected_value,
+            'customer_name + SellDate' as field_name,
+            c.customer_name as current_value,
+            'Unique customer per sell date' as expected_value,
             CAST(c.SellDate AS STRING) as created_date
           FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\` c
-          INNER JOIN duplicates d ON c.AccountID = d.AccountID
+          INNER JOIN duplicates d ON c.customer_name = d.customer_name AND c.SellDate = d.SellDate
           WHERE c.SellDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
           LIMIT 100
         `
@@ -919,7 +1010,7 @@ export interface DataQualityTrend {
  * Should be run once per day via scheduled job
  */
 export async function saveDataQualitySnapshot(): Promise<void> {
-  const PROJECT = process.env.BIGQUERY_PROJECT_ID || 'bidata-sharedus-production'
+  const PROJECT = BIGQUERY_CONFIG.projectId
   const startTime = Date.now()
 
   try {
@@ -1000,7 +1091,7 @@ export async function saveDataQualitySnapshot(): Promise<void> {
  * Get historical scores for change calculation
  */
 async function getHistoricalScores(daysBack: number[]): Promise<Record<string, DataQualityHistoryRecord[]>> {
-  const PROJECT = process.env.BIGQUERY_PROJECT_ID || 'bidata-sharedus-production'
+  const PROJECT = BIGQUERY_CONFIG.projectId
   const result: Record<string, DataQualityHistoryRecord[]> = {}
 
   try {
@@ -1039,7 +1130,7 @@ export async function getDataQualityHistoricalTrends(
   dimension?: string,
   days: number = 90
 ): Promise<DataQualityTrend[]> {
-  const PROJECT = process.env.BIGQUERY_PROJECT_ID || 'bidata-sharedus-production'
+  const PROJECT = BIGQUERY_CONFIG.projectId
 
   try {
     const dimensionFilter = dimension ? `AND dimension = '${dimension.replace(/'/g, "''")}'` : ''
@@ -1075,7 +1166,7 @@ export async function getDataQualityPeriodComparisons(): Promise<{
   month_over_month_change: number
   trend: 'improving' | 'stable' | 'declining'
 }[]> {
-  const PROJECT = process.env.BIGQUERY_PROJECT_ID || 'bidata-sharedus-production'
+  const PROJECT = BIGQUERY_CONFIG.projectId
 
   try {
     const sql = `
@@ -1142,7 +1233,7 @@ export async function getDataQualityAlerts(): Promise<{
   alert_reason: string
   snapshot_date: string
 }[]> {
-  const PROJECT = process.env.BIGQUERY_PROJECT_ID || 'bidata-sharedus-production'
+  const PROJECT = BIGQUERY_CONFIG.projectId
 
   try {
     const sql = `

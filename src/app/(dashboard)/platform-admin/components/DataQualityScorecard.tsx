@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -7,7 +8,10 @@ import {
   Shield, TrendingUp, TrendingDown, Minus, CheckCircle,
   AlertTriangle, XCircle, Target
 } from 'lucide-react'
-import { getDataQualityScorecard, type DataQualityDimension } from '@/lib/mock/platformAdminData'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { DataQualityScorecardDimension } from '@/lib/bigquery/queries/data-quality'
+
+const EMPTY_SCORECARD: DataQualityScorecardDimension[] = []
 
 function TrendIcon({ trend }: { trend: 'up' | 'down' | 'stable' }) {
   if (trend === 'up') {
@@ -48,7 +52,7 @@ function getStatusInfo(score: number, target: number) {
   }
 }
 
-function DimensionCard({ dimension }: { dimension: DataQualityDimension }) {
+function DimensionCard({ dimension }: { dimension: DataQualityScorecardDimension }) {
   const statusInfo = getStatusInfo(dimension.currentScore, dimension.target)
   const StatusIcon = statusInfo.icon
   const progressPercent = Math.min((dimension.currentScore / dimension.target) * 100, 100)
@@ -110,10 +114,38 @@ function DimensionCard({ dimension }: { dimension: DataQualityDimension }) {
 }
 
 export function DataQualityScorecard() {
-  const dimensions = getDataQualityScorecard()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Explicit transform for data quality scorecard with null handling
+  function transformDataQualityScorecard(bqData: DataQualityScorecardDimension[]): DataQualityScorecardDimension[] {
+    return (bqData || []).map(dim => ({
+      dimension: dim.dimension ?? '',
+      currentScore: dim.currentScore ?? 0,
+      target: dim.target ?? 95,
+      trend: dim.trend ?? 'stable',
+      topIssue: dim.topIssue ?? '',
+      affectedRecords: dim.affectedRecords ?? 0,
+    }))
+  }
+
+  // Fetch data quality scorecard from BigQuery
+  const {
+    data: dimensions,
+    isLoading,
+  } = useBigQueryData<DataQualityScorecardDimension[], DataQualityScorecardDimension[]>({
+    queryName: 'data-quality-scorecard-dimensions',
+    defaultData: EMPTY_SCORECARD,
+    transformBigQueryData: transformDataQualityScorecard,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
 
   // Calculate overall score
-  const overallScore = dimensions.reduce((sum, d) => sum + d.currentScore, 0) / dimensions.length
+  const overallScore = dimensions.length > 0 ? dimensions.reduce((sum, d) => sum + d.currentScore, 0) / dimensions.length : 0
   const metCount = dimensions.filter(d => d.currentScore >= d.target).length
   const belowCount = dimensions.length - metCount
 

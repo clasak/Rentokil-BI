@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { getForecastData } from '@/lib/kpi-calculations'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import { generateForecast } from '@/lib/forecasting/exponential-smoothing'
+import type { HistoricalRevenueRow } from '@/lib/bigquery/queries/forecast'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -25,23 +27,58 @@ import {
 } from 'recharts'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { format } from 'date-fns'
-import { Target, TrendingUp, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
+import { Target, TrendingUp, AlertTriangle, CheckCircle, Settings, RefreshCw, FileText, ExternalLink } from 'lucide-react'
 import { Scenario, ForecastPoint, ForecastAssumption, BacktestResult } from '@/types'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
 
 export default function ForecastPage() {
   const { settings, setScenario } = useAppStore()
-  const [forecastData, setForecastData] = useState<{
-    forecast: ForecastPoint[]
-    assumptions: ForecastAssumption[]
-    backtest: BacktestResult[]
-  }>({ forecast: [], assumptions: [], backtest: [] })
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setForecastData(getForecastData(settings.scenario))
-  }, [settings.scenario, settings.refreshSeed])
+    setMounted(true)
+  }, [])
 
-  const { forecast, assumptions, backtest } = forecastData
+  // Explicit transform for historical revenue data with null handling
+  function transformHistoricalRevenueData(bqData: HistoricalRevenueRow[]): HistoricalRevenueRow[] {
+    return (bqData || []).map(row => ({
+      week_ending: row.week_ending ?? '',
+      total_revenue: row.total_revenue ?? 0,
+      new_sales: row.new_sales ?? 0,
+      renewals: row.renewals ?? 0,
+      cancellations: row.cancellations ?? 0,
+      net_change: row.net_change ?? 0,
+    }))
+  }
+
+  // Fetch historical revenue data from BigQuery
+  const {
+    data: historicalData,
+    isLoading,
+    dataSource,
+    error,
+    refetch,
+  } = useBigQueryData<HistoricalRevenueRow[], HistoricalRevenueRow[]>({
+    queryName: 'forecast-historical-revenue',
+    filters: { weeksBack: 26 },
+    defaultData: [],
+    transformBigQueryData: transformHistoricalRevenueData,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  // Generate forecast using exponential smoothing
+  const { forecast, assumptions, backtest } = useMemo(() => {
+    if (!mounted || historicalData.length === 0) {
+      return { forecast: [], assumptions: [], backtest: [] }
+    }
+
+    return generateForecast(historicalData, {
+      alpha: 0.3,
+      horizonWeeks: 8,
+      scenarioStdDevs: 1.0,
+    })
+  }, [historicalData, mounted])
 
   // Prepare chart data
   const chartData = forecast.map(point => ({
@@ -68,6 +105,58 @@ export default function ForecastPage() {
                         settings.scenario === 'downside' ? currentWeekForecast?.downside :
                         currentWeekForecast?.base
 
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <Breadcrumb items={[
+          { label: 'Command Center', href: '/' },
+          { label: 'Forecast' }
+        ]} />
+        <div>
+          <h1 className="text-2xl font-bold">Forecast</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">8-week revenue forecast with scenarios</p>
+        </div>
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{dataSource}</p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">forecast-historical-revenue</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('/platform-admin', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -83,8 +172,7 @@ export default function ForecastPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">8-week revenue forecast with scenarios</p>
         </div>
         <div id="scenario-selector" className="flex items-center gap-4">
-          {/* Forecast uses local scenario simulation - show accurate badge */}
-          <DataSourceBadge status="mock" />
+          <DataSourceBadge status={isLoading ? 'loading' : error ? 'error' : dataSource} />
           <Select value={settings.scenario} onValueChange={(v) => setScenario(v as Scenario)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Scenario" />

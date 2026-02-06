@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Lock, AlertCircle, Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react'
@@ -99,7 +100,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3 mb-8">
-          <img src="/rentokil-logo.svg" alt="Rentokil" className="h-16" />
+          <Image src="/rentokil-logo.svg" alt="Rentokil" width={64} height={64} className="h-16" />
           <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
             ALPHA
           </Badge>

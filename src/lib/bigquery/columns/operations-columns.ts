@@ -426,4 +426,5 @@ export const INSPECTIONS: TableColumns = {
 registerTable(RAW_RNA_PNI_DETAILS_DAILY)
 registerTable(INSPECTIONS)
 
-export default { RAW_RNA_PNI_DETAILS_DAILY, INSPECTIONS }
+const operationsColumns = { RAW_RNA_PNI_DETAILS_DAILY, INSPECTIONS }
+export default operationsColumns

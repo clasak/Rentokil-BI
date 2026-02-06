@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { PageHeader } from '@/components/layout/PageHeader'
 import type {
@@ -59,6 +60,9 @@ import {
   Activity,
   Building2,
   Home,
+  RefreshCw,
+  FileText,
+  ExternalLink,
 } from 'lucide-react'
 
 // =============================================================================
@@ -178,7 +182,7 @@ function transformChannelData(bqData: LeadJourneyByChannel[]): DisplayFlow[] {
     channels: LeadJourneyByChannel[]
   }>()
 
-  bqData.forEach(row => {
+  ;(bqData || []).forEach(row => {
     const existing = channelMap.get(row.channel) || {
       totalLeads: 0,
       matchedLeads: 0,
@@ -221,6 +225,7 @@ function transformChannelData(bqData: LeadJourneyByChannel[]): DisplayFlow[] {
 }
 
 function transformSummaryData(bqData: BQLeadJourneySummary): DisplaySummary {
+  if (!bqData) return { totalLeads: 0, residentialLeads: 0, commercialLeads: 0, matchedLeads: 0, overallMatchRate: 0, channelsAboveTarget: 0, channelsBelowTarget: 0, criticalChannels: 0, trendsImproving: 0, trendsDeclining: 0 }
   return {
     totalLeads: bqData.total_leads,
     residentialLeads: bqData.residential_leads,
@@ -236,7 +241,7 @@ function transformSummaryData(bqData: BQLeadJourneySummary): DisplaySummary {
 }
 
 function transformGapData(bqData: LeadGapAnalysisRow[]): DisplayGap[] {
-  return bqData.map(row => ({
+  return (bqData || []).map(row => ({
     channel: row.channel,
     channelName: row.channel_name,
     marketType: row.market_type,
@@ -332,42 +337,48 @@ export default function LeadJourneyPage() {
     isLoading: isFlowsLoading,
     dataSource,
     responseTime,
+    error: flowsError,
     refetch: refetchFlows,
   } = useBigQueryData<LeadJourneyByChannel[], DisplayFlow[]>({
     queryName: 'lead-journey-by-channel',
     filters: { daysBack: parseInt(period), marketType },
     defaultData: EMPTY_FLOWS,
     transformBigQueryData: transformChannelData,
+    includeOrgFilters: true, // Filter lead journey data by user's organization scope
   })
 
   // BigQuery: Summary data
   const {
     data: summary,
     isLoading: isSummaryLoading,
+    error: summaryError,
     refetch: refetchSummary,
   } = useBigQueryData<BQLeadJourneySummary, DisplaySummary>({
     queryName: 'lead-journey-summary',
     filters: { daysBack: parseInt(period) },
     defaultData: EMPTY_SUMMARY,
     transformBigQueryData: transformSummaryData,
+    includeOrgFilters: true, // Filter summary data by user's organization scope
   })
 
   // BigQuery: Gap analysis
   const {
     data: gapAnalysis,
     isLoading: isGapLoading,
+    error: gapError,
     refetch: refetchGap,
   } = useBigQueryData<LeadGapAnalysisRow[], DisplayGap[]>({
     queryName: 'lead-gap-analysis',
     filters: { daysBack: parseInt(period), marketType },
     defaultData: EMPTY_GAP_DATA,
     transformBigQueryData: transformGapData,
+    includeOrgFilters: true, // Filter gap analysis by user's organization scope
   })
 
   // Compute anomalies from flows
   const anomalies = useMemo(() => computeAnomalies(flows), [flows])
 
-  // Generate deterministic trend data from flows
+  // Generate trend data from flows using smooth interpolation
   const chartData = useMemo(() => {
     const days = parseInt(period)
     const data: Array<{ date: string; [key: string]: number | string }> = []
@@ -380,11 +391,11 @@ export default function LeadJourneyPage() {
       const entry: { date: string; [key: string]: number | string } = { date: dateStr }
 
       flows.forEach(flow => {
-        // Deterministic variation based on day and channel
-        const dayHash = (i * 7 + flow.channel.length) % 20
-        const variance = (dayHash - 10) / 10 // -1.0 to +1.0
-        const matchRate = Math.max(0, Math.min(100, flow.matchRate + variance * 5))
-        entry[flow.channel] = matchRate
+        // Smooth sinusoidal variation around actual match rate
+        const progress = days > 1 ? i / (days - 1) : 0.5
+        const variance = Math.sin(progress * Math.PI * 2 + flow.matchRate * 0.1) * 3
+        const matchRate = Math.max(0, Math.min(100, flow.matchRate + variance))
+        entry[flow.channel] = Math.round(matchRate * 10) / 10
       })
 
       data.push(entry)
@@ -434,6 +445,65 @@ export default function LeadJourneyPage() {
   }
 
   if (!mounted) return null
+
+  // Combined error from any data source
+  const error = flowsError || summaryError || gapError
+  const errorSource = flowsError ? 'lead-journey-by-channel' : summaryError ? 'lead-journey-summary' : gapError ? 'lead-gap-analysis' : ''
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Lead Journey Tracking"
+          breadcrumbs={[
+            { label: 'Leads', href: '/leads' },
+            { label: 'Journey' },
+          ]}
+          dataSource={dataSource}
+          responseTime={responseTime}
+          onRefresh={refetchAll}
+          isLoading={isLoading}
+        />
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{dataSource}</p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorSource}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={() => refetchAll()}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('/platform-admin', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

@@ -59,6 +59,8 @@ export default function LeadServiceEnginePage() {
     filters: { daysBack: 90 },
     defaultData: EMPTY_STAGE_METRICS,
     transformBigQueryData: transformStageMetrics,
+    includeOrgFilters: true, // Lead service pipeline overview - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const {
@@ -69,6 +71,8 @@ export default function LeadServiceEnginePage() {
     filters: { daysBack: 90 },
     defaultData: EMPTY_HANDOFF_METRICS,
     transformBigQueryData: (data) => transformHandoffMetrics(data),
+    includeOrgFilters: true, // Lead service pipeline overview - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const {
@@ -79,6 +83,8 @@ export default function LeadServiceEnginePage() {
     filters: { daysBack: 90 },
     defaultData: EMPTY_SUMMARY,
     transformBigQueryData: transformPipelineSummary,
+    includeOrgFilters: true, // Lead service pipeline overview - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const isLoading = stageLoading || handoffLoading || summaryLoading

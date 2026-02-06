@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { getOpportunityById, getActivitiesByOpportunity, getUserById, getAccountById } from '@/lib/data'
-import { Opportunity, Activity, Account, User } from '@/types'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { OpportunityDetail } from '@/lib/bigquery/queries/sales-pipeline'
+import type { AccountDetails, AccountOwner } from '@/lib/bigquery/queries/accounts'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,30 +13,155 @@ import { Separator } from '@/components/ui/separator'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import {
   ArrowLeft, Building, User as UserIcon, Calendar, Clock,
-  AlertTriangle, CheckCircle, Phone, Mail, MapPin, Zap
+  AlertTriangle, CheckCircle, Phone, Mail, MapPin, Zap,
+  RefreshCw, ExternalLink
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 
 export default function OpportunityDetailPage() {
+  const [mounted, setMounted] = useState(false)
   const params = useParams()
   const id = params.id as string
 
-  const [opportunity, setOpportunity] = useState<Opportunity | null>(null)
-  const [activities, setActivities] = useState<Activity[]>([])
-  const [account, setAccount] = useState<Account | null>(null)
-  const [owner, setOwner] = useState<User | null>(null)
-
   useEffect(() => {
-    const opp = getOpportunityById(id)
-    setOpportunity(opp || null)
+    setMounted(true)
+  }, [])
 
-    if (opp) {
-      setActivities(getActivitiesByOpportunity(id))
-      setAccount(getAccountById(opp.accountId) || null)
-      setOwner(getUserById(opp.ownerId) || null)
-    }
-  }, [id])
+  // Get opportunity details from BigQuery
+  const {
+    data: opportunity,
+    isLoading: oppLoading,
+    dataSource: oppDataSource,
+    error: oppError,
+    errorType: oppErrorType,
+    refetch: refetchOpp,
+  } = useBigQueryData<OpportunityDetail | null, OpportunityDetail | null>({
+    queryName: 'opportunity-by-id',
+    filters: { leadId: id },
+    defaultData: null,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  // Get account details if opportunity has accountId
+  const {
+    data: account,
+    isLoading: accountLoading,
+  } = useBigQueryData<AccountDetails | null, AccountDetails | null>({
+    queryName: 'account-details',
+    filters: { accountId: opportunity?.accountId || '' },
+    defaultData: null,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+    enabled: !!opportunity?.accountId,
+  })
+
+  // Get owner details if opportunity has ownerId
+  const {
+    data: owner,
+    isLoading: ownerLoading,
+  } = useBigQueryData<AccountOwner | null, AccountOwner | null>({
+    queryName: 'account-owner',
+    filters: { ownerId: opportunity?.ownerId || '' },
+    defaultData: null,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+    enabled: !!opportunity?.ownerId,
+  })
+
+  // Activities not available in BigQuery yet
+  // Define interface for when data becomes available
+  interface Activity {
+    id: string
+    type: 'call' | 'email' | 'visit' | 'meeting'
+    timestamp: Date
+    notes: string
+    outcome?: string
+  }
+  const activities: Activity[] = []
+
+  // Hydration guard
+  if (!mounted) {
+    return null
+  }
+
+  if (oppLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-lg font-semibold">Loading opportunity...</div>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (oppError) {
+    return (
+      <div className="space-y-6">
+        <Breadcrumb
+          items={[
+            { label: 'Sales', href: '/sales' },
+            { label: 'Opportunity Details' }
+          ]}
+        />
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Opportunity</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {oppError}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">Lead ID:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{id}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Error Type:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{oppErrorType || 'Unknown'}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetchOpp}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/sales">
+                  <ArrowLeft className="h-3 w-3 mr-1.5" />
+                  Back to Sales
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const subject = encodeURIComponent(`Opportunity Error - ${id}`)
+                  const body = encodeURIComponent(`Error loading opportunity ${id}:\n\n${oppError}\n\nError Type: ${oppErrorType || 'Unknown'}`)
+                  window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!opportunity) {
     return (
@@ -128,10 +254,13 @@ export default function OpportunityDetailPage() {
             </div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-bold">{formatCurrency(opportunity.amount)}</div>
-          <div className="text-sm text-gray-500">
-            {formatPercent(opportunity.probability)} probability
+        <div className="flex flex-col items-end gap-3">
+          <DataSourceBadge status={oppDataSource} />
+          <div className="text-right">
+            <div className="text-3xl font-bold">{formatCurrency(opportunity.amount)}</div>
+            <div className="text-sm text-gray-500">
+              {formatPercent(opportunity.probability)} probability
+            </div>
           </div>
         </div>
       </div>
@@ -202,11 +331,11 @@ export default function OpportunityDetailPage() {
               <div className="grid grid-cols-3 gap-4 mt-6">
                 <div>
                   <div className="text-sm text-gray-500">Created</div>
-                  <div className="font-medium">{format(opportunity.createdDate, 'MMM d, yyyy')}</div>
+                  <div className="font-medium">{format(new Date(opportunity.createdDate), 'MMM d, yyyy')}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Expected Close</div>
-                  <div className="font-medium">{format(opportunity.closeDate, 'MMM d, yyyy')}</div>
+                  <div className="font-medium">{format(new Date(opportunity.closeDate), 'MMM d, yyyy')}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Days in Stage</div>
@@ -303,7 +432,7 @@ export default function OpportunityDetailPage() {
               {opportunity.nextStepDate && (
                 <div>
                   <div className="text-sm text-gray-500">Next Step Date</div>
-                  <div className="font-medium">{format(opportunity.nextStepDate, 'MMM d, yyyy')}</div>
+                  <div className="font-medium">{format(new Date(opportunity.nextStepDate), 'MMM d, yyyy')}</div>
                 </div>
               )}
               {opportunity.lostReason && (

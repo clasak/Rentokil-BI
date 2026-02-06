@@ -5,6 +5,7 @@ import { useAppStore } from '@/store'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import {
   ShieldCheck, Activity, Clock, Users, Shield, GitBranch, Zap
 } from 'lucide-react'
@@ -16,13 +17,24 @@ import { UserAdoption } from './components/UserAdoption'
 import { DataQualityScorecard } from './components/DataQualityScorecard'
 import { SchemaChangeAlerts } from './components/SchemaChangeAlerts'
 import { AnomalyDetection } from './components/AnomalyDetection'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { DataFreshnessSummary } from '@/lib/bigquery/queries/data-freshness'
+import type { AnomalyAlert } from '@/lib/bigquery/queries/anomaly-detection'
 
-// Import mock data for badge counts
-import {
-  getDataFreshnessSLAs,
-  getSchemaChangeAlerts,
-  getAnomalyAlerts
-} from '@/lib/mock/platformAdminData'
+// Import mock data only for schema alerts (no BigQuery source)
+import { getSchemaChangeAlerts } from '@/lib/mock/platformAdminData'
+
+// Empty states for badge count queries
+const EMPTY_FRESHNESS: DataFreshnessSummary = {
+  totalSources: 0,
+  metCount: 0,
+  breachedCount: 0,
+  overallHealth: 'healthy',
+  sources: [],
+  lastUpdated: new Date().toISOString(),
+}
+
+const EMPTY_ANOMALIES: AnomalyAlert[] = []
 
 export default function PlatformAdminPage() {
   const [mounted, setMounted] = useState(false)
@@ -33,10 +45,32 @@ export default function PlatformAdminPage() {
     setMounted(true)
   }, [])
 
+  // Fetch data for badge counts from BigQuery
+  const {
+    data: freshnessData,
+    isLoading,
+    dataSource,
+    responseTime,
+  } = useBigQueryData<DataFreshnessSummary, DataFreshnessSummary>({
+    queryName: 'data-freshness',
+    defaultData: EMPTY_FRESHNESS,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  const { data: anomalies } = useBigQueryData<AnomalyAlert[], AnomalyAlert[]>({
+    queryName: 'anomaly-alerts',
+    defaultData: EMPTY_ANOMALIES,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
   // Calculate badge counts
-  const slaBreachCount = getDataFreshnessSLAs().filter(s => s.status === 'breached').length
+  const slaBreachCount = freshnessData.breachedCount
   const schemaNewCount = getSchemaChangeAlerts().filter(s => s.status === 'new').length
-  const anomalyCriticalCount = getAnomalyAlerts().filter(a => a.severity === 'critical' && a.status === 'active').length
+  const anomalyCriticalCount = anomalies.filter(a => a.severity === 'critical' && a.status === 'active').length
 
   // Check access - only admin or product_owner roles
   // In production, this would check against actual user roles
@@ -88,13 +122,10 @@ export default function PlatformAdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
             <ShieldCheck className="h-3 w-3 mr-1" />
             Product Owner View
-          </Badge>
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-            <Activity className="h-3 w-3 mr-1" />
-            Demo Mode - Mock Data
           </Badge>
         </div>
       </div>

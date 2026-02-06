@@ -65,7 +65,7 @@ const EMPTY_PRODUCTIVITY: ProductivityDisplay[] = []
 // =============================================================================
 
 function transformBigQueryToProductivity(bqData: TechProductivityBQ[]): ProductivityDisplay[] {
-  return bqData.map((t, index) => {
+  return (bqData || []).map((t, index) => {
     const stopsPerDay = t.stops_per_day || 0
     const workDays = t.work_days || 1
     const stopsCompleted = t.stops_completed || 0
@@ -156,15 +156,8 @@ export default function TechProductivityPage() {
     filters: { daysBack: 30, limit: 100 },
     defaultData: EMPTY_PRODUCTIVITY,
     transformBigQueryData: transformBigQueryToProductivity,
-  })
-
-  // Debug logging
-  console.log('[TechProductivity] State:', {
-    isLoading,
-    dataSource,
-    dataLength: productivity.length,
-    error,
-    responseTime,
+    includeOrgFilters: true, // Workforce metrics - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Derived data from productivity

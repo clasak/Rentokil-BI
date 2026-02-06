@@ -77,7 +77,8 @@ export default function CallCenterPage() {
     filters: { daysBack: parseInt(selectedPeriod) },
     defaultData: EMPTY_CALL_VOLUME,
     transformBigQueryData: (data) => data,
-    includeOrgFilters: true,
+    includeOrgFilters: true, // Call center data - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch agent performance data
@@ -90,7 +91,8 @@ export default function CallCenterPage() {
     filters: { daysBack: parseInt(selectedPeriod) },
     defaultData: EMPTY_AGENT_PERFORMANCE,
     transformBigQueryData: (data) => data,
-    includeOrgFilters: true,
+    includeOrgFilters: true, // Call center data - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch call outcomes data
@@ -103,7 +105,8 @@ export default function CallCenterPage() {
     filters: { daysBack: parseInt(selectedPeriod) },
     defaultData: EMPTY_CALL_OUTCOMES,
     transformBigQueryData: (data) => data,
-    includeOrgFilters: true,
+    includeOrgFilters: true, // Call center data - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch hourly distribution data
@@ -116,18 +119,12 @@ export default function CallCenterPage() {
     filters: { daysBack: parseInt(selectedPeriod) },
     defaultData: EMPTY_HOURLY_DISTRIBUTION,
     transformBigQueryData: (data) => data,
-    includeOrgFilters: true,
+    includeOrgFilters: true, // Call center data - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
-  // Refetch all data when period changes
-  useEffect(() => {
-    if (mounted) {
-      refetchVolume()
-      refetchAgents()
-      refetchOutcomes()
-      refetchHourly()
-    }
-  }, [selectedPeriod, mounted])
+  // Note: No manual refetch on period change needed — useBigQueryData
+  // automatically re-fetches when filters (including daysBack from selectedPeriod) change.
 
   const handleRefresh = () => {
     refetchVolume()

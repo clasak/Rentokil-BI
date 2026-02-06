@@ -29,9 +29,9 @@ export function validateOrgCode(
   }
 
   const patterns = {
-    market: /^[A-Z]{2}$/,           // Two uppercase letters (e.g., NE, SW)
-    region: /^[A-Z0-9]{2,10}$/,     // Alphanumeric region codes
-    branch: /^\d{3,4}$/,             // 3-4 digit branch codes
+    market: /^[A-Z0-9]{2,10}$/,      // Alphanumeric market codes (e.g., M536, 2941, NE, SW)
+    region: /^[A-Z0-9]{2,10}$/,      // Alphanumeric region codes
+    branch: /^\d{3,4}$/,              // 3-4 digit branch codes
   }
 
   if (!patterns[type].test(trimmed)) {

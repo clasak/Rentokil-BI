@@ -1,26 +1,12 @@
 /**
  * DATA QUALITY DASHBOARD
  *
- * Now uses REAL BigQuery data from INFORMATION_SCHEMA and data-freshness.ts
+ * Uses REAL BigQuery data from INFORMATION_SCHEMA and data-freshness.ts
  * to track actual table health, NULL rates, duplicates, and freshness SLA.
  */
 "use client"
 
-// Feature flag to toggle between real BigQuery and mock data
-// Set to true for production to use real BigQuery data
-const USE_REAL_DATA = true
-
 import { useState, useMemo, useEffect } from 'react'
-import {
-  getDataQualityIssues,
-  getReconciliationResults,
-  getDataSourceHealth,
-  getDataQualityScore,
-  getIssueSummary,
-  type DataQualityIssue,
-  type ReconciliationResult,
-  type DataSourceHealth
-} from '@/lib/data-quality-engine'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import type {
   DataQualityIssueReal,
@@ -31,16 +17,14 @@ import {
   runValidation,
   getValidationSummary,
   getFormattedValidationIssues,
-  type ValidationResult
 } from '@/lib/data-validation'
-import { DATA_SOURCES_METADATA, type DataSource } from '@/lib/data-dictionary'
+import { type DataSource } from '@/lib/data-dictionary'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow
@@ -73,10 +57,11 @@ import {
   Shield, Database, AlertTriangle, AlertCircle, CheckCircle,
   RefreshCw, Clock, Activity, TrendingUp, TrendingDown,
   ArrowRight, ChevronRight, Eye, User, Zap, Server,
-  GitCompare, FileWarning, CheckCircle2, XCircle, Info,
-  ArrowUpRight, ArrowDownRight, Cpu, FlaskConical
+  FileWarning, CheckCircle2, XCircle, Info,
+  ArrowUpRight, ArrowDownRight, Cpu
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 
 // Quality score gauge component
 function QualityScoreGauge({ score, label, showLegend = false }: { score: number; label: string; showLegend?: boolean }) {
@@ -249,7 +234,7 @@ function IssueDetailModal({
   open,
   onClose
 }: {
-  issue: DataQualityIssue | null
+  issue: DataQualityIssueReal | null
   open: boolean
   onClose: () => void
 }) {
@@ -341,7 +326,7 @@ function IssueDetailModal({
 
 export default function DataQualityPage() {
   const [mounted, setMounted] = useState(false)
-  const [selectedIssue, setSelectedIssue] = useState<DataQualityIssue | null>(null)
+  const [selectedIssue, setSelectedIssue] = useState<DataQualityIssueReal | null>(null)
   const [issueModalOpen, setIssueModalOpen] = useState(false)
   const [severityFilter, setSeverityFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -362,7 +347,7 @@ export default function DataQualityPage() {
   }
   const EMPTY_HEALTH: DataSourceHealthReal[] = []
 
-  // BigQuery hooks (only enabled when USE_REAL_DATA is true)
+  // BigQuery hooks
   const {
     data: realIssues,
     isLoading: issuesLoading,
@@ -372,6 +357,8 @@ export default function DataQualityPage() {
     queryName: 'data-quality-issues',
     defaultData: EMPTY_ISSUES,
     transformBigQueryData: (raw) => raw,
+    includeOrgFilters: false, // Data quality monitoring - company-wide view
+    includeRoleFilters: false, // Platform monitoring - not user-specific
   })
 
   const {
@@ -382,6 +369,8 @@ export default function DataQualityPage() {
     queryName: 'data-quality-score',
     defaultData: EMPTY_SCORE,
     transformBigQueryData: (raw) => raw,
+    includeOrgFilters: false, // Data quality monitoring - company-wide view
+    includeRoleFilters: false, // Platform monitoring - not user-specific
   })
 
   const {
@@ -392,20 +381,15 @@ export default function DataQualityPage() {
     queryName: 'data-quality-source-health',
     defaultData: EMPTY_HEALTH,
     transformBigQueryData: (raw) => raw,
+    includeOrgFilters: false, // Data quality monitoring - company-wide view
+    includeRoleFilters: false, // Platform monitoring - not user-specific
   })
 
   // Use real or mock data based on feature flag
-  const mockIssues = useMemo(() => getDataQualityIssues(), [])
-  const mockReconciliation = useMemo(() => getReconciliationResults(), [])
-  const mockSourceHealth = useMemo(() => getDataSourceHealth(), [])
-  const mockQualityScore = useMemo(() => getDataQualityScore(), [])
-  const mockIssueSummary = useMemo(() => getIssueSummary(), [])
-
-  const issues = USE_REAL_DATA ? realIssues : mockIssues
-  const reconciliation = USE_REAL_DATA ? [] : mockReconciliation
-  const sourceHealth = USE_REAL_DATA ? realSourceHealth : mockSourceHealth
-  const qualityScore = USE_REAL_DATA ? realScore : mockQualityScore
-  const issueSummary = USE_REAL_DATA ? {
+  const issues = realIssues
+  const sourceHealth = realSourceHealth
+  const qualityScore = realScore
+  const issueSummary = {
     total: realIssues.length,
     open: realIssues.filter(i => i.status === 'open').length,
     bySeverity: {
@@ -414,7 +398,7 @@ export default function DataQualityPage() {
       info: realIssues.filter(i => i.severity === 'info').length,
     },
     resolved: 0,
-  } : mockIssueSummary
+  }
 
   // Real-time validation from validation layer (J4) - only run client-side to avoid hydration errors
   const validationResult = useMemo(() => mounted ? runValidation() : {
@@ -445,8 +429,8 @@ export default function DataQualityPage() {
     })
   }, [issues, severityFilter, statusFilter])
 
-  const openIssueDetail = (issue: DataQualityIssue | DataQualityIssueReal) => {
-    setSelectedIssue(issue as DataQualityIssue)
+  const openIssueDetail = (issue: DataQualityIssueReal) => {
+    setSelectedIssue(issue)
     setIssueModalOpen(true)
   }
 
@@ -471,12 +455,13 @@ export default function DataQualityPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {USE_REAL_DATA && (issuesLoading || scoreLoading || healthLoading) && (
-            <span className="text-sm text-muted-foreground flex items-center gap-2">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              Loading BigQuery data...
-            </span>
-          )}
+          <DataSourceBadge
+            status={
+              (issuesLoading || scoreLoading || healthLoading) ? 'loading' :
+              (issuesError || scoreError || healthError) ? 'error' :
+              issuesDataSource
+            }
+          />
           <Button variant="outline" className="gap-2" onClick={() => window.location.reload()}>
             <RefreshCw className="h-4 w-4" />
             Refresh Now
@@ -485,7 +470,7 @@ export default function DataQualityPage() {
       </div>
 
       {/* Debug Info (only in dev) */}
-      {process.env.NODE_ENV === 'development' && USE_REAL_DATA && (
+      {process.env.NODE_ENV === 'development' && (
         <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200">
           <CardContent className="pt-4">
             <div className="text-xs space-y-1">
@@ -500,7 +485,7 @@ export default function DataQualityPage() {
       {/* Overall Score Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Overall Score Card */}
-        <Card className="lg:col-span-1">
+        <Card id="dq-overall-score" className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="text-lg">Overall Data Quality</CardTitle>
             <CardDescription>Composite score across all dimensions</CardDescription>
@@ -572,7 +557,7 @@ export default function DataQualityPage() {
       </Card>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="validation" className="space-y-4">
+      <Tabs id="dq-tabs" defaultValue="validation" className="space-y-4">
         <TabsList>
           <TabsTrigger value="validation" className="gap-2">
             <Cpu className="h-4 w-4" />
@@ -587,12 +572,6 @@ export default function DataQualityPage() {
             <FileWarning className="h-4 w-4" />
             Issues ({issueSummary.total})
           </TabsTrigger>
-          {!USE_REAL_DATA && (
-            <TabsTrigger value="reconciliation" className="gap-2">
-              <GitCompare className="h-4 w-4" />
-              Reconciliation
-            </TabsTrigger>
-          )}
           <TabsTrigger value="sources" className="gap-2">
             <Server className="h-4 w-4" />
             Source Health
@@ -626,12 +605,6 @@ export default function DataQualityPage() {
                   <div>
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                       Real-Time KPI Validation
-                      {!USE_REAL_DATA && (
-                        <Badge variant="outline" className="gap-1">
-                          <FlaskConical className="h-3 w-3" />
-                          Simulation Mode
-                        </Badge>
-                      )}
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {validationSummary.status === 'healthy'
@@ -912,99 +885,6 @@ export default function DataQualityPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Reconciliation Tab - Only shown with mock data (deferred for Phase 3) */}
-        {!USE_REAL_DATA && (
-        <TabsContent value="reconciliation" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <GitCompare className="h-5 w-5" />
-                Cross-System Reconciliation
-              </CardTitle>
-              <CardDescription>
-                Comparing data between source systems to identify discrepancies
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {reconciliation.map((recon, i) => (
-                  <Card key={i} className={`border-l-4 ${
-                    recon.status === 'healthy' ? 'border-l-green-500' :
-                    recon.status === 'warning' ? 'border-l-yellow-500' :
-                    'border-l-red-500'
-                  }`}>
-                    <CardContent className="pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <SourceBadge source={recon.sourceA} />
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                          <SourceBadge source={recon.sourceB} />
-                          <span className="text-sm text-muted-foreground">|</span>
-                          <span className="text-sm font-medium capitalize">{recon.entityType.replace('_', ' ')}</span>
-                          <span className="text-sm text-muted-foreground">/ {recon.fieldName}</span>
-                        </div>
-                        <StatusBadge status={recon.status} />
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
-                        <div>
-                          <div className="text-lg font-bold text-green-500">{recon.matchRate}%</div>
-                          <div className="text-xs text-muted-foreground">Match Rate</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold">{recon.matchedRecords.toLocaleString()}</div>
-                          <div className="text-xs text-muted-foreground">Matched</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold text-red-500">{recon.conflictingValues}</div>
-                          <div className="text-xs text-muted-foreground">Conflicts</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold">{recon.missingInA}</div>
-                          <div className="text-xs text-muted-foreground">Missing in A</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold">{recon.missingInB}</div>
-                          <div className="text-xs text-muted-foreground">Missing in B</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3 inline mr-1" />
-                            {formatDistanceToNow(new Date(recon.lastReconciled), { addSuffix: true })}
-                          </div>
-                        </div>
-                      </div>
-
-                      {recon.discrepancies.length > 0 && (
-                        <div className="mt-4 pt-4 border-t">
-                          <div className="text-sm font-medium mb-2">Sample Discrepancies</div>
-                          <div className="space-y-2">
-                            {recon.discrepancies.slice(0, 3).map((disc, j) => (
-                              <div key={j} className="flex items-center gap-4 text-sm bg-muted/50 p-2 rounded">
-                                <code className="text-xs">{disc.recordId}</code>
-                                <span className="text-muted-foreground">:</span>
-                                <span className="text-blue-600">{typeof disc.valueInA === 'number' ? disc.valueInA.toLocaleString() : disc.valueInA}</span>
-                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-purple-600">{typeof disc.valueInB === 'number' ? disc.valueInB.toLocaleString() : disc.valueInB}</span>
-                                {disc.variancePercent && (
-                                  <Badge variant="outline" className="text-xs text-red-500">
-                                    {disc.variancePercent > 0 ? '+' : ''}{disc.variancePercent}%
-                                  </Badge>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        )}
 
         {/* Source Health Tab */}
         <TabsContent value="sources" className="space-y-4">

@@ -30,11 +30,13 @@ interface AutomationRule {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    // Use getUser() to validate JWT server-side (getSession() only reads from cookie without validation)
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -93,10 +95,11 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -139,7 +142,7 @@ export async function POST(request: NextRequest) {
         actions: body.actions,
         priority: body.priority || 100,
         is_active: body.is_active !== false, // Default to true
-        created_by: session.user.id,
+        created_by: user.id,
       })
       .select()
       .single()
@@ -160,7 +163,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         rule_id: rule.id,
         trigger_type: body.trigger_type,
-        user_id: session.user.id,
+        user_id: user.id,
       },
     })
 
@@ -186,10 +189,11 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -229,7 +233,7 @@ export async function PATCH(request: NextRequest) {
       message: `Automation rule updated: ${rule.rule_name}`,
       metadata: {
         rule_id: id,
-        user_id: session.user.id,
+        user_id: user.id,
       },
     })
 
@@ -255,10 +259,11 @@ export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -303,7 +308,7 @@ export async function DELETE(request: NextRequest) {
       message: `Automation rule deleted: ${rule?.rule_name || id}`,
       metadata: {
         rule_id: id,
-        user_id: session.user.id,
+        user_id: user.id,
       },
     })
 

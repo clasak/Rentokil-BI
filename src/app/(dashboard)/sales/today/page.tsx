@@ -46,7 +46,7 @@ const EMPTY_SALES_TODAY: SalesTodayMetrics = {
 
 // Transform BigQuery data to page format
 function transformBigQueryData(bqData: BQSalesToday[]): SalesTodayMetrics {
-  const d = bqData[0] || { closed_won: 0, closed_won_value: 0, canceled: 0, canceled_value: 0, new_contracts: 0 }
+  const d = (bqData || [])[0] || { closed_won: 0, closed_won_value: 0, canceled: 0, canceled_value: 0, new_contracts: 0 }
   const now = new Date()
 
   return {
@@ -144,6 +144,8 @@ export default function SalesTodayPage() {
     filters: {},
     defaultData: EMPTY_SALES_TODAY,
     transformBigQueryData,
+    includeOrgFilters: true, // Sales today overview - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const handleRefresh = () => {

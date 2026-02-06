@@ -82,16 +82,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             setUser(simulatedUser)
 
-            // Set role and user from dev mapping
-            setRole(devOverride.role)
-            setIsAdmin(false)
+            // Check if dev user is also an admin
+            const isDevAdmin = isAdminEmail(devUserEmail)
+
+            // Admins always get exec role, non-admins use dev mapping
+            const effectiveRole = isDevAdmin ? 'exec' : devOverride.role
+            setRole(effectiveRole)
+            setIsAdmin(isDevAdmin)
 
             const devUser: AppUser = {
               id: simulatedUser.id,
               email: devUserEmail,
               name: devOverride.name,
-              role: devOverride.role,
-              title: `${devOverride.role.replace(/_/g, ' ')} (Dev Mode)`,
+              role: effectiveRole,
+              title: isDevAdmin ? 'Administrator (Dev Mode)' : `${devOverride.role.replace(/_/g, ' ')} (Dev Mode)`,
+              // Preserve org assignments even for admins - they need a "home" location
+              // for defaulting role previews (admin can still see all data via exec role)
               assignedMarkets: devOverride.assignedMarkets,
               assignedRegions: devOverride.assignedRegions,
               assignedBranches: devOverride.assignedBranches,
@@ -103,8 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: simulatedUser.id,
               email: devUserEmail,
               name: devOverride.name,
-              role: devOverride.role,
-              department: 'Dev Mode',
+              role: effectiveRole,
+              department: isDevAdmin ? 'Administration (Dev Mode)' : 'Dev Mode',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
@@ -162,14 +168,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userEmail = supabaseUser?.email
       if (userEmail && isAdminEmail(userEmail)) {
         // Admin users get exec role and their actual identity
-        const markets = getMarkets()
+        // NOTE: Don't assign mock market IDs - admin sees all data, org filtering is done via dropdown
         const adminUser: AppUser = {
           id: userId,
           name: extractNameFromEmail(userEmail),
           email: userEmail,
           role: 'exec',
           title: 'Administrator',
-          assignedMarkets: markets.map(m => m.id),
+          assignedMarkets: [], // Empty = sees all (org filtering via dropdown)
           assignedRegions: [],
           assignedBranches: [],
           assignedTeams: [],

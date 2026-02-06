@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -273,7 +274,7 @@ export default function OnboardingPage() {
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-12" />
+            <Image src="/rentokil-logo.svg" alt="Rentokil" width={48} height={48} className="h-12" />
             <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
               ALPHA
             </Badge>

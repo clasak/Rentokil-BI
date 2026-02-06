@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -10,7 +11,18 @@ import {
   Clock, TrendingUp, TrendingDown, Minus, CheckCircle, XCircle, Database
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { getDataFreshnessSLAs, type DataFreshnessSLA as DataFreshnessSLAType } from '@/lib/mock/platformAdminData'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { DataFreshnessSummary } from '@/lib/bigquery/queries/data-freshness'
+
+// Empty state (BigQuery-only, no mock fallback)
+const EMPTY_FRESHNESS: DataFreshnessSummary = {
+  totalSources: 0,
+  metCount: 0,
+  breachedCount: 0,
+  overallHealth: 'healthy',
+  sources: [],
+  lastUpdated: new Date().toISOString(),
+}
 
 function TrendIcon({ trend }: { trend: 'up' | 'down' | 'stable' }) {
   if (trend === 'up') {
@@ -52,9 +64,53 @@ function SourceBadge({ sourceName }: { sourceName: string }) {
 }
 
 export function DataFreshnessSLA() {
-  const slaData = getDataFreshnessSLAs()
-  const metCount = slaData.filter(s => s.status === 'met').length
-  const breachedCount = slaData.filter(s => s.status === 'breached').length
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Explicit transform for data freshness with null handling
+  function transformDataFreshness(data: DataFreshnessSummary): DataFreshnessSummary {
+    if (!data) return { totalSources: 0, metCount: 0, breachedCount: 0, overallHealth: 'healthy' as const, sources: [], lastUpdated: '' }
+    return {
+      totalSources: data.totalSources ?? 0,
+      metCount: data.metCount ?? 0,
+      breachedCount: data.breachedCount ?? 0,
+      overallHealth: data.overallHealth ?? 'healthy',
+      sources: (data.sources ?? []).map(source => ({
+        id: source.id ?? '',
+        sourceName: source.sourceName ?? '',
+        slaTarget: source.slaTarget ?? '',
+        slaMinutes: source.slaMinutes ?? 0,
+        actualFreshnessMinutes: source.actualFreshnessMinutes ?? 0,
+        actualFreshness: source.actualFreshness ?? '',
+        status: source.status ?? 'met',
+        trend: source.trend ?? 'stable',
+        lastChecked: source.lastChecked ?? '',
+        tableName: source.tableName ?? '',
+        datasetId: source.datasetId ?? '',
+      })),
+      lastUpdated: data.lastUpdated ?? new Date().toISOString(),
+    }
+  }
+
+  // Fetch data freshness from BigQuery
+  const {
+    data: freshnessData,
+    isLoading,
+    error,
+  } = useBigQueryData<DataFreshnessSummary, DataFreshnessSummary>({
+    queryName: 'data-freshness',
+    defaultData: EMPTY_FRESHNESS,
+    transformBigQueryData: transformDataFreshness,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  const slaData = freshnessData.sources
+  const metCount = freshnessData.metCount
+  const breachedCount = freshnessData.breachedCount
 
   return (
     <Card>
@@ -80,69 +136,91 @@ export function DataFreshnessSLA() {
             </div>
           </div>
         </div>
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-400 text-sm">
+              <XCircle className="h-4 w-4" />
+              <span>Error loading data: {error}</span>
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Source</TableHead>
-              <TableHead>SLA Target</TableHead>
-              <TableHead>Actual Freshness</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Trend</TableHead>
-              <TableHead className="text-right">Last Sync</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {slaData.map(sla => (
-              <TableRow
-                key={sla.id}
-                className={sla.status === 'breached' ? 'bg-red-50/50 dark:bg-red-900/10' : ''}
-              >
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-muted-foreground" />
-                    <SourceBadge sourceName={sla.sourceName} />
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm font-medium">{sla.slaTarget}</span>
-                </TableCell>
-                <TableCell>
-                  <span className={`text-sm font-medium ${
-                    sla.status === 'breached' ? 'text-red-600 dark:text-red-400' : ''
-                  }`}>
-                    {formatFreshness(sla.actualFreshnessMinutes)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {sla.status === 'met' ? (
-                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Met
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">
-                      <XCircle className="h-3 w-3 mr-1" />
-                      Breached
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <TrendIcon trend={sla.trend} />
-                    <span className="text-xs text-muted-foreground capitalize">{sla.trend}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <span className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(sla.lastSync, { addSuffix: true })}
-                  </span>
-                </TableCell>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center text-muted-foreground">
+              Loading freshness data...
+            </div>
+          </div>
+        ) : slaData.length === 0 ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center text-muted-foreground">
+              No data sources configured
+            </div>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Source</TableHead>
+                <TableHead>SLA Target</TableHead>
+                <TableHead>Actual Freshness</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Trend</TableHead>
+                <TableHead className="text-right">Last Updated</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {slaData.map(sla => (
+                <TableRow
+                  key={sla.id}
+                  className={sla.status === 'breached' ? 'bg-red-50/50 dark:bg-red-900/10' : ''}
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Database className="h-4 w-4 text-muted-foreground" />
+                      <SourceBadge sourceName={sla.sourceName} />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm font-medium">{sla.slaTarget}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-sm font-medium ${
+                      sla.status === 'breached' ? 'text-red-600 dark:text-red-400' : ''
+                    }`}>
+                      {sla.actualFreshness}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {sla.status === 'met' ? (
+                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Met
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Breached
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <TrendIcon trend={sla.trend} />
+                      <span className="text-xs text-muted-foreground capitalize">{sla.trend}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="text-xs text-muted-foreground">
+                      {sla.lastChecked}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   )

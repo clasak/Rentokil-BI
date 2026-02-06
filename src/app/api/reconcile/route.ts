@@ -268,16 +268,21 @@ function simulateSourceValue(
   calculatedValue: number,
   kpiDef: typeof KPI_DICTIONARY[0]
 ): SourceValue {
-  // Add small variance to simulate real-world reconciliation
-  // Variance is within tolerance to ensure tests pass by default
-  const varianceMultiplier = 1 + (Math.random() - 0.5) * 0.001 // +/- 0.05%
+  // Deterministic variance based on slug hash for consistent reconciliation results
+  const slugHash = slug.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const varianceMultiplier = 1 + ((slugHash % 100) / 100 - 0.5) * 0.001 // +/- 0.05% deterministic
   const sourceValue = calculatedValue * varianceMultiplier
+
+  // Deterministic lastRefresh: align to most recent 15-minute interval
+  const now = new Date()
+  const alignedMinutes = now.getMinutes() - (now.getMinutes() % 15)
+  const lastRefresh = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), alignedMinutes)
 
   return {
     source: kpiDef.primarySource,
     value: Math.round(sourceValue * 100) / 100,
     recordCount: getRecordCountForSource(kpiDef.primarySource, slug),
-    lastRefresh: new Date(Date.now() - Math.random() * 3600000).toISOString(), // Within last hour
+    lastRefresh: lastRefresh.toISOString(),
     methodology: kpiDef.calculationNotes || `Standard ${kpiDef.primarySource} aggregation`,
   }
 }

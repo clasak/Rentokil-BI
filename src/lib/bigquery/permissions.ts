@@ -36,6 +36,7 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
   'sales-filter-hierarchy': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
   'wig-branch-metrics': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
   'wig-lagging-metrics': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
+  'branch-workforce': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
 
   // Sales queries - sales leadership and AEs
   'sales-today': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
@@ -48,6 +49,8 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
   'at-risk-leads': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'sales-pipeline-summary': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'sales-kpis': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
+  'top-opportunities': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
+  'opportunity-by-id': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
 
   // AE-specific queries (own data only, enforced by role filters)
   'ae-pipeline': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
@@ -71,6 +74,9 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
   'salesforce-opportunity-history': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'salesforce-employees': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'salesforce-quote-detail': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
+  'salesforce-leads': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
+  'salesforce-table-discovery': ['exec'],
+  'opportunity-for-quote': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'product-catalog': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'user-most-used-services': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'iris-national-accounts': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
@@ -81,12 +87,21 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
   'sales-tracker-monthly-totals': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'sales-tracker-data-freshness': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
 
+  // Account Detail queries - leadership and account managers
+  'account-details': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager', 'rep'],
+  'account-opportunities': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
+  'account-service-history': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
+  'account-complaints': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
+  'account-invoices': ['exec', 'market_vp', 'region_director', 'manager'],
+  'account-owner': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
+
   // Tech-specific queries (own data only, enforced by role filters)
   'tech-tickets': ['exec', 'manager', 'ops_manager', 'technician'],
   'tech-dispatch': ['exec', 'manager', 'ops_manager', 'technician'],
   'tech-productivity': ['exec', 'market_vp', 'region_director', 'manager', 'ops_manager', 'technician'],
   'tech-productivity-summary': ['exec', 'market_vp', 'region_director', 'manager', 'ops_manager'],
   'technician-list': ['exec', 'market_vp', 'region_director', 'manager', 'ops_manager'],
+  'technician-route': ['exec', 'manager', 'ops_manager', 'technician'],
 
   // Leads queries - all roles except technician
   'leads-by-pest-type': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
@@ -112,6 +127,13 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
   'lead-service-handoff-leads-ops': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
   'lead-service-risk-reasons': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
 
+  // Pipeline Reconciliation queries - sales and operations leadership
+  'sold-quotes-not-in-tracker': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager'],
+  'sales-not-yet-started': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
+  'starts-without-quote': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'ops_manager'],
+  'complete-pipeline-timeline': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager'],
+  'pipeline-health-summary': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager'],
+
   // Operations queries
   'ops-overview': ['exec', 'market_vp', 'region_director', 'manager', 'ops_manager'],
   'ops-national': ['exec', 'market_vp', 'region_director'],
@@ -125,6 +147,7 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
   'ar-summary': ['exec', 'market_vp', 'region_director', 'manager'],
   'ar-by-branch': ['exec', 'market_vp', 'region_director', 'manager'],
   'ar-details': ['exec', 'market_vp', 'region_director', 'manager'],
+  'invoice-by-id': ['exec', 'market_vp', 'region_director', 'manager'],
   'revenue-projections': ['exec', 'market_vp', 'region_director', 'manager'],
   'projection-accuracy': ['exec', 'market_vp', 'region_director', 'manager'],
   'variance-analysis': ['exec', 'market_vp', 'region_director', 'manager'],

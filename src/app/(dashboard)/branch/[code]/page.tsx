@@ -47,6 +47,7 @@ import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import type { BranchDetail } from '@/lib/bigquery/queries/branch'
 import type { WIGBranchMetrics } from '@/lib/bigquery/queries/wig'
+import type { BranchWorkforce } from '@/lib/bigquery/queries/organization-workforce'
 
 // BigQuery display types
 interface BranchDisplayData {
@@ -176,16 +177,25 @@ function getWeekStartDate(weekOffset: number = 0): string {
   return monday.toISOString().split('T')[0]
 }
 
-// Helper to get branch manager info from BigQuery employee data
-// TODO: Create dedicated query for branch manager/team info
-function getBranchInfo(branchCode: string, wigData?: BranchWIGDisplay) {
+// Build branch info from workforce data
+function getBranchInfoFromWorkforce(branchCode: string, workforce?: BranchWorkforce) {
+  if (workforce) {
+    return {
+      manager: workforce.branch_managers > 0 ? `${workforce.branch_managers} Branch Manager(s)` : 'None assigned',
+      techCount: workforce.technicians,
+      repCount: workforce.ae_sales,
+      opsManagerCount: workforce.ops_managers,
+      salesManagerCount: workforce.sales_managers,
+      totalStaff: workforce.total,
+    }
+  }
   return {
-    manager: 'Contact Branch', // TODO: Query from S0_TMX.tmx_employee where branch = branchCode and role = 'Manager'
-    techCount: wigData ? Math.max(1, Math.floor(wigData.salesDollarsPerRep / 12000)) : 0, // Estimated from metrics
-    repCount: wigData ? Math.max(1, Math.floor(wigData.salesDollarsPerRep / 15000)) : 0, // Estimated from metrics
-    phone: `Contact ${branchCode}`, // TODO: Query from organization table
-    email: `${branchCode.toLowerCase()}@rentokil.com`,
-    address: `Branch ${branchCode}`, // TODO: Query from Dim_Branch table
+    manager: 'Loading...',
+    techCount: 0,
+    repCount: 0,
+    opsManagerCount: 0,
+    salesManagerCount: 0,
+    totalStaff: 0,
   }
 }
 
@@ -225,6 +235,19 @@ export default function BranchDetailPage() {
     defaultData: EMPTY_WIG_DATA,
     transformBigQueryData: transformWIGData,
     includeOrgFilters: false, // We're querying a specific branch
+  })
+
+  // BigQuery integration for branch workforce (real headcount data)
+  const {
+    data: workforceData,
+    isLoading: workforceLoading,
+  } = useBigQueryData<BranchWorkforce[], BranchWorkforce | null>({
+    queryName: 'branch-workforce',
+    filters: { branchCode },
+    defaultData: null,
+    transformBigQueryData: (data) => (data || []).length > 0 ? data[0] : null,
+    includeOrgFilters: false, // We're querying a specific branch
+    includeRoleFilters: false,
   })
 
   // Hydration guard
@@ -292,8 +315,8 @@ export default function BranchDetailPage() {
     )
   }
 
-  // Get branch info (using helper function with WIG data)
-  const branchInfo = getBranchInfo(branchCode, wigData)
+  // Get branch info from real workforce data
+  const branchInfo = getBranchInfoFromWorkforce(branchCode, workforceData ?? undefined)
 
   const getStatus = (value: number, target: number, isLowerBetter: boolean = false): 'success' | 'warning' | 'danger' => {
     const percentage = isLowerBetter ? (target / Math.max(value, 0.01)) * 100 : (value / target) * 100
@@ -460,7 +483,7 @@ export default function BranchDetailPage() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-500">Manager:</span>
+              <span className="text-gray-500">Branch Mgr:</span>
               <span className="font-medium">{branchInfo.manager}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -474,14 +497,14 @@ export default function BranchDetailPage() {
               <span className="font-medium">{branchInfo.repCount}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-500">Phone:</span>
-              <span className="font-medium">{branchInfo.phone}</span>
+              <Users className="h-4 w-4 text-gray-400" />
+              <span className="text-gray-500">Ops Mgr:</span>
+              <span className="font-medium">{branchInfo.opsManagerCount}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-500 truncate">Email:</span>
-              <span className="font-medium truncate">{branchInfo.email}</span>
+              <Users className="h-4 w-4 text-gray-400" />
+              <span className="text-gray-500">Total Staff:</span>
+              <span className="font-medium">{branchInfo.totalStaff}</span>
             </div>
           </CardContent>
         </Card>

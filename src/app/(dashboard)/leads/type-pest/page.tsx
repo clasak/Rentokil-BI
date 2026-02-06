@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import {
   BarChart,
@@ -23,7 +24,7 @@ import {
   Cell,
 } from 'recharts'
 import { formatCurrency, formatPercent, formatNumber } from '@/lib/utils'
-import { TrendingUp, DollarSign, Target } from 'lucide-react'
+import { TrendingUp, DollarSign, Target, AlertTriangle, RefreshCw } from 'lucide-react'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { PageHeader } from '@/components/layout/PageHeader'
 import type { LeadsByPestType } from '@/lib/bigquery/queries/leads'
@@ -55,9 +56,10 @@ const AVG_VALUES: Record<string, number> = {
 const EMPTY_LEADS_BY_TYPE_PEST: LeadsByTypePest[] = []
 
 function transformBigQueryToDisplay(bqData: LeadsByPestType[]): LeadsByTypePest[] {
-  const totalLeads = bqData.reduce((sum, d) => sum + d.lead_count, 0)
+  const safeData = bqData || []
+  const totalLeads = safeData.reduce((sum, d) => sum + d.lead_count, 0)
 
-  return bqData.map((d) => ({
+  return safeData.map((d) => ({
     pestType: d.pest_type,
     leadCount: d.lead_count,
     converted: d.converted,
@@ -73,12 +75,15 @@ export default function LeadsByTypePestPage() {
     dataSource,
     responseTime,
     error,
+    errorType,
     refetch,
   } = useBigQueryData<LeadsByPestType[], LeadsByTypePest[]>({
     queryName: 'leads-by-pest-type',
     filters: { daysBack: 30 },
     defaultData: EMPTY_LEADS_BY_TYPE_PEST,
     transformBigQueryData: transformBigQueryToDisplay,
+    includeOrgFilters: true, // Lead analytics - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const totalLeads = useMemo(
@@ -123,6 +128,45 @@ export default function LeadsByTypePestPage() {
         isLoading={isLoading}
       />
 
+      {/* Error State */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Leads by Pest Type</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context */}
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">leads-by-pest-type</p>
+                </div>
+              </div>
+            )}
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -146,7 +190,7 @@ export default function LeadsByTypePestPage() {
           <CardContent>
             <div className="flex items-center text-sm text-green-600">
               <TrendingUp className="h-4 w-4 mr-1" />
-              {formatPercent(totalConverted / totalLeads)} conversion rate
+              {formatPercent(totalLeads > 0 ? totalConverted / totalLeads : 0)} conversion rate
             </div>
           </CardContent>
         </Card>

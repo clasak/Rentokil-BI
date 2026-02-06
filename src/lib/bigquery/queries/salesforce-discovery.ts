@@ -13,6 +13,24 @@ import { validateString, ValidationError } from '../validation'
 
 const PROJECT = BIGQUERY_CONFIG.projectId
 
+// Allowlist of datasets that can be queried via Salesforce Discovery
+// This prevents arbitrary dataset access through the discovery API
+const ALLOWED_DATASETS = new Set([
+  'S0_TMX',
+  'S4',
+  'W3_Contract_Checker',
+  'Reports',
+  'BCG_RTD_DB',
+  'S0',
+  'S2',
+])
+
+function validateDatasetAllowlist(datasetId: string): void {
+  if (!ALLOWED_DATASETS.has(datasetId)) {
+    throw new ValidationError(`Dataset '${datasetId}' is not in the allowed datasets list`)
+  }
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -197,7 +215,7 @@ export async function getSalesforceTableSchema(
   tableId: string
 ): Promise<SalesforceColumnSchema[]> {
   try {
-    // Basic validation - allow alphanumeric, underscores, and hyphens
+    // Validate against allowlist to prevent arbitrary dataset access
     const datasetPattern = /^[a-zA-Z0-9_-]+$/
     const tablePattern = /^[a-zA-Z0-9_-]+$/
 
@@ -207,6 +225,7 @@ export async function getSalesforceTableSchema(
     if (!tablePattern.test(tableId)) {
       throw new ValidationError('Invalid table ID format')
     }
+    validateDatasetAllowlist(datasetId)
 
     const sql = `
       SELECT
@@ -256,7 +275,7 @@ export async function getSalesforceTableSample(
   limit: number = 10
 ): Promise<SalesforceTableSample[]> {
   try {
-    // Basic validation
+    // Validate against allowlist to prevent arbitrary dataset access
     const datasetPattern = /^[a-zA-Z0-9_-]+$/
     const tablePattern = /^[a-zA-Z0-9_-]+$/
 
@@ -266,21 +285,24 @@ export async function getSalesforceTableSample(
     if (!tablePattern.test(tableId)) {
       throw new ValidationError('Invalid table ID format')
     }
+    validateDatasetAllowlist(datasetId)
     if (limit < 1 || limit > 100) {
       throw new ValidationError('Limit must be between 1 and 100')
     }
 
+    // Use parameterized limit to prevent injection
+    const validatedLimit = Math.floor(Number(limit))
     const sql = `
       SELECT *
       FROM \`${PROJECT}.${datasetId}.${tableId}\`
-      LIMIT ${limit}
+      LIMIT @resultLimit
     `
 
     console.log(
-      `[SalesforceDiscovery] Getting sample data for ${datasetId}.${tableId} (limit: ${limit})`
+      `[SalesforceDiscovery] Getting sample data for ${datasetId}.${tableId} (limit: ${validatedLimit})`
     )
 
-    const result = await bigQueryClient.query<SalesforceTableSample>(sql)
+    const result = await bigQueryClient.queryWithParams<SalesforceTableSample>(sql, { resultLimit: validatedLimit })
 
     console.log(
       `[SalesforceDiscovery] Retrieved ${result.rows.length} sample rows from ${datasetId}.${tableId}`
@@ -308,7 +330,7 @@ export async function getSalesforceTableQuality(
   tableId: string
 ): Promise<Record<string, unknown>> {
   try {
-    // Basic validation
+    // Validate against allowlist to prevent arbitrary dataset access
     const datasetPattern = /^[a-zA-Z0-9_-]+$/
     const tablePattern = /^[a-zA-Z0-9_-]+$/
 
@@ -318,6 +340,7 @@ export async function getSalesforceTableQuality(
     if (!tablePattern.test(tableId)) {
       throw new ValidationError('Invalid table ID format')
     }
+    validateDatasetAllowlist(datasetId)
 
     const sql = `
       SELECT

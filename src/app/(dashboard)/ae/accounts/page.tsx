@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Filter, RefreshCw } from 'lucide-react'
+import { Search, Filter, RefreshCw, AlertTriangle, ExternalLink, Mail, FileText } from 'lucide-react'
 import { AccountCard } from '@/components/ae/AccountCard'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import type { SalesforceAccount } from '@/lib/bigquery/queries/salesforce'
@@ -118,13 +118,57 @@ export default function AccountsPage() {
         </div>
 
         {error && (
-          <Card className="border-red-500 bg-red-50 dark:bg-red-950">
-            <CardContent className="pt-6">
-              <p className="text-red-600 dark:text-red-400">
-                Error loading accounts: {error}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="font-semibold">Failed to Load Accounts</span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+                {error}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">Salesforce Accounts</p>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Search Term:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{debouncedSearchTerm || '(empty)'}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  <RefreshCw className="h-3 w-3 mr-1.5" />
+                  Retry
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+                >
+                  <FileText className="h-3 w-3 mr-1.5" />
+                  View Logs
+                  <ExternalLink className="h-3 w-3 ml-1" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const subject = encodeURIComponent('Accounts Error')
+                    const body = encodeURIComponent(`Error: ${error}\n\nSearch: ${debouncedSearchTerm}\n\nPlease investigate.`)
+                    window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                  }}
+                >
+                  <Mail className="h-3 w-3 mr-1.5" />
+                  Contact Support
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
         {!isLoading && !error && accounts.length === 0 && (

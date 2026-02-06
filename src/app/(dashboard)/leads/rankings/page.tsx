@@ -30,6 +30,8 @@ import {
   ChevronDown,
   Medal,
   Filter,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -43,15 +45,20 @@ type GroupBy = 'market' | 'region' | 'branch'
 const EMPTY_LEAD_RANKINGS: LeadRanking[] = []
 
 function transformBigQueryRankings(bqData: BQLeadRanking[]): LeadRanking[] {
+  const safeData = bqData || []
   // Sort by leads (highest first) then by conversion rate
-  const sorted = [...bqData].sort((a, b) => {
+  const sorted = [...safeData].sort((a, b) => {
     if (b.leads !== a.leads) return b.leads - a.leads
     return b.conversion_rate - a.conversion_rate
   })
 
+  // Compute group average conversion rate for deviation calculation
+  const avgConversionRate = safeData.length > 0
+    ? safeData.reduce((sum, r) => sum + r.conversion_rate, 0) / safeData.length
+    : 0
+
   return sorted.map((d, index) => {
     // Determine entity name and type based on what data is present
-    // If branch is populated, show branch; if region, show region; otherwise market
     let entity: string
     let entityType: 'market' | 'region' | 'branch'
 
@@ -66,10 +73,8 @@ function transformBigQueryRankings(bqData: BQLeadRanking[]): LeadRanking[] {
       entityType = 'market'
     }
 
-    // Deterministic change value based on data (for trend visualization)
-    const entityHash = entity.length
-    const valueHash = (d.leads + d.converted) % 100
-    const change = ((entityHash + valueHash) % 40) - 20
+    // Change = deviation from group average conversion rate (meaningful, not hash-based)
+    const change = (d.conversion_rate - avgConversionRate) * 100
 
     return {
       rank: index + 1,
@@ -77,8 +82,8 @@ function transformBigQueryRankings(bqData: BQLeadRanking[]): LeadRanking[] {
       entityType,
       leads: d.leads,
       converted: d.converted,
-      conversionRate: d.conversion_rate * 100, // Convert to percentage
-      change,
+      conversionRate: d.conversion_rate * 100,
+      change: Math.round(change * 10) / 10,
       trend: change > 2 ? 'up' : change < -2 ? 'down' : 'flat',
     }
   })
@@ -105,12 +110,16 @@ export default function LeadRankingsPage() {
     isLoading,
     dataSource,
     responseTime,
+    error,
+    errorType,
     refetch,
   } = useBigQueryData<BQLeadRanking[], LeadRanking[]>({
     queryName: 'lead-rankings',
     filters: queryFilters,
     defaultData: EMPTY_LEAD_RANKINGS,
     transformBigQueryData: transformBigQueryRankings,
+    includeOrgFilters: true, // Filter rankings by user's market/region/branch scope
+    includeRoleFilters: false, // Rankings are org-wide, not user-specific
   })
 
   const sortedData = useMemo(() => {
@@ -174,7 +183,7 @@ export default function LeadRankingsPage() {
 
   const avgConversion = useMemo(
     () =>
-      data.reduce((sum, d) => sum + d.conversionRate, 0) / data.length,
+      data.length > 0 ? data.reduce((sum, d) => sum + d.conversionRate, 0) / data.length : 0,
     [data]
   )
 
@@ -263,6 +272,7 @@ export default function LeadRankingsPage() {
         ]}
         dataSource={dataSource}
         responseTime={responseTime}
+        error={error}
         onRefresh={refetch}
         isLoading={isLoading}
       >
@@ -282,8 +292,47 @@ export default function LeadRankingsPage() {
         </div>
       </PageHeader>
 
+      {/* Error State */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Lead Rankings</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context */}
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">lead-rankings</p>
+                </div>
+              </div>
+            )}
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Performers */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div id="lead-top-performers" className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {topPerformers.map((performer, index) => (
           <Card
             key={performer.entity}
@@ -385,7 +434,7 @@ export default function LeadRankingsPage() {
       </div>
 
       {/* Rankings Table */}
-      <Card>
+      <Card id="lead-rankings-table">
         <CardHeader>
           <CardTitle>Full Rankings</CardTitle>
           <CardDescription>

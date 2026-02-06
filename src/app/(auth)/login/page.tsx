@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Mail, Lock, AlertCircle, Loader2, BarChart3, Shield, Users, ArrowLeft, CheckCircle } from 'lucide-react'
@@ -645,7 +646,7 @@ function LoginPageContent() {
         <div className="relative z-10 text-center space-y-8">
           {/* Large Logo */}
           <div className="flex flex-col items-center gap-4">
-            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-24 brightness-0 invert" />
+            <Image src="/rentokil-logo.svg" alt="Rentokil" width={96} height={96} className="h-24 brightness-0 invert" />
             <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30 text-lg px-4 py-1">
               ALPHA
             </Badge>
@@ -699,7 +700,7 @@ function LoginPageContent() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
-            <img src="/rentokil-logo.svg" alt="Rentokil" className="h-16" />
+            <Image src="/rentokil-logo.svg" alt="Rentokil" width={64} height={64} className="h-16" />
             <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
               ALPHA
             </Badge>

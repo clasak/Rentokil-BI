@@ -141,21 +141,21 @@ const SAMPLE_BRANCH = '${data.recommended_codes.SAMPLE_BRANCH}'  // ${data.recom
                   <span className="text-gray-500">const</span> SAMPLE_MARKET ={' '}
                   <span className="text-green-600">&apos;{data.recommended_codes.SAMPLE_MARKET}&apos;</span>
                   <span className="text-gray-400 ml-2">
-                    // {data.recommended_codes.SAMPLE_MARKET_NAME}
+                    {/* {data.recommended_codes.SAMPLE_MARKET_NAME} */}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500">const</span> SAMPLE_REGION ={' '}
                   <span className="text-green-600">&apos;{data.recommended_codes.SAMPLE_REGION}&apos;</span>
                   <span className="text-gray-400 ml-2">
-                    // {data.recommended_codes.SAMPLE_REGION_NAME}
+                    {/* {data.recommended_codes.SAMPLE_REGION_NAME} */}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500">const</span> SAMPLE_BRANCH ={' '}
                   <span className="text-green-600">&apos;{data.recommended_codes.SAMPLE_BRANCH}&apos;</span>
                   <span className="text-gray-400 ml-2">
-                    // {data.recommended_codes.SAMPLE_BRANCH_NAME}
+                    {/* {data.recommended_codes.SAMPLE_BRANCH_NAME} */}
                   </span>
                 </div>
               </div>

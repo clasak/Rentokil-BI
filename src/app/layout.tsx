@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: 'Rentokil BI - Alpha',
   description: 'Enterprise Business Intelligence Dashboard for Rentokil Leadership - Alpha Testing',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/rentokil-icon.svg',
+    shortcut: '/rentokil-icon.svg',
+    apple: '/apple-touch-icon.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

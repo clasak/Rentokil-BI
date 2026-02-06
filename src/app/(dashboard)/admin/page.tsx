@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useAppStore, PRESENTER_MODE_CONFIG, ROLE_PERMISSIONS, type TestScenario } from '@/store'
-import { getMarkets, getUsers } from '@/lib/data'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -156,8 +155,6 @@ export default function AdminPage() {
   // Get real organization data for role previews
   const { markets: orgMarkets, regions: orgRegions, branches: orgBranches } = useOrganizationData()
 
-  const markets = getMarkets()
-  const users = getUsers()
   const scope = mounted ? getCurrentUserScope() : { markets: [], branches: [], scope: 'Loading...' }
   const dataSourceStatus = getDataSourceStatus()
   const schemaAlerts: any[] = [] // TODO: Fetch from schema monitoring API when available
@@ -664,22 +661,37 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2 dark:text-gray-100">User</label>
-                  <Select value={settings.userId} onValueChange={setUserId}>
+                  <label className="block text-sm font-medium mb-2 dark:text-gray-100">Location (BigQuery)</label>
+                  <Select
+                    value={settings.userId || ''}
+                    onValueChange={(v) => {
+                      setUserId(v)
+                      // Find the org codes for the selected branch and set preview context
+                      const branch = orgBranches.find(b => b.branch_code === v)
+                      if (branch) {
+                        const activeRole = isPreviewingRole && previewedRole ? previewedRole : settings.role
+                        setPreviewingRoleWithOrg(activeRole, {
+                          market: branch.market_code,
+                          region: branch.region_code,
+                          branch: branch.branch_code,
+                        })
+                      }
+                    }}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select user" />
+                      <SelectValue placeholder="Select branch location" />
                     </SelectTrigger>
                     <SelectContent>
-                      {users
-                        .filter(u => u.role === settings.role && u.id && u.id.trim() !== '')
-                        .slice(0, 10)
-                        .map(user => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.name} - {user.title}
-                          </SelectItem>
-                        ))}
+                      {orgBranches.slice(0, 30).map(branch => (
+                        <SelectItem key={branch.branch_code} value={branch.branch_code}>
+                          {branch.branch_name} ({branch.market_code})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {orgBranches.length > 0 ? `${orgBranches.length} branches from BigQuery` : 'Loading org data...'}
+                  </p>
                 </div>
               </div>
 

@@ -3,7 +3,9 @@ import { persist } from 'zustand/middleware'
 import {
   AppSettings, GlobalFilters, DemoMode, Role, Scenario, User, OrganizationFilters
 } from '@/types'
-import { getUsers, getMarkets, regenerateData, setDataQualityIssues } from '@/lib/data'
+import type { DemoConfigSelections } from '@/components/presentation/DemoConfigurator'
+import { PRESENTATION_FLOW } from '@/lib/presentation-flow'
+import { getUsers, regenerateData, setDataQualityIssues } from '@/lib/data'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -65,6 +67,24 @@ interface AppState {
   setPresenterStep: (step: number) => void
   nextPresenterStep: () => void
   prevPresenterStep: () => void
+
+  // Presentation Mode (master-toggled, disabled by default, zero impact when off)
+  presentationModeEnabled: boolean
+  setPresentationModeEnabled: (enabled: boolean) => void
+  presentationGuidedActive: boolean
+  setPresentationGuidedActive: (active: boolean) => void
+  presentationGuidedStep: number
+  setPresentationGuidedStep: (step: number) => void
+  nextPresentationGuidedStep: () => void
+  prevPresentationGuidedStep: () => void
+  presentationManualTool: 'none' | 'spotlight' | 'draw'
+  setPresentationManualTool: (tool: 'none' | 'spotlight' | 'draw') => void
+  presentationSpotlightIntensity: 'subtle' | 'medium' | 'prominent'
+  setPresentationSpotlightIntensity: (intensity: 'subtle' | 'medium' | 'prominent') => void
+  presentationTalkingPointIndex: number
+  setPresentationTalkingPointIndex: (index: number) => void
+  demoConfigSelections: DemoConfigSelections | null
+  setDemoConfigSelections: (selections: DemoConfigSelections | null) => void
 
   // Tutorial Mode (for users)
   tutorialActive: boolean
@@ -214,101 +234,106 @@ export const PRESENTER_MODE_CONFIG: Record<DemoMode, {
 }
 
 /**
- * Create a synthetic preview user for role simulation.
- * Uses real BigQuery org codes (not mock IDs) for proper data filtering.
- * These codes MUST match actual RTX_Market_Code values in S2.VwUnf_Branch
+ * Create a preview user for role simulation.
  *
- * UPDATED: Now uses flexible market assignment to match ANY available market
- * The filter will match the first market that exists in your BigQuery data
+ * Preserves the user's NAME (identity) but ADJUSTS org scope based on the role being previewed.
+ * This allows admins to see exactly what a Branch Manager, Rep, etc. would see.
+ *
+ * Org scoping logic:
+ * - Uses currently selected org filters (market/region/branch) as the base
+ * - Applies role-appropriate restrictions (e.g., Branch Manager sees only their branch)
+ * - Falls back to sample data only if no current user or org selection exists
+ *
+ * @param role - The role to preview
+ * @param currentUser - The actual logged-in user (preserves their name)
+ * @param orgFilters - Currently selected organization filters (market/region/branch)
  */
-function createPreviewUserForRole(role: Role): User {
-  // IMPORTANT: These codes are sourced from actual BigQuery data (bidata-sharedus-production.S4.Dim_Branch_BranchID_NA_T1_Vw)
-  // Retrieved via /api/organization/discover-codes endpoint
-  // Last updated: 2026-02-02
-  //
-  // The hierarchical filter uses EXACT matching (case-insensitive) on both:
-  // - Market codes (M530, M532, etc.)
-  // - Market names (Atlantic Market, Florida Market, etc.)
-  const SAMPLE_MARKETS = [
-    // Use market codes (recommended - more stable than names)
-    'M530',  // Atlantic Market (15 regions, 198 branches)
-    'M532',  // Florida Market (10 regions, 134 branches)
-    'M512',  // Canada Ambius (3 regions, 5 branches)
-    'M511',  // Canada Pest (9 regions, 64 branches)
-    'M538',  // Home Office (1 region, 3 branches)
-    // Also include full names for backwards compatibility
-    'Atlantic Market',
-    'Florida Market',
-    'Canada Ambius',
-    'Canada Pest',
-  ]
+function createPreviewUserForRole(
+  role: Role,
+  currentUser?: User | null,
+  orgFilters?: OrganizationFilters | null
+): User {
+  // Determine base identity (always use current user's real identity)
+  const userName = currentUser?.name || `Preview ${ROLE_PERMISSIONS[role]?.label || role}`
+  const userEmail = currentUser?.email || `preview-${role}@rentokil-bi.demo`
+  const userId = currentUser?.id || `preview-${role}`
 
-  // Sample region and branch from Atlantic Market (largest market)
-  const SAMPLE_MARKET = 'M530'      // Atlantic Market
-  const SAMPLE_REGION = 'R001'      // R001 Region
-  const SAMPLE_BRANCH = '2196'      // Seitz Brothers (ACQ) Trexeltown
+  // Determine org scope: org filter dropdown > currentUser's home org > hardcoded fallback
+  // Priority: 1. Explicit dropdown selection 2. User's actual org from BigQuery 3. Fallback
+  const selectedMarket = orgFilters?.selectedMarket
+    || currentUser?.assignedMarkets?.[0]
+    || 'M536'
+  const selectedRegion = orgFilters?.selectedRegion
+    || currentUser?.assignedRegions?.[0]
+    || 'R052'
+  const selectedBranch = orgFilters?.selectedBranch
+    || currentUser?.assignedBranches?.[0]
+    || '098'
 
-  const baseUser: User = {
-    id: `preview-${role}`,
-    name: `Preview ${ROLE_PERMISSIONS[role]?.label || role}`,
-    email: `preview-${role}@rentokil-bi.demo`,
+  // Build preview user with role-appropriate org scope
+  const previewUser: User = {
+    id: userId,
+    name: userName,
+    email: userEmail,
     role: role,
     title: ROLE_PERMISSIONS[role]?.label || role,
     assignedMarkets: [],
     assignedRegions: [],
     assignedBranches: [],
-    assignedTeams: [],
-    assignedReps: [],
-    assignedTechnicians: [],
+    assignedTeams: currentUser?.assignedTeams || [],
+    assignedReps: currentUser?.assignedReps || [],
+    assignedTechnicians: currentUser?.assignedTechnicians || [],
   }
 
-  // Assign org scope based on role level
+  // Apply org scope based on role level
+  // Lower-level roles have narrower scope (branch < region < market < exec)
   switch (role) {
     case 'exec':
-      // Exec sees all - no org restrictions
+      // Exec sees everything - no org restrictions
+      // Keep current user's markets if they have any, otherwise unrestricted
+      previewUser.assignedMarkets = currentUser?.assignedMarkets || []
       break
 
     case 'market_vp':
     case 'market_sales_director':
-      // Market-level roles - assign ALL possible market variations
-      // The filter will match whichever one exists in BigQuery
-      baseUser.assignedMarkets = SAMPLE_MARKETS
+      // Market-level: see all data in their market(s)
+      previewUser.assignedMarkets = [selectedMarket]
       break
 
     case 'region_director':
     case 'region_sales_manager':
-      // Region-level roles - use flexible market matching
-      baseUser.assignedMarkets = SAMPLE_MARKETS
-      baseUser.assignedRegions = [SAMPLE_REGION]
+      // Region-level: see all data in their region
+      previewUser.assignedMarkets = [selectedMarket]
+      previewUser.assignedRegions = [selectedRegion]
       break
 
     case 'manager':
     case 'sales_manager':
     case 'ops_manager':
-      // Branch-level management roles - use flexible market matching
-      baseUser.assignedMarkets = SAMPLE_MARKETS
-      baseUser.assignedRegions = [SAMPLE_REGION]
-      baseUser.assignedBranches = [SAMPLE_BRANCH]
+      // Branch management: see all data in their branch
+      previewUser.assignedMarkets = [selectedMarket]
+      previewUser.assignedRegions = [selectedRegion]
+      previewUser.assignedBranches = [selectedBranch]
       break
 
     case 'rep':
-      // Account Executives - use flexible market matching
-      baseUser.assignedMarkets = SAMPLE_MARKETS
-      baseUser.assignedRegions = [SAMPLE_REGION]
-      baseUser.assignedBranches = [SAMPLE_BRANCH]
-      baseUser.name = 'John Smith' // Sample AE name for salesPerson filter
+      // Rep: sees only THEIR OWN sales data (filtered by salesPerson name)
+      previewUser.assignedMarkets = [selectedMarket]
+      previewUser.assignedRegions = [selectedRegion]
+      previewUser.assignedBranches = [selectedBranch]
+      // Name is used for salesPerson filter - preserve actual user's name
       break
 
     case 'technician':
-      // Technicians - use flexible market matching
-      baseUser.assignedMarkets = SAMPLE_MARKETS
-      baseUser.assignedRegions = [SAMPLE_REGION]
-      baseUser.assignedBranches = [SAMPLE_BRANCH]
-      baseUser.id = 'TECH-001' // Sample tech ID for route filter
+      // Technician: sees only THEIR OWN routes/tickets
+      previewUser.assignedMarkets = [selectedMarket]
+      previewUser.assignedRegions = [selectedRegion]
+      previewUser.assignedBranches = [selectedBranch]
+      // ID is used for technician filter
       break
   }
 
-  return baseUser
+  return previewUser
 }
 
 export const useAppStore = create<AppState>()(
@@ -324,17 +349,33 @@ export const useAppStore = create<AppState>()(
       },
 
       setRole: (role: Role) => {
-        const users = getUsers()
-        const userForRole = users.find(u => u.role === role) || users[0]
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            role,
-            userId: userForRole.id,
-            selectedMarkets: role === 'exec' ? [] : userForRole.assignedMarkets,
-          },
-          currentUser: userForRole,
-        }))
+        const state = get()
+        // If a real user is logged in (set by AuthProvider), preserve their identity
+        // Only use mock users as fallback when no real user exists
+        const hasRealUser = state.currentUser && state.currentUser.email && !state.currentUser.email.includes('@rentokil-bi.demo')
+        if (hasRealUser) {
+          set((s) => ({
+            settings: {
+              ...s.settings,
+              role,
+              userId: s.currentUser?.id || s.settings.userId,
+              selectedMarkets: role === 'exec' ? [] : s.currentUser?.assignedMarkets || [],
+            },
+            // Do NOT overwrite currentUser - preserve real authenticated user
+          }))
+        } else {
+          const users = getUsers()
+          const userForRole = users.find(u => u.role === role) || users[0]
+          set((s) => ({
+            settings: {
+              ...s.settings,
+              role,
+              userId: userForRole.id,
+              selectedMarkets: role === 'exec' ? [] : userForRole.assignedMarkets,
+            },
+            currentUser: userForRole,
+          }))
+        }
       },
 
       setUserId: (userId: string) => {
@@ -387,9 +428,12 @@ export const useAppStore = create<AppState>()(
       previewedEmployee: null,
       setPreviewingRole: (role: Role | null) => {
         if (role) {
-          // Create a synthetic preview user with role-appropriate org assignments
-          // Use real BigQuery org codes (not mock IDs) for proper filtering
-          const previewUser = createPreviewUserForRole(role)
+          // Create preview user with role-appropriate org scoping
+          // Uses current user's identity + currently selected org filters
+          const currentUser = get().currentUser
+          const orgFilters = get().organizationFilters
+          const previewUser = createPreviewUserForRole(role, currentUser, orgFilters)
+
           set({
             isPreviewingRole: true,
             previewedRole: role,
@@ -400,19 +444,14 @@ export const useAppStore = create<AppState>()(
         }
       },
       setPreviewingRoleWithOrg: (role: Role, orgData: { market?: string; region?: string; branch?: string }) => {
-        // Create a preview user with specific org assignments (from real BigQuery data)
-        const previewUser = createPreviewUserForRole(role)
-
-        // Override with provided org data if available
-        if (orgData.market) {
-          previewUser.assignedMarkets = [orgData.market]
+        // Create preview with explicit org overrides (takes precedence over current selection)
+        const currentUser = get().currentUser
+        const orgFilters: OrganizationFilters = {
+          selectedMarket: orgData.market || null,
+          selectedRegion: orgData.region || null,
+          selectedBranch: orgData.branch || null,
         }
-        if (orgData.region) {
-          previewUser.assignedRegions = [orgData.region]
-        }
-        if (orgData.branch) {
-          previewUser.assignedBranches = [orgData.branch]
-        }
+        const previewUser = createPreviewUserForRole(role, currentUser, orgFilters)
 
         set({
           isPreviewingRole: true,
@@ -509,6 +548,47 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      // Presentation Mode (zero impact when disabled)
+      presentationModeEnabled: false,
+      setPresentationModeEnabled: (enabled: boolean) => set({
+        presentationModeEnabled: enabled,
+        // Reset all sub-states when toggling off
+        ...(enabled ? {} : {
+          presentationGuidedActive: false,
+          presentationGuidedStep: 0,
+          presentationManualTool: 'none' as const,
+        }),
+      }),
+      presentationGuidedActive: false,
+      setPresentationGuidedActive: (active: boolean) => set({
+        presentationGuidedActive: active,
+        presentationGuidedStep: active ? 0 : get().presentationGuidedStep,
+        presentationTalkingPointIndex: 0,
+      }),
+      presentationGuidedStep: 0,
+      setPresentationGuidedStep: (step: number) => set({ presentationGuidedStep: step, presentationTalkingPointIndex: 0 }),
+      nextPresentationGuidedStep: () => {
+        const state = get()
+        const maxStep = PRESENTATION_FLOW.length - 1
+        if (state.presentationGuidedStep < maxStep) {
+          set({ presentationGuidedStep: state.presentationGuidedStep + 1, presentationTalkingPointIndex: 0 })
+        }
+      },
+      prevPresentationGuidedStep: () => {
+        const state = get()
+        if (state.presentationGuidedStep > 0) {
+          set({ presentationGuidedStep: state.presentationGuidedStep - 1, presentationTalkingPointIndex: 0 })
+        }
+      },
+      presentationManualTool: 'none' as 'none' | 'spotlight' | 'draw',
+      setPresentationManualTool: (tool: 'none' | 'spotlight' | 'draw') => set({ presentationManualTool: tool }),
+      presentationSpotlightIntensity: 'medium' as 'subtle' | 'medium' | 'prominent',
+      setPresentationSpotlightIntensity: (intensity: 'subtle' | 'medium' | 'prominent') => set({ presentationSpotlightIntensity: intensity }),
+      presentationTalkingPointIndex: 0,
+      setPresentationTalkingPointIndex: (index: number) => set({ presentationTalkingPointIndex: index }),
+      demoConfigSelections: null,
+      setDemoConfigSelections: (selections: DemoConfigSelections | null) => set({ demoConfigSelections: selections }),
+
       // Tutorial Mode (for users)
       tutorialActive: false,
       setTutorialActive: (active: boolean) => set({ tutorialActive: active }),
@@ -535,37 +615,55 @@ export const useAppStore = create<AppState>()(
 
       getCurrentUserScope: () => {
         const state = get()
-        const { role: settingsRole, userId } = state.settings
-        const markets = getMarkets()
+        const { role: settingsRole } = state.settings
 
         // Use previewed role/employee if in preview mode, otherwise use settings
         const isPreview = state.isPreviewingRole && state.previewedEmployee
         const effectiveRole = isPreview ? state.previewedRole || settingsRole : settingsRole
         const effectiveUser = isPreview ? state.previewedEmployee : state.currentUser
 
+        // Map market/region codes to friendly names (from BigQuery org hierarchy)
+        const MARKET_CODE_NAMES: Record<string, string> = {
+          'M536': 'Midwest',
+          'M530': 'Atlantic',
+          'M532': 'Florida',
+          'M511': 'Canada Pest',
+          'M512': 'Canada Ambius',
+          'M538': 'Home Office',
+          'M534': 'Texas',
+          'M535': 'Western',
+        }
+        const REGION_CODE_NAMES: Record<string, string> = {
+          'R052': 'Region 052',
+          'R054': 'Region 054',
+          'R056': 'Region 056',
+          'R058': 'Region 058',
+          'R060': 'Region 060',
+          'R062': 'Region 062',
+          'R064': 'Region 064',
+        }
+
         if (effectiveRole === 'exec') {
+          // Exec has no restrictions
+          // Use selected org filter if any, otherwise show "All Markets"
+          const selectedMarket = state.organizationFilters.selectedMarket
+          const marketName = selectedMarket ? (MARKET_CODE_NAMES[selectedMarket] || selectedMarket) : 'All Markets'
           return {
-            markets: markets.map(m => m.id),
+            markets: selectedMarket ? [selectedMarket] : [],
             branches: [],
-            scope: 'All Markets',
+            scope: marketName,
           }
         }
 
-        // Use effectiveUser (which may be previewedEmployee in preview mode)
-        let user = effectiveUser
-        if (!user) {
-          const users = getUsers()
-          user = users.find(u => u.id === userId) ?? users.find(u => u.role === effectiveRole) ?? null
-        }
-
-        if (!user) {
-          // Final fallback - return role-based default scope
+        // For other roles, use the preview user's assigned markets (which are real BigQuery codes)
+        if (!effectiveUser) {
+          // No user data - return role-based label
           const roleLabels: Record<string, string> = {
-            market_vp: 'Market View',
-            market_sales_director: 'Market Sales',
-            region_director: 'Region View',
-            region_sales_manager: 'Region Sales',
-            manager: 'Branch View',
+            market_vp: 'Market',
+            market_sales_director: 'Sales: Market',
+            region_director: 'Region',
+            region_sales_manager: 'Sales: Region',
+            manager: 'Branch',
             sales_manager: 'Sales Team',
             ops_manager: 'Operations',
             rep: 'My Accounts',
@@ -574,17 +672,9 @@ export const useAppStore = create<AppState>()(
           return { markets: [], branches: [], scope: roleLabels[effectiveRole] || 'My View' }
         }
 
-        // For preview users, return the assigned org codes directly (these are real BigQuery codes)
-        // For regular users, try to match with mock market data
-        const userMarkets = user.assignedMarkets || []
-
-        // Try to find market names (works for both mock IDs and real codes)
-        const marketNames = markets
-          .filter(m => userMarkets.includes(m.id) || userMarkets.includes(m.name))
-          .map(m => m.name)
-
-        // If no market names found, use the raw market codes as display (for preview users with real codes)
-        const displayMarkets = marketNames.length > 0 ? marketNames : userMarkets
+        // Get market display names from user's assigned markets (real codes)
+        const userMarkets = effectiveUser.assignedMarkets || []
+        const displayMarkets = userMarkets.map(code => MARKET_CODE_NAMES[code] || code)
 
         // Determine scope label based on effective role
         let scopeLabel: string
@@ -596,20 +686,29 @@ export const useAppStore = create<AppState>()(
             scopeLabel = 'My Routes'
             break
           case 'manager':
-            scopeLabel = `${user.assignedBranches.length} Branch${user.assignedBranches.length !== 1 ? 'es' : ''}`
-            break
           case 'sales_manager':
-            scopeLabel = `${user.assignedReps?.length || 0} Account Executives`
+          case 'ops_manager': {
+            // Show market > region > branch path
+            const branchCodes = effectiveUser.assignedBranches || []
+            const regionCodes = effectiveUser.assignedRegions || []
+            const parts: string[] = []
+            if (displayMarkets.length > 0) parts.push(displayMarkets.join(', '))
+            if (regionCodes.length > 0) parts.push(regionCodes.map(c => REGION_CODE_NAMES[c] || c).join(', '))
+            if (branchCodes.length > 0) parts.push(`Branch ${branchCodes.join(', ')}`)
+            scopeLabel = parts.join(' > ') || 'Branch'
             break
-          case 'ops_manager':
-            scopeLabel = `${user.assignedTechnicians?.length || 0} Technicians`
-            break
+          }
           case 'region_director':
-            scopeLabel = `${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
+          case 'region_sales_manager': {
+            // Show market > region path
+            const regCodes = effectiveUser.assignedRegions || []
+            const displayRegions = regCodes.map(c => REGION_CODE_NAMES[c] || c)
+            const parts: string[] = []
+            if (displayMarkets.length > 0) parts.push(displayMarkets.join(', '))
+            if (displayRegions.length > 0) parts.push(displayRegions.join(', '))
+            scopeLabel = parts.join(' > ') || 'Region'
             break
-          case 'region_sales_manager':
-            scopeLabel = `Sales: ${user.assignedRegions?.length || 0} Region${(user.assignedRegions?.length || 0) !== 1 ? 's' : ''}`
-            break
+          }
           case 'market_sales_director':
             scopeLabel = `Sales: ${displayMarkets.join(', ') || 'Market'}`
             break
@@ -621,8 +720,8 @@ export const useAppStore = create<AppState>()(
         }
 
         return {
-          markets: user.assignedMarkets,
-          branches: user.assignedBranches,
+          markets: effectiveUser.assignedMarkets,
+          branches: effectiveUser.assignedBranches,
           scope: scopeLabel,
         }
       },
@@ -676,6 +775,7 @@ export const useAppStore = create<AppState>()(
         testModeEnabled: state.testModeEnabled,
         testScenario: state.testScenario,
         organizationFilters: state.organizationFilters,
+        presentationModeEnabled: state.presentationModeEnabled,
       }),
       // Migrate persisted state to fix invalid roles
       onRehydrateStorage: () => (state) => {

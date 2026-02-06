@@ -1,15 +1,17 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { MapPin, Building2, ChevronRight, X } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { MapPin, Building, Building2, ChevronRight, X, Check, ChevronsUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { useAppStore } from '@/store'
 import { useOrganizationData } from '@/hooks/useOrganizationData'
 import { cn } from '@/lib/utils'
@@ -28,6 +30,9 @@ export function GlobalOrganizationFilter({
   className,
 }: GlobalOrganizationFilterProps) {
   const [mounted, setMounted] = useState(false)
+  const [marketOpen, setMarketOpen] = useState(false)
+  const [regionOpen, setRegionOpen] = useState(false)
+  const [branchOpen, setBranchOpen] = useState(false)
 
   const {
     organizationFilters,
@@ -49,16 +54,12 @@ export function GlobalOrganizationFilter({
   const userScope = getCurrentUserScope()
 
   // Filter markets based on user role (if they have restricted markets)
-  // Handle both mock market IDs (MKT-001) and real BigQuery codes (NE, ATL)
-  // Must be called before early return to maintain hook order
   const availableMarkets = useMemo(() => {
     if (!userScope.markets.length || userScope.markets[0] === '') {
-      return markets // No restrictions - show all markets
+      return markets
     }
 
-    // Filter markets that match either by code or by name
-    // This handles: real codes (NE), mock IDs (MKT-001), and market names (Northeast)
-    return markets.filter(m =>
+    const filtered = markets.filter(m =>
       userScope.markets.includes(m.market_code) ||
       userScope.markets.includes(m.market_name) ||
       userScope.markets.some(code =>
@@ -66,6 +67,12 @@ export function GlobalOrganizationFilter({
         code.toLowerCase() === m.market_name.toLowerCase()
       )
     )
+
+    if (filtered.length === 0 && markets.length > 0) {
+      return markets
+    }
+
+    return filtered
   }, [markets, userScope.markets])
 
   useEffect(() => {
@@ -96,81 +103,185 @@ export function GlobalOrganizationFilter({
   const hasActiveFilters = selectedMarket || selectedRegion || selectedBranch
 
   if (compact) {
-    // Compact mode: breadcrumb-style display with inline selects
     return (
       <div className={cn('flex items-center gap-1 text-sm', className)}>
         <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
 
-        {/* Market Select */}
-        <Select
-          value={selectedMarket || 'all'}
-          onValueChange={(value) => setOrganizationMarket(value === 'all' ? null : value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="h-8 w-auto min-w-[100px] max-w-[140px] border-0 bg-transparent px-2 hover:bg-muted/50">
-            <SelectValue placeholder="All Markets" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Markets</SelectItem>
-            {availableMarkets
-              .filter((market) => market.market_code && market.market_code.trim() !== '')
-              .map((market) => (
-                <SelectItem key={market.market_code} value={market.market_code}>
-                  {market.market_name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        {/* Market Combobox */}
+        <Popover open={marketOpen} onOpenChange={setMarketOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              role="combobox"
+              aria-expanded={marketOpen}
+              className="h-8 w-auto min-w-[100px] max-w-[160px] justify-between px-2 font-normal"
+              disabled={isLoading}
+            >
+              <span className="truncate">
+                {selectedMarketName || 'All Markets'}
+              </span>
+              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[220px] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search markets..." />
+              <CommandList>
+                <CommandEmpty>No market found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="all-markets"
+                    onSelect={() => {
+                      setOrganizationMarket(null)
+                      setMarketOpen(false)
+                    }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', !selectedMarket ? 'opacity-100' : 'opacity-0')} />
+                    All Markets
+                  </CommandItem>
+                  {availableMarkets
+                    .filter(m => m.market_code && m.market_code.trim() !== '')
+                    .map((market) => (
+                      <CommandItem
+                        key={market.market_code}
+                        value={market.market_name}
+                        onSelect={() => {
+                          setOrganizationMarket(
+                            market.market_code === selectedMarket ? null : market.market_code
+                          )
+                          setMarketOpen(false)
+                        }}
+                      >
+                        <Check className={cn('mr-2 h-4 w-4', selectedMarket === market.market_code ? 'opacity-100' : 'opacity-0')} />
+                        {market.market_name}
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
-        {/* Region Select (only if market selected and showRegion) */}
+        {/* Region Combobox (only if market selected) */}
         {showRegion && selectedMarket && (
           <>
             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            <Select
-              value={selectedRegion || 'all'}
-              onValueChange={(value) => setOrganizationRegion(value === 'all' ? null : value)}
-              disabled={isLoading || availableRegions.length === 0}
-            >
-              <SelectTrigger className="h-8 w-auto min-w-[100px] max-w-[140px] border-0 bg-transparent px-2 hover:bg-muted/50">
-                <SelectValue placeholder="All Regions" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Regions</SelectItem>
-                {availableRegions
-                  .filter((region) => region.region_code && region.region_code.trim() !== '')
-                  .map((region) => (
-                    <SelectItem key={region.region_code} value={region.region_code}>
-                      {region.region_name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <Popover open={regionOpen} onOpenChange={setRegionOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  role="combobox"
+                  aria-expanded={regionOpen}
+                  className="h-8 w-auto min-w-[100px] max-w-[160px] justify-between px-2 font-normal"
+                  disabled={isLoading || availableRegions.length === 0}
+                >
+                  <span className="truncate">
+                    {selectedRegionName || 'All Regions'}
+                  </span>
+                  <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[220px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search regions..." />
+                  <CommandList>
+                    <CommandEmpty>No region found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="all-regions"
+                        onSelect={() => {
+                          setOrganizationRegion(null)
+                          setRegionOpen(false)
+                        }}
+                      >
+                        <Check className={cn('mr-2 h-4 w-4', !selectedRegion ? 'opacity-100' : 'opacity-0')} />
+                        All Regions
+                      </CommandItem>
+                      {availableRegions
+                        .filter(r => r.region_code && r.region_code.trim() !== '')
+                        .map((region) => (
+                          <CommandItem
+                            key={region.region_code}
+                            value={region.region_name}
+                            onSelect={() => {
+                              setOrganizationRegion(
+                                region.region_code === selectedRegion ? null : region.region_code
+                              )
+                              setRegionOpen(false)
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', selectedRegion === region.region_code ? 'opacity-100' : 'opacity-0')} />
+                            {region.region_name}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </>
         )}
 
-        {/* Branch Select (only if region selected and showBranch) */}
+        {/* Branch Combobox (only if region selected) */}
         {showBranch && selectedRegion && (
           <>
             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            <Select
-              value={selectedBranch || 'all'}
-              onValueChange={(value) => setOrganizationBranch(value === 'all' ? null : value)}
-              disabled={isLoading || availableBranches.length === 0}
-            >
-              <SelectTrigger className="h-8 w-auto min-w-[100px] max-w-[140px] border-0 bg-transparent px-2 hover:bg-muted/50">
-                <SelectValue placeholder="All Branches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Branches</SelectItem>
-                {availableBranches
-                  .filter((branch) => branch.branch_code && branch.branch_code.trim() !== '')
-                  .map((branch) => (
-                    <SelectItem key={branch.branch_code} value={branch.branch_code}>
-                      {branch.branch_name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  role="combobox"
+                  aria-expanded={branchOpen}
+                  className="h-8 w-auto min-w-[100px] max-w-[160px] justify-between px-2 font-normal"
+                  disabled={isLoading || availableBranches.length === 0}
+                >
+                  <span className="truncate">
+                    {selectedBranchName || 'All Branches'}
+                  </span>
+                  <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search branches..." />
+                  <CommandList>
+                    <CommandEmpty>No branch found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="all-branches"
+                        onSelect={() => {
+                          setOrganizationBranch(null)
+                          setBranchOpen(false)
+                        }}
+                      >
+                        <Check className={cn('mr-2 h-4 w-4', !selectedBranch ? 'opacity-100' : 'opacity-0')} />
+                        All Branches
+                      </CommandItem>
+                      {availableBranches
+                        .filter(b => b.branch_code && b.branch_code.trim() !== '')
+                        .map((branch) => (
+                          <CommandItem
+                            key={branch.branch_code}
+                            value={`${branch.branch_name} ${branch.city} ${branch.state}`}
+                            onSelect={() => {
+                              setOrganizationBranch(
+                                branch.branch_code === selectedBranch ? null : branch.branch_code
+                              )
+                              setBranchOpen(false)
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', selectedBranch === branch.branch_code ? 'opacity-100' : 'opacity-0')} />
+                            <span className="truncate">{branch.branch_name}</span>
+                            <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                              {branch.city}, {branch.state}
+                            </span>
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </>
         )}
 
@@ -193,85 +304,187 @@ export function GlobalOrganizationFilter({
   // Full mode: stacked or horizontal layout with labels
   return (
     <div className={cn('flex flex-col sm:flex-row gap-3', className)}>
-      {/* Market Select */}
+      {/* Market Combobox */}
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-muted-foreground">Market</label>
-        <Select
-          value={selectedMarket || 'all'}
-          onValueChange={(value) => setOrganizationMarket(value === 'all' ? null : value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="w-[180px]">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder="All Markets" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Markets</SelectItem>
-            {availableMarkets
-              .filter((market) => market.market_code && market.market_code.trim() !== '')
-              .map((market) => (
-                <SelectItem key={market.market_code} value={market.market_code}>
-                  {market.market_name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        <Popover open={marketOpen} onOpenChange={setMarketOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={marketOpen}
+              className="w-[180px] justify-between font-normal"
+              disabled={isLoading}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="truncate">{selectedMarketName || 'All Markets'}</span>
+              </div>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[220px] p-0">
+            <Command>
+              <CommandInput placeholder="Search markets..." />
+              <CommandList>
+                <CommandEmpty>No market found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="all-markets"
+                    onSelect={() => {
+                      setOrganizationMarket(null)
+                      setMarketOpen(false)
+                    }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', !selectedMarket ? 'opacity-100' : 'opacity-0')} />
+                    All Markets
+                  </CommandItem>
+                  {availableMarkets
+                    .filter(m => m.market_code && m.market_code.trim() !== '')
+                    .map((market) => (
+                      <CommandItem
+                        key={market.market_code}
+                        value={market.market_name}
+                        onSelect={() => {
+                          setOrganizationMarket(
+                            market.market_code === selectedMarket ? null : market.market_code
+                          )
+                          setMarketOpen(false)
+                        }}
+                      >
+                        <Check className={cn('mr-2 h-4 w-4', selectedMarket === market.market_code ? 'opacity-100' : 'opacity-0')} />
+                        {market.market_name}
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
-      {/* Region Select */}
+      {/* Region Combobox */}
       {showRegion && (
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">Region</label>
-          <Select
-            value={selectedRegion || 'all'}
-            onValueChange={(value) => setOrganizationRegion(value === 'all' ? null : value)}
-            disabled={isLoading || !selectedMarket}
-          >
-            <SelectTrigger className={cn('w-[180px]', !selectedMarket && 'opacity-50')}>
-              <SelectValue placeholder={selectedMarket ? 'All Regions' : 'Select Market First'} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Regions</SelectItem>
-              {availableRegions
-                .filter((region) => region.region_code && region.region_code.trim() !== '')
-                .map((region) => (
-                  <SelectItem key={region.region_code} value={region.region_code}>
-                    {region.region_name}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+          <Popover open={regionOpen} onOpenChange={setRegionOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={regionOpen}
+                className={cn('w-[180px] justify-between font-normal', !selectedMarket && 'opacity-50')}
+                disabled={isLoading || !selectedMarket}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Building className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">{selectedRegionName || (selectedMarket ? 'All Regions' : 'Select Market First')}</span>
+                </div>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[220px] p-0">
+              <Command>
+                <CommandInput placeholder="Search regions..." />
+                <CommandList>
+                  <CommandEmpty>No region found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all-regions"
+                      onSelect={() => {
+                        setOrganizationRegion(null)
+                        setRegionOpen(false)
+                      }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', !selectedRegion ? 'opacity-100' : 'opacity-0')} />
+                      All Regions
+                    </CommandItem>
+                    {availableRegions
+                      .filter(r => r.region_code && r.region_code.trim() !== '')
+                      .map((region) => (
+                        <CommandItem
+                          key={region.region_code}
+                          value={region.region_name}
+                          onSelect={() => {
+                            setOrganizationRegion(
+                              region.region_code === selectedRegion ? null : region.region_code
+                            )
+                            setRegionOpen(false)
+                          }}
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', selectedRegion === region.region_code ? 'opacity-100' : 'opacity-0')} />
+                          {region.region_name}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
       )}
 
-      {/* Branch Select */}
+      {/* Branch Combobox */}
       {showBranch && (
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">Branch</label>
-          <Select
-            value={selectedBranch || 'all'}
-            onValueChange={(value) => setOrganizationBranch(value === 'all' ? null : value)}
-            disabled={isLoading || !selectedRegion}
-          >
-            <SelectTrigger className={cn('w-[180px]', !selectedRegion && 'opacity-50')}>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder={selectedRegion ? 'All Branches' : 'Select Region First'} />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {availableBranches
-                .filter((branch) => branch.branch_code && branch.branch_code.trim() !== '')
-                .map((branch) => (
-                  <SelectItem key={branch.branch_code} value={branch.branch_code}>
-                    {branch.branch_name}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+          <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={branchOpen}
+                className={cn('w-[180px] justify-between font-normal', !selectedRegion && 'opacity-50')}
+                disabled={isLoading || !selectedRegion}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">{selectedBranchName || (selectedRegion ? 'All Branches' : 'Select Region First')}</span>
+                </div>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[250px] p-0">
+              <Command>
+                <CommandInput placeholder="Search branches..." />
+                <CommandList>
+                  <CommandEmpty>No branch found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all-branches"
+                      onSelect={() => {
+                        setOrganizationBranch(null)
+                        setBranchOpen(false)
+                      }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', !selectedBranch ? 'opacity-100' : 'opacity-0')} />
+                      All Branches
+                    </CommandItem>
+                    {availableBranches
+                      .filter(b => b.branch_code && b.branch_code.trim() !== '')
+                      .map((branch) => (
+                        <CommandItem
+                          key={branch.branch_code}
+                          value={`${branch.branch_name} ${branch.city} ${branch.state}`}
+                          onSelect={() => {
+                            setOrganizationBranch(
+                              branch.branch_code === selectedBranch ? null : branch.branch_code
+                            )
+                            setBranchOpen(false)
+                          }}
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', selectedBranch === branch.branch_code ? 'opacity-100' : 'opacity-0')} />
+                          <span className="truncate">{branch.branch_name}</span>
+                          <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                            {branch.city}, {branch.state}
+                          </span>
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
       )}
 

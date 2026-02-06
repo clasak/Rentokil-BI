@@ -120,11 +120,13 @@ export async function POST(request: NextRequest) {
 
     // Get authenticated user
     const supabase = await createClient()
+    // Use getUser() to validate JWT server-side (getSession() only reads from cookie without validation)
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json(
         {
           success: false,
@@ -134,7 +136,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userId = session.user.id
+    const userId = user.id
 
     // Process based on import type
     let result

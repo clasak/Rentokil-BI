@@ -40,7 +40,7 @@ function transformBQToCanceledAgreements(bqData: BQCanceledAgreement[]): Cancele
     return 'other'
   }
 
-  return bqData.map((d) => {
+  return (bqData || []).map((d) => {
     const cancelReason = mapCancelReason(d.cancel_reason)
     const daysToCancel = d.days_to_cancel
 

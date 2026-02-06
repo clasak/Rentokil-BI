@@ -7,6 +7,40 @@ import { getRoleBasedFilters, getEffectiveUserForFiltering, shouldApplyRoleFilte
 
 // Configuration
 const QUERY_TIMEOUT_MS = 30000 // 30 second timeout
+const CACHE_TTL_MS = 60_000 // 1 minute cache TTL
+
+// Simple client-side query cache to prevent redundant BigQuery calls
+// on re-renders, tab switches, and navigation between pages
+interface CacheEntry {
+  data: unknown
+  timestamp: number
+  metadata?: { responseTime: number; timestamp: string; source: string }
+}
+
+const queryCache = new Map<string, CacheEntry>()
+
+function getCacheKey(queryName: string, filters: Record<string, unknown>): string {
+  return `${queryName}:${JSON.stringify(filters)}`
+}
+
+function getCachedResult(key: string): CacheEntry | null {
+  const entry = queryCache.get(key)
+  if (!entry) return null
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    queryCache.delete(key)
+    return null
+  }
+  return entry
+}
+
+function setCacheResult(key: string, data: unknown, metadata?: CacheEntry['metadata']): void {
+  queryCache.set(key, { data, timestamp: Date.now(), metadata })
+  // Evict old entries if cache grows too large (prevent memory leak)
+  if (queryCache.size > 200) {
+    const oldest = [...queryCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)
+    for (let i = 0; i < 50; i++) queryCache.delete(oldest[i][0])
+  }
+}
 
 interface BigQueryResponse<T> {
   success: boolean
@@ -61,7 +95,12 @@ export function useBigQueryData<T, M>({
   const [mounted, setMounted] = useState(false)
 
   // Get organization filters, date filters, and user context from global store
-  const { organizationFilters, filters: globalFilters, currentUser, previewedEmployee, isPreviewingRole } = useAppStore()
+  // Use individual selectors to ensure re-renders when these specific values change
+  const organizationFilters = useAppStore((state) => state.organizationFilters)
+  const globalFilters = useAppStore((state) => state.filters)
+  const currentUser = useAppStore((state) => state.currentUser)
+  const previewedEmployee = useAppStore((state) => state.previewedEmployee)
+  const isPreviewingRole = useAppStore((state) => state.isPreviewingRole)
 
   // Get effective user for role-based filtering (real user or previewed employee)
   const effectiveUser = getEffectiveUserForFiltering(currentUser, previewedEmployee, isPreviewingRole)
@@ -101,15 +140,21 @@ export function useBigQueryData<T, M>({
     }
 
     // Add organization hierarchy filters (manual selections from UI)
+    // NOTE: Add BOTH naming conventions for backward compatibility:
+    // - Queries may use either 'market' or 'marketCode' (same for region/branch)
+    // - This ensures filters work regardless of query implementation
     if (includeOrgFilters) {
       if (organizationFilters.selectedMarket) {
         merged.market = organizationFilters.selectedMarket
+        merged.marketCode = organizationFilters.selectedMarket // Alternative name for compatibility
       }
       if (organizationFilters.selectedRegion) {
         merged.region = organizationFilters.selectedRegion
+        merged.regionCode = organizationFilters.selectedRegion // Alternative name for compatibility
       }
       if (organizationFilters.selectedBranch) {
         merged.branch = organizationFilters.selectedBranch
+        merged.branchCode = organizationFilters.selectedBranch // Alternative name for compatibility
       }
     }
 
@@ -147,6 +192,24 @@ export function useBigQueryData<T, M>({
     if (!enabled) {
       setData(stableDefaultData)
       setDataSource('loading')
+      setIsLoading(false)
+      return
+    }
+
+    // Check client-side cache before making network request
+    const cacheKey = getCacheKey(queryName, stableFilters)
+    const cached = getCachedResult(cacheKey)
+    if (cached) {
+      const transformed = transformRef.current(cached.data as T)
+      setData(transformed)
+      setDataSource('bigquery')
+      setResponseTime(cached.metadata?.responseTime)
+      setError(undefined)
+      setErrorType(undefined)
+      const dataIsEmpty = Array.isArray(cached.data)
+        ? (cached.data as unknown[]).length === 0
+        : Object.keys((cached.data as object) || {}).length === 0
+      setIsEmpty(dataIsEmpty)
       setIsLoading(false)
       return
     }
@@ -202,9 +265,34 @@ export function useBigQueryData<T, M>({
         return
       }
 
+      // Handle server errors (500+) - try to parse JSON error body, fall back to status text
+      if (!response.ok) {
+        let errorMessage = `Server error (${response.status})`
+        let errorCode = 'SERVER_ERROR'
+        try {
+          const errorResult: BigQueryResponse<T> = await response.json()
+          errorMessage = errorResult.error || errorMessage
+          errorCode = errorResult.errorCode || errorCode
+        } catch {
+          // Response body is not JSON (e.g. HTML error page) - use status text
+          errorMessage = `Server error: ${response.statusText || response.status}`
+        }
+        console.error(`[useBigQueryData] Query "${queryName}" server error ${response.status}: ${errorCode}`)
+        setDataSource('error')
+        setError(errorMessage)
+        setErrorType('query')
+        setData(stableDefaultData)
+        setIsEmpty(false)
+        setIsLoading(false)
+        return
+      }
+
       const result: BigQueryResponse<T> = await response.json()
 
       if (result.success && result.data) {
+        // Cache the raw result for future use
+        setCacheResult(cacheKey, result.data, result.metadata)
+
         const transformed = transformRef.current(result.data)
         setData(transformed)
         setDataSource('bigquery')
@@ -218,7 +306,7 @@ export function useBigQueryData<T, M>({
           : Object.keys(result.data || {}).length === 0
         setIsEmpty(dataIsEmpty)
       } else {
-        // BigQuery query failed
+        // BigQuery query failed (200 response but success=false)
         const errorCode = result.errorCode || 'UNKNOWN_ERROR'
 
         // Log error code for debugging (safe - no sensitive info)
@@ -246,12 +334,23 @@ export function useBigQueryData<T, M>({
         return
       }
 
-      const errorMsg = err instanceof Error ? err.message : 'Network error'
+      // Determine error type and message
+      let errorMsg: string
+      let errType: 'network' | 'query' = 'network'
+      if (err instanceof SyntaxError) {
+        // JSON parse error - server returned non-JSON response (e.g. HTML error page)
+        errorMsg = 'Server returned an invalid response. The server may be restarting.'
+        errType = 'query'
+      } else if (err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('network'))) {
+        errorMsg = 'Network error. Please check your connection.'
+      } else {
+        errorMsg = err instanceof Error ? err.message : 'Network error'
+      }
       console.error(`[useBigQueryData] Error for "${queryName}":`, errorMsg)
 
       setDataSource('error')
       setError(errorMsg)
-      setErrorType('network')
+      setErrorType(errType)
       setData(stableDefaultData)
       setIsEmpty(false)
     } finally {
@@ -262,14 +361,9 @@ export function useBigQueryData<T, M>({
   }, [queryName, stableFilters, enabled, mounted, stableDefaultData])
 
   useEffect(() => {
-    let isMounted = true
-
-    if (isMounted) {
-      fetchData()
-    }
+    fetchData()
 
     return () => {
-      isMounted = false
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
         abortControllerRef.current = null

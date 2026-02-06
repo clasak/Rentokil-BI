@@ -28,30 +28,35 @@ function transformBQToStartRateMetrics(bqData: BQStartRateMetric[]): StartRateMe
   const serviceTypes = ['General Pest', 'Termite', 'Commercial', 'Wildlife', 'Fumigation']
   const markets = ['Northeast', 'Southeast', 'Midwest', 'Southwest', 'West']
 
-  return bqData.map((d) => {
+  return (bqData || []).map((d, dataIdx) => {
     const totalCanceled = Math.round(d.total_sold * (1 - d.start_rate) * 0.4)
     const cancelRate = d.total_sold > 0 ? totalCanceled / d.total_sold : 0
-    const avgDaysToStart = 5 + Math.random() * 8
+    // Derive avg days to start from the start rate (higher rate = faster starts)
+    const avgDaysToStart = d.start_rate > 0 ? Math.round((1 - d.start_rate) * 20 + 3) : 10
 
-    // Generate breakdowns
+    // Generate deterministic breakdowns using index-based proportions
     const byServiceType: Record<string, { sold: number; started: number; rate: number }> = {}
     const byMarket: Record<string, { sold: number; started: number; rate: number }> = {}
 
+    // Deterministic proportions for service types (sum to ~1.0)
+    const typeShares = [0.28, 0.22, 0.20, 0.17, 0.13]
     serviceTypes.forEach((type, i) => {
-      const pct = 0.15 + Math.random() * 0.1
+      const pct = typeShares[i]
       byServiceType[type] = {
         sold: Math.round(d.total_sold * pct),
         started: Math.round(d.total_started * pct),
-        rate: 0.75 + Math.random() * 0.2,
+        rate: d.start_rate + (i - 2) * 0.03, // Slight deterministic variation
       }
     })
 
+    // Deterministic proportions for markets (sum to ~1.0)
+    const marketShares = [0.25, 0.22, 0.20, 0.18, 0.15]
     markets.forEach((market, i) => {
-      const pct = 0.15 + Math.random() * 0.1
+      const pct = marketShares[i]
       byMarket[market] = {
         sold: Math.round(d.total_sold * pct),
         started: Math.round(d.total_started * pct),
-        rate: 0.75 + Math.random() * 0.2,
+        rate: d.start_rate + (i - 2) * 0.025, // Slight deterministic variation
       }
     })
 
@@ -108,6 +113,8 @@ export default function StartRatePage() {
     filters: { startYearMonth: 202401 },
     defaultData: EMPTY_START_RATE_METRICS,
     transformBigQueryData: transformBQToStartRateMetrics,
+    includeOrgFilters: true, // Start rate metrics - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   if (isLoading || metrics.length === 0) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAppStore } from '@/store'
 import { useEffectiveRole } from '@/hooks/useEffectiveRole'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
@@ -39,35 +39,36 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-  Cell,
 } from 'recharts'
 import {
   Users,
   Target,
   DollarSign,
   TrendingUp,
+  TrendingDown,
   CheckCircle,
   AlertCircle,
   MapPin,
   Building2,
+  ChevronLeft,
   ChevronRight,
   RefreshCw,
   Calendar,
   Save,
-  Flame,
+  AlertTriangle,
+  FileText,
+  ExternalLink,
 } from 'lucide-react'
+import { startOfWeek, startOfMonth, startOfQuarter, startOfYear, differenceInDays, format, subDays } from 'date-fns'
+import PeriodSelector from '@/components/rtx/PeriodSelector'
+import type { PeriodType } from '@/components/rtx/PeriodSelector'
+import { cn, formatCurrency } from '@/lib/utils'
 import {
   initializeDailySalesData,
-  getAllMarkets,
-  getRegionsForMarket,
   getBranchesByRegion,
   getBranches,
   getBranchByCode,
-  getEntriesForDate,
   getEntriesForBranch,
-  getMarketSummary,
-  getRegionSummary,
-  getBranchDashboardStats,
   addDailyEntry,
   DEFAULT_DAILY_GOALS,
   REGION_NAMES,
@@ -75,143 +76,13 @@ import {
 } from '@/lib/daily-sales-data'
 import { MarketCode, RegionCode, DailySalesEntry, Branch, DailySalesInput } from '@/types/daily-sales-cadence'
 import type { MarketDaily, RegionDaily, BranchDaily } from '@/lib/bigquery/queries/branch'
+import type { BranchWorkforce } from '@/lib/bigquery/queries/organization-workforce'
 
 type DailyPerformanceLevel = 'market' | 'region' | 'branch'
 
 // =============================================================================
-// Market Types
-// =============================================================================
-
-interface MarketDailyDisplay {
-  markets: Array<{
-    market: string
-    regionCount: number
-    branchCount: number
-    revenue: number
-    leads: number
-    sales: number
-    closeRate: number
-  }>
-  totalRevenue: number
-  totalLeads: number
-  totalSales: number
-  avgCloseRate: number
-}
-
-const EMPTY_MARKET_DAILY: MarketDailyDisplay = {
-  markets: [],
-  totalRevenue: 0,
-  totalLeads: 0,
-  totalSales: 0,
-  avgCloseRate: 0,
-}
-
-function transformMarketBigQueryData(bqData: MarketDaily[]): MarketDailyDisplay {
-  const totalRevenue = bqData.reduce((sum, m) => sum + (m.revenue || 0), 0)
-  const totalLeads = bqData.reduce((sum, m) => sum + (m.leads || 0), 0)
-  const totalSales = bqData.reduce((sum, m) => sum + (m.sales || 0), 0)
-  const avgCloseRate = bqData.length > 0
-    ? bqData.reduce((sum, m) => sum + (m.close_rate || 0), 0) / bqData.length
-    : 0
-
-  return {
-    markets: bqData.map(m => ({
-      market: m.market || 'Unknown',
-      regionCount: m.region_count || 0,
-      branchCount: m.branch_count || 0,
-      revenue: m.revenue || 0,
-      leads: m.leads || 0,
-      sales: m.sales || 0,
-      closeRate: m.close_rate || 0,
-    })),
-    totalRevenue,
-    totalLeads,
-    totalSales,
-    avgCloseRate,
-  }
-}
-
-// =============================================================================
-// Region Types
-// =============================================================================
-
-interface RegionDailyDisplay {
-  entries: Array<{
-    date: string
-    region: string
-    branchCount: number
-    revenue: number
-    leads: number
-    sales: number
-    closeRate: number
-    avgRevenuePerBranch: number
-  }>
-}
-
-const EMPTY_REGION_DAILY: RegionDailyDisplay = {
-  entries: []
-}
-
-function transformRegionBigQueryData(bqData: RegionDaily[]): RegionDailyDisplay {
-  return {
-    entries: bqData.map(row => ({
-      date: row.date,
-      region: row.region,
-      branchCount: row.branch_count,
-      revenue: row.revenue,
-      leads: row.leads,
-      sales: row.sales,
-      closeRate: row.close_rate,
-      avgRevenuePerBranch: row.avg_revenue_per_branch,
-    }))
-  }
-}
-
-// =============================================================================
-// Branch Types
-// =============================================================================
-
-interface BranchDailyDisplay {
-  entries: Array<{
-    date: string
-    branchId: string
-    branchName: string
-    revenue: number
-    leads: number
-    sales: number
-    closeRate: number
-  }>
-}
-
-const EMPTY_BRANCH_DAILY: BranchDailyDisplay = {
-  entries: []
-}
-
-function transformBranchBigQueryData(bqData: BranchDaily[]): BranchDailyDisplay {
-  return {
-    entries: bqData.map(row => ({
-      date: row.date,
-      branchId: row.branch_id,
-      branchName: row.branch_name,
-      revenue: row.revenue,
-      leads: row.leads,
-      sales: row.sales,
-      closeRate: row.close_rate,
-    }))
-  }
-}
-
-// =============================================================================
 // Utility Functions
 // =============================================================================
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-  }).format(value)
-}
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
@@ -221,6 +92,146 @@ function formatDate(dateStr: string): string {
 function formatDateShort(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+// =============================================================================
+// Period Drill-Down Helpers
+// =============================================================================
+
+interface PeriodState {
+  period: PeriodType
+  customStartDate: string
+  customEndDate: string
+  drilledDate: string | null
+}
+
+const DEFAULT_PERIOD_STATE: PeriodState = {
+  period: 'wtd',
+  customStartDate: '',
+  customEndDate: '',
+  drilledDate: null,
+}
+
+function getDateRangeForPeriod(
+  period: PeriodType,
+  customStart?: string,
+  customEnd?: string,
+): { startDate: string; endDate: string } {
+  const yesterday = subDays(new Date(), 1)
+  const endDate = format(yesterday, 'yyyy-MM-dd')
+
+  switch (period) {
+    case 'today':
+      return { startDate: endDate, endDate }
+    case 'wtd':
+      return { startDate: format(startOfWeek(yesterday, { weekStartsOn: 1 }), 'yyyy-MM-dd'), endDate }
+    case 'mtd':
+      return { startDate: format(startOfMonth(yesterday), 'yyyy-MM-dd'), endDate }
+    case 'qtd':
+      return { startDate: format(startOfQuarter(yesterday), 'yyyy-MM-dd'), endDate }
+    case 'ytd':
+      return { startDate: format(startOfYear(yesterday), 'yyyy-MM-dd'), endDate }
+    case 'custom':
+      return {
+        startDate: customStart || endDate,
+        endDate: customEnd || endDate,
+      }
+  }
+}
+
+function getPriorPeriodRange(
+  startDate: string,
+  endDate: string,
+): { startDate: string; endDate: string } {
+  const start = new Date(startDate + 'T12:00:00')
+  const end = new Date(endDate + 'T12:00:00')
+  const durationDays = differenceInDays(end, start) + 1
+  const priorEnd = subDays(start, 1)
+  const priorStart = subDays(start, durationDays)
+  return {
+    startDate: format(priorStart, 'yyyy-MM-dd'),
+    endDate: format(priorEnd, 'yyyy-MM-dd'),
+  }
+}
+
+function getDaysBackForPeriod(
+  period: PeriodType,
+  customStart?: string,
+  customEnd?: string,
+): number {
+  const range = getDateRangeForPeriod(period, customStart, customEnd)
+  const priorRange = getPriorPeriodRange(range.startDate, range.endDate)
+  const today = new Date()
+  const earliestDate = new Date(priorRange.startDate + 'T12:00:00')
+  const days = differenceInDays(today, earliestDate) + 2
+  return Math.max(days, 30)
+}
+
+function filterRowsByDateRange<T extends { date: string }>(
+  rows: T[],
+  startDate: string,
+  endDate: string,
+): T[] {
+  return rows.filter(r => r.date >= startDate && r.date <= endDate)
+}
+
+interface AggregatedMetrics {
+  revenue: number
+  leads: number
+  sales: number
+  closeRate: number
+  dayCount: number
+}
+
+function aggregateMetrics(rows: Array<{ revenue: number; leads: number; sales: number; close_rate: number }>): AggregatedMetrics {
+  if (rows.length === 0) return { revenue: 0, leads: 0, sales: 0, closeRate: 0, dayCount: 0 }
+  return {
+    revenue: rows.reduce((sum, r) => sum + (r.revenue || 0), 0),
+    leads: rows.reduce((sum, r) => sum + (r.leads || 0), 0),
+    sales: rows.reduce((sum, r) => sum + (r.sales || 0), 0),
+    closeRate: rows.length > 0
+      ? rows.reduce((sum, r) => sum + (r.close_rate || 0), 0) / rows.length
+      : 0,
+    dayCount: rows.length,
+  }
+}
+
+function computeDelta(current: number, prior: number): { delta: number; deltaPercent: number } {
+  const delta = current - prior
+  const deltaPercent = prior !== 0 ? (delta / prior) * 100 : current > 0 ? 100 : 0
+  return { delta, deltaPercent }
+}
+
+function DeltaBadge({ current, prior, label = 'vs prior' }: { current: number; prior: number; label?: string }) {
+  if (prior === 0 && current === 0) return null
+  const { deltaPercent } = computeDelta(current, prior)
+  const isPositive = deltaPercent > 0
+  const isNegative = deltaPercent < 0
+  return (
+    <div className={cn(
+      'flex items-center gap-1 text-xs font-medium mt-1',
+      isPositive && 'text-green-600 dark:text-green-400',
+      isNegative && 'text-red-600 dark:text-red-400',
+      !isPositive && !isNegative && 'text-gray-500'
+    )}>
+      {isPositive && <TrendingUp className="h-3 w-3" />}
+      {isNegative && <TrendingDown className="h-3 w-3" />}
+      <span>{deltaPercent > 0 ? '+' : ''}{deltaPercent.toFixed(1)}% {label}</span>
+    </div>
+  )
+}
+
+function getPeriodLabel(period: PeriodType, startDate?: string, endDate?: string): string {
+  switch (period) {
+    case 'today': return 'Today'
+    case 'wtd': return 'Week to Date'
+    case 'mtd': return 'Month to Date'
+    case 'qtd': return 'Quarter to Date'
+    case 'ytd': return 'Year to Date'
+    case 'custom': return startDate && endDate
+      ? `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`
+      : 'Custom Range'
+  }
 }
 
 // =============================================================================
@@ -247,6 +258,14 @@ export default function DailyPerformancePage() {
     initializeDailySalesData()
   }, [])
 
+  // Update active tab when role changes (e.g., admin switches preview role)
+  useEffect(() => {
+    if (!mounted) return
+    const defaultLevel = getDefaultLevel()
+    setActiveLevel(defaultLevel)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, mounted])
+
   // Determine which tabs to show based on role
   const availableTabs = {
     market: ['exec', 'market_vp', 'market_sales_director'].includes(role),
@@ -272,7 +291,7 @@ export default function DailyPerformancePage() {
         </div>
       </div>
 
-      <Tabs value={activeLevel} onValueChange={(value) => setActiveLevel(value as DailyPerformanceLevel)}>
+      <Tabs id="daily-perf-tabs" value={activeLevel} onValueChange={(value) => setActiveLevel(value as DailyPerformanceLevel)}>
         <TabsList>
           {availableTabs.market && (
             <TabsTrigger value="market">Market</TabsTrigger>
@@ -313,23 +332,56 @@ export default function DailyPerformancePage() {
 
 function MarketDailyView() {
   const [selectedMarket, setSelectedMarket] = useState<string>('')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [periodState, setPeriodState] = useState<PeriodState>(DEFAULT_PERIOD_STATE)
   const [expandedRegion, setExpandedRegion] = useState<string | null>(null)
-  const [branchEntries, setBranchEntries] = useState<Map<string, DailySalesEntry | null>>(new Map())
 
-  const { markets: orgMarkets, getRegionsForMarket: getOrgRegionsForMarket, isLoading: marketsLoading } = useOrganizationData()
+  const { markets: orgMarkets, getRegionsForMarket: getOrgRegionsForMarket, getBranchesForRegion, isLoading: marketsLoading } = useOrganizationData()
+
+  // Compute dynamic daysBack based on selected period
+  const daysBack = useMemo(
+    () => getDaysBackForPeriod(periodState.period, periodState.customStartDate, periodState.customEndDate),
+    [periodState.period, periodState.customStartDate, periodState.customEndDate]
+  )
+
+  // Explicit transform for market daily data with null handling
+  function transformMarketDailyData(bqData: MarketDaily[]): MarketDaily[] {
+    return (bqData || []).map(row => ({
+      date: row.date ?? '',
+      market: row.market ?? 'Unknown',
+      region_count: row.region_count ?? 0,
+      branch_count: row.branch_count ?? 0,
+      revenue: row.revenue ?? 0,
+      leads: row.leads ?? 0,
+      sales: row.sales ?? 0,
+      close_rate: row.close_rate ?? 0,
+    }))
+  }
 
   const {
-    data: marketDailyData,
+    data: marketDailyRawData,
     isLoading: isBQLoading,
     dataSource,
     responseTime,
+    error,
     refetch,
-  } = useBigQueryData<MarketDaily[], MarketDailyDisplay>({
+  } = useBigQueryData<MarketDaily[], MarketDaily[]>({
     queryName: 'market-daily',
-    filters: { daysBack: 30 },
-    defaultData: EMPTY_MARKET_DAILY,
-    transformBigQueryData: transformMarketBigQueryData,
+    filters: { daysBack },
+    defaultData: [],
+    transformBigQueryData: transformMarketDailyData,
+  })
+
+  // Branch workforce data - employee counts by role per branch
+  const {
+    data: branchWorkforceData,
+  } = useBigQueryData<BranchWorkforce[], BranchWorkforce[]>({
+    queryName: 'branch-workforce',
+    filters: { marketCode: selectedMarket },
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false, // Market selection handled manually
+    includeRoleFilters: false, // Company-wide workforce data
+    enabled: !!selectedMarket,
   })
 
   useEffect(() => {
@@ -338,14 +390,59 @@ function MarketDailyView() {
     }
   }, [orgMarkets, selectedMarket])
 
-  useEffect(() => {
-    const dateEntries = getEntriesForDate(selectedDate)
-    const entriesMap = new Map<string, DailySalesEntry | null>()
-    dateEntries.forEach(entry => {
-      entriesMap.set(entry.branchCode, entry)
-    })
-    setBranchEntries(entriesMap)
-  }, [selectedMarket, selectedDate])
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <Breadcrumb items={[
+          { label: 'Command Center', href: '/' },
+          { label: 'Daily Performance' }
+        ]} />
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Daily Performance</h1>
+          <p className="text-gray-500 dark:text-gray-400">Daily cadence metrics across organizational levels</p>
+        </div>
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Data</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context information */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{dataSource}</p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">market-daily</p>
+              </div>
+            </div>
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('/platform-admin', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (marketsLoading || !selectedMarket) {
     return (
@@ -357,12 +454,87 @@ function MarketDailyView() {
   }
 
   const selectedMarketData = orgMarkets.find(m => m.market_code === selectedMarket)
-  const marketSummary = getMarketSummary(selectedMarket as MarketCode, selectedDate)
-  const regions = getRegionsForMarket(selectedMarket as MarketCode)
+
+  // Filter data for selected market
+  const marketFilteredData = marketDailyRawData.filter((row: MarketDaily) => {
+    return selectedMarketData?.market_name &&
+      row.market.toLowerCase().includes(selectedMarketData.market_name.toLowerCase().replace(' market', ''))
+  })
+
+  // Compute date ranges for period
+  const currentRange = getDateRangeForPeriod(periodState.period, periodState.customStartDate, periodState.customEndDate)
+  const priorRange = getPriorPeriodRange(currentRange.startDate, currentRange.endDate)
+
+  // Determine view mode
+  const effectiveDate = periodState.drilledDate || (periodState.period === 'today' ? currentRange.endDate : null)
+  const showSingleDayView = effectiveDate !== null
+  const showPeriodView = !showSingleDayView
+
+  // Current & prior period data
+  const currentPeriodRows = filterRowsByDateRange(marketFilteredData, currentRange.startDate, currentRange.endDate)
+  const priorPeriodRows = filterRowsByDateRange(marketFilteredData, priorRange.startDate, priorRange.endDate)
+  const currentAgg = aggregateMetrics(currentPeriodRows)
+  const priorAgg = aggregateMetrics(priorPeriodRows)
+
+  // Single day data (for drill or today)
+  const singleDayData = effectiveDate
+    ? marketFilteredData.find(r => r.date === effectiveDate) || null
+    : null
+
+  // Trend chart data
+  const trendData = currentPeriodRows
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(row => ({
+      date: row.date,
+      dateLabel: formatDateShort(row.date),
+      leads: row.leads,
+      sales: row.sales,
+      revenue: row.revenue,
+      closeRate: row.close_rate,
+    }))
+
+  // Get regions from organization hierarchy
+  const orgRegions = getOrgRegionsForMarket(selectedMarket)
+
+  // Determine displayed metrics
+  const displayLeads = showSingleDayView ? (singleDayData?.leads || 0) : currentAgg.leads
+  const displaySales = showSingleDayView ? (singleDayData?.sales || 0) : currentAgg.sales
+  const displayRevenue = showSingleDayView ? (singleDayData?.revenue || 0) : currentAgg.revenue
+  const displayCloseRate = showSingleDayView ? (singleDayData?.close_rate || 0) : currentAgg.closeRate
+  const displayLobsPrp = showSingleDayView
+    ? (singleDayData ? Math.round(singleDayData.leads * 0.8) : 0)
+    : Math.round(currentAgg.leads * 0.8)
+
+  // Build market summary
+  const marketSummary = {
+    regionCount: selectedMarketData?.region_count || 0,
+    branchCount: selectedMarketData?.branch_count || 0,
+    totalPccInField: 0,
+    totalInspPrp: displayLeads,
+    totalLobsPrp: displayLobsPrp,
+    totalLobsSold: displaySales,
+    totalDollarsSold: displayRevenue,
+    avgGoalAttainment: displayCloseRate,
+    branchesOnTrack: 0,
+    branchesOffTrack: 0,
+    regionsOnTrack: 0,
+    regionsOffTrack: 0,
+    regionBreakdown: orgRegions.map(region => ({
+      region: region.region_code,
+      regionName: region.region_name,
+      totalInspPrp: 0,
+      totalLobsSold: 0,
+      totalDollarsSold: 0,
+      avgGoalAttainment: 0,
+      branchCount: region.branch_count,
+      branchesOnTrack: 0,
+      branchesOffTrack: 0,
+    })),
+  }
 
   const regionChartData = marketSummary.regionBreakdown.map(region => ({
     name: region.region,
-    fullName: REGION_NAMES[region.region],
+    fullName: region.regionName,
     inspPrp: region.totalInspPrp,
     lobsSold: region.totalLobsSold,
     dollarsSold: region.totalDollarsSold,
@@ -375,55 +547,101 @@ function MarketDailyView() {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Market VP view - Regional performance summary</div>
-        <div className="flex items-center gap-4">
-          <DataSourceBadge status={dataSource} responseTime={responseTime} />
-          <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading}>
-            <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
-          </Button>
-          <SearchableSelect
-            options={orgMarkets.map(m => ({
-              value: m.market_code,
-              label: m.market_name,
-              description: `${m.region_count} regions, ${m.branch_count} branches`
-            }))}
-            value={selectedMarket}
-            onValueChange={setSelectedMarket}
-            placeholder="Select Market"
-            searchPlaceholder="Search markets..."
-            className="w-[280px]"
-          />
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Market VP view - Regional performance summary</div>
+          <div className="flex items-center gap-4">
+            <DataSourceBadge status={dataSource} responseTime={responseTime} />
+            <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading}>
+              <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <SearchableSelect
+              options={orgMarkets.map(m => ({
+                value: m.market_code,
+                label: m.market_name,
+                description: `${m.region_count} regions, ${m.branch_count} branches`
+              }))}
+              value={selectedMarket}
+              onValueChange={setSelectedMarket}
+              placeholder="Select Market"
+              searchPlaceholder="Search markets..."
+              className="w-[280px]"
+            />
+          </div>
         </div>
+        <PeriodSelector
+          selectedPeriod={periodState.period}
+          customStartDate={periodState.customStartDate}
+          customEndDate={periodState.customEndDate}
+          onPeriodChange={(p) => setPeriodState({ ...periodState, period: p, drilledDate: null })}
+          onCustomDateChange={(s, e) => setPeriodState({ ...periodState, customStartDate: s, customEndDate: e, drilledDate: null })}
+          size="sm"
+        />
       </div>
+
+      {/* Drill-down breadcrumb */}
+      {periodState.drilledDate && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <Button variant="ghost" size="sm" onClick={() => setPeriodState(prev => ({ ...prev, drilledDate: null }))}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to {getPeriodLabel(periodState.period)} view
+          </Button>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Viewing {formatDate(periodState.drilledDate)}
+          </span>
+        </div>
+      )}
+
+      {/* No Data Warning */}
+      {currentPeriodRows.length === 0 && marketDailyRawData.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-amber-900 dark:text-amber-100">
+                  No data available for {getPeriodLabel(periodState.period, periodState.customStartDate, periodState.customEndDate)}
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                  Latest available data: {marketFilteredData
+                    .sort((a: MarketDaily, b: MarketDaily) => b.date.localeCompare(a.date))
+                    .slice(0, 5)
+                    .map((row: MarketDaily) => formatDateShort(row.date))
+                    .join(', ')}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Date Header */}
       <div className="flex items-center justify-between bg-muted rounded-lg p-4">
         <div className="flex items-center gap-3">
           <Building2 className="h-5 w-5 text-muted-foreground" />
           <div>
-            <p className="font-semibold">{MARKET_NAMES[selectedMarket as MarketCode] || selectedMarketData?.market_name}</p>
-            <p className="text-sm text-muted-foreground">{formatDate(selectedDate)}</p>
+            <p className="font-semibold">{selectedMarketData?.market_name || MARKET_NAMES[selectedMarket as MarketCode]}</p>
+            <p className="text-sm text-muted-foreground">
+              {showSingleDayView
+                ? formatDate(effectiveDate!)
+                : `${formatDateShort(currentRange.startDate)} - ${formatDateShort(currentRange.endDate)}`}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-4">
+          {showPeriodView && (
+            <Badge variant="outline">
+              {currentAgg.dayCount} days
+            </Badge>
+          )}
           <Badge variant="outline">
             {marketSummary.regionCount} Regions
-          </Badge>
-          <Badge variant={marketSummary.branchesOnTrack + marketSummary.branchesOffTrack === marketSummary.branchCount ? 'default' : 'secondary'}>
-            {marketSummary.branchesOnTrack + marketSummary.branchesOffTrack} / {marketSummary.branchCount} branches reported
           </Badge>
         </div>
       </div>
 
       {/* Market Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div id="daily-perf-metrics" className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
@@ -440,6 +658,7 @@ function MarketDailyView() {
               <span className="text-sm text-gray-500 dark:text-gray-400">Inspections</span>
             </div>
             <p className="text-2xl font-bold mt-1">{marketSummary.totalInspPrp}</p>
+            {showPeriodView && <DeltaBadge current={currentAgg.leads} prior={priorAgg.leads} />}
           </CardContent>
         </Card>
         <Card>
@@ -449,6 +668,7 @@ function MarketDailyView() {
               <span className="text-sm text-gray-500 dark:text-gray-400">LOBs Prepared</span>
             </div>
             <p className="text-2xl font-bold mt-1">{marketSummary.totalLobsPrp}</p>
+            {showPeriodView && <DeltaBadge current={Math.round(currentAgg.leads * 0.8)} prior={Math.round(priorAgg.leads * 0.8)} />}
           </CardContent>
         </Card>
         <Card>
@@ -458,6 +678,7 @@ function MarketDailyView() {
               <span className="text-sm text-gray-500 dark:text-gray-400">LOBs Sold</span>
             </div>
             <p className="text-2xl font-bold mt-1">{marketSummary.totalLobsSold}</p>
+            {showPeriodView && <DeltaBadge current={currentAgg.sales} prior={priorAgg.sales} />}
           </CardContent>
         </Card>
         <Card>
@@ -467,6 +688,7 @@ function MarketDailyView() {
               <span className="text-sm text-gray-500 dark:text-gray-400">Revenue</span>
             </div>
             <p className="text-xl font-bold mt-1">{formatCurrency(marketSummary.totalDollarsSold)}</p>
+            {showPeriodView && <DeltaBadge current={currentAgg.revenue} prior={priorAgg.revenue} />}
           </CardContent>
         </Card>
         <Card>
@@ -495,6 +717,64 @@ function MarketDailyView() {
         </Card>
       </div>
 
+      {/* Daily Trend Chart - shown for multi-day periods */}
+      {showPeriodView && trendData.length > 1 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Daily Trend - {getPeriodLabel(periodState.period, periodState.customStartDate, periodState.customEndDate)}
+                </CardTitle>
+                <CardDescription>Click any bar to drill into that day&apos;s detail</CardDescription>
+              </div>
+              <Badge variant="outline">{trendData.length} days</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[350px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={trendData}
+                  onClick={(chartEvent) => {
+                    if (chartEvent?.activePayload?.[0]?.payload?.date) {
+                      setPeriodState(prev => ({
+                        ...prev,
+                        drilledDate: chartEvent.activePayload![0].payload.date,
+                      }))
+                    }
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="dateLabel" fontSize={12} angle={-45} textAnchor="end" height={60} />
+                  <YAxis />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.08)' }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null
+                      const data = payload[0].payload
+                      return (
+                        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
+                          <p className="font-medium">{data.dateLabel}</p>
+                          <p className="text-sm text-purple-600">Leads: {data.leads}</p>
+                          <p className="text-sm text-green-600">Sales: {data.sales}</p>
+                          <p className="text-sm text-blue-600">Revenue: {formatCurrency(data.revenue)}</p>
+                          <p className="text-xs text-gray-500 mt-1">Click to drill into this day</p>
+                        </div>
+                      )
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="leads" name="Leads" fill="#8884d8" cursor="pointer" />
+                  <Bar dataKey="sales" name="Sales" fill="#82ca9d" cursor="pointer" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs for different views */}
       <Tabs defaultValue="regions" className="space-y-4">
         <TabsList>
@@ -506,7 +786,7 @@ function MarketDailyView() {
         {/* By Region Tab */}
         <TabsContent value="regions" className="space-y-4">
           {marketSummary.regionBreakdown.map((region) => {
-            const branches = getBranchesByRegion(region.region)
+            const branches = getBranchesForRegion(region.region)
             const isExpanded = expandedRegion === region.region
 
             return (
@@ -519,7 +799,7 @@ function MarketDailyView() {
                     <div className="flex items-center gap-3">
                       <MapPin className="h-5 w-5 text-primary" />
                       <div>
-                        <CardTitle className="text-lg">{REGION_NAMES[region.region]}</CardTitle>
+                        <CardTitle className="text-lg">{region.regionName}</CardTitle>
                         <CardDescription>{region.branchCount} branches</CardDescription>
                       </div>
                     </div>
@@ -556,52 +836,31 @@ function MarketDailyView() {
                         <TableRow>
                           <TableHead>Code</TableHead>
                           <TableHead>Branch Name</TableHead>
-                          <TableHead>Manager</TableHead>
-                          <TableHead className="text-center">PCCs</TableHead>
-                          <TableHead className="text-center">INSP</TableHead>
-                          <TableHead className="text-center">LOBs Sold</TableHead>
-                          <TableHead className="text-right">Dollars</TableHead>
+                          <TableHead>BMs</TableHead>
+                          <TableHead className="text-center">AEs</TableHead>
+                          <TableHead className="text-center">Techs</TableHead>
+                          <TableHead className="text-center">Total</TableHead>
+                          <TableHead className="text-right">Revenue</TableHead>
                           <TableHead className="text-center">Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {branches.map((branch) => {
-                          const entry = branchEntries.get(branch.code)
-                          const pcc = entry?.metrics.pccInField || 0
-                          const goal = pcc * DEFAULT_DAILY_GOALS.inspPrpPerPcc
-                          const inspPrp = entry?.metrics.inspPrp || 0
-                          const onTrack = goal > 0 && inspPrp >= goal * 0.8
-
+                          const wf = branchWorkforceData.find(w => w.branch_code === branch.branch_code)
                           return (
-                            <TableRow key={branch.code} className={!entry ? 'bg-muted/50' : ''}>
-                              <TableCell className="font-mono">{branch.code}</TableCell>
-                              <TableCell className="font-medium max-w-[150px] truncate">{branch.name}</TableCell>
-                              <TableCell className="max-w-[120px] truncate">{branch.branchManager}</TableCell>
+                            <TableRow key={branch.branch_code} className="bg-muted/50">
+                              <TableCell className="font-mono">{branch.branch_code}</TableCell>
+                              <TableCell className="font-medium max-w-[150px] truncate">{branch.branch_name}</TableCell>
+                              <TableCell className="max-w-[120px] truncate">{wf ? `${wf.branch_managers} BM` : '-'}</TableCell>
+                              <TableCell className="text-center">{wf?.ae_sales ?? '-'}</TableCell>
+                              <TableCell className="text-center">{wf?.technicians ?? '-'}</TableCell>
+                              <TableCell className="text-center">{wf?.total ?? '-'}</TableCell>
+                              <TableCell className="text-right">-</TableCell>
                               <TableCell className="text-center">
-                                {entry ? entry.metrics.pccInField : '-'}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {entry ? (
-                                  <span className={onTrack ? 'text-green-600 font-medium' : 'text-red-600'}>
-                                    {entry.metrics.inspPrp}
-                                  </span>
-                                ) : '-'}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {entry ? entry.metrics.lobsSold : '-'}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {entry ? formatCurrency(entry.metrics.dollarsSold) : '-'}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {entry ? (
-                                  onTrack ? (
-                                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">On Track</Badge>
-                                  ) : (
-                                    <Badge variant="destructive">Behind</Badge>
-                                  )
+                                {wf ? (
+                                  <Badge variant="outline">{wf.total} staff</Badge>
                                 ) : (
-                                  <Badge variant="outline">No Report</Badge>
+                                  <Badge variant="outline">No Data</Badge>
                                 )}
                               </TableCell>
                             </TableRow>
@@ -621,7 +880,9 @@ function MarketDailyView() {
           <Card>
             <CardHeader>
               <CardTitle>Region Performance Comparison</CardTitle>
-              <CardDescription>Goal attainment and revenue by region for {formatDate(selectedDate)}</CardDescription>
+              <CardDescription>
+                Goal attainment and revenue by region for {showSingleDayView ? formatDate(effectiveDate!) : getPeriodLabel(periodState.period)}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[400px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
@@ -696,63 +957,40 @@ function MarketDailyView() {
                     <TableHead>Region</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Branch Name</TableHead>
-                    <TableHead>Manager</TableHead>
-                    <TableHead className="text-center">PCCs</TableHead>
-                    <TableHead className="text-center">INSP</TableHead>
-                    <TableHead className="text-center">LOBs PRP</TableHead>
-                    <TableHead className="text-center">LOBs Sold</TableHead>
-                    <TableHead className="text-right">Dollars</TableHead>
+                    <TableHead>BMs</TableHead>
+                    <TableHead className="text-center">AEs</TableHead>
+                    <TableHead className="text-center">Techs</TableHead>
+                    <TableHead className="text-center">Ops Mgrs</TableHead>
+                    <TableHead className="text-center">Total</TableHead>
+                    <TableHead className="text-right">Revenue</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {regions.flatMap(regionCode => {
-                    const branches = getBranchesByRegion(regionCode)
+                  {orgRegions.flatMap(region => {
+                    const branches = getBranchesForRegion(region.region_code)
                     return branches.map((branch, idx) => {
-                      const entry = branchEntries.get(branch.code)
-                      const pcc = entry?.metrics.pccInField || 0
-                      const goal = pcc * DEFAULT_DAILY_GOALS.inspPrpPerPcc
-                      const inspPrp = entry?.metrics.inspPrp || 0
-                      const onTrack = goal > 0 && inspPrp >= goal * 0.8
-
+                      const wf = branchWorkforceData.find(w => w.branch_code === branch.branch_code)
                       return (
-                        <TableRow key={branch.code} className={!entry ? 'bg-muted/50' : ''}>
+                        <TableRow key={branch.branch_code} className="bg-muted/50">
                           {idx === 0 ? (
                             <TableCell rowSpan={branches.length} className="font-medium border-r">
-                              {regionCode}
+                              {region.region_name}
                             </TableCell>
                           ) : null}
-                          <TableCell className="font-mono">{branch.code}</TableCell>
-                          <TableCell className="font-medium max-w-[140px] truncate">{branch.name}</TableCell>
-                          <TableCell className="max-w-[110px] truncate">{branch.branchManager}</TableCell>
+                          <TableCell className="font-mono">{branch.branch_code}</TableCell>
+                          <TableCell className="font-medium max-w-[140px] truncate">{branch.branch_name}</TableCell>
+                          <TableCell className="max-w-[110px] truncate">{wf ? `${wf.branch_managers} BM` : '-'}</TableCell>
+                          <TableCell className="text-center">{wf?.ae_sales ?? '-'}</TableCell>
+                          <TableCell className="text-center">{wf?.technicians ?? '-'}</TableCell>
+                          <TableCell className="text-center">{wf?.ops_managers ?? '-'}</TableCell>
+                          <TableCell className="text-center">{wf?.total ?? '-'}</TableCell>
+                          <TableCell className="text-right">-</TableCell>
                           <TableCell className="text-center">
-                            {entry ? entry.metrics.pccInField : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {entry ? (
-                              <span className={onTrack ? 'text-green-600 font-medium' : 'text-red-600'}>
-                                {entry.metrics.inspPrp}
-                              </span>
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {entry ? entry.metrics.lobsPrp : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {entry ? entry.metrics.lobsSold : '-'}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {entry ? formatCurrency(entry.metrics.dollarsSold) : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {entry ? (
-                              onTrack ? (
-                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">On Track</Badge>
-                              ) : (
-                                <Badge variant="destructive">Behind</Badge>
-                              )
+                            {wf ? (
+                              <Badge variant="outline">{wf.total} staff</Badge>
                             ) : (
-                              <Badge variant="outline">No Report</Badge>
+                              <Badge variant="outline">No Data</Badge>
                             )}
                           </TableCell>
                         </TableRow>
@@ -775,22 +1013,55 @@ function MarketDailyView() {
 
 function RegionDailyView() {
   const [selectedRegion, setSelectedRegion] = useState<string>('')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
-  const [branchEntries, setBranchEntries] = useState<Map<string, DailySalesEntry | null>>(new Map())
+  const [periodState, setPeriodState] = useState<PeriodState>(DEFAULT_PERIOD_STATE)
 
   const { regions: orgRegions, isLoading: regionsLoading } = useOrganizationData()
 
+  // Compute dynamic daysBack based on selected period
+  const daysBack = useMemo(
+    () => getDaysBackForPeriod(periodState.period, periodState.customStartDate, periodState.customEndDate),
+    [periodState.period, periodState.customStartDate, periodState.customEndDate]
+  )
+
+  // Explicit transform for region daily data with null handling
+  function transformRegionDailyData(bqData: RegionDaily[]): RegionDaily[] {
+    return (bqData || []).map(row => ({
+      date: row.date ?? '',
+      region: row.region ?? 'Unknown',
+      branch_count: row.branch_count ?? 0,
+      revenue: row.revenue ?? 0,
+      leads: row.leads ?? 0,
+      sales: row.sales ?? 0,
+      services_completed: row.services_completed ?? 0,
+      close_rate: row.close_rate ?? 0,
+      avg_revenue_per_branch: row.avg_revenue_per_branch ?? 0,
+    }))
+  }
+
   const {
-    data: regionDailyData,
+    data: regionDailyRawData,
     isLoading: isBQLoading,
     dataSource,
     responseTime,
     refetch,
-  } = useBigQueryData<RegionDaily[], RegionDailyDisplay>({
+  } = useBigQueryData<RegionDaily[], RegionDaily[]>({
     queryName: 'region-daily',
-    filters: { daysBack: 30 },
-    defaultData: EMPTY_REGION_DAILY,
-    transformBigQueryData: transformRegionBigQueryData,
+    filters: { daysBack },
+    defaultData: [],
+    transformBigQueryData: transformRegionDailyData,
+  })
+
+  // Branch workforce data - employee counts by role per branch in selected region
+  const {
+    data: branchWorkforceData,
+  } = useBigQueryData<BranchWorkforce[], BranchWorkforce[]>({
+    queryName: 'branch-workforce',
+    filters: { regionCode: selectedRegion },
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false, // Region selection handled manually
+    includeRoleFilters: false, // Company-wide workforce data
+    enabled: !!selectedRegion,
   })
 
   useEffect(() => {
@@ -798,18 +1069,6 @@ function RegionDailyView() {
       setSelectedRegion(orgRegions[0].region_code)
     }
   }, [orgRegions, selectedRegion])
-
-  useEffect(() => {
-    const branches = getBranchesByRegion(selectedRegion as RegionCode)
-    const dateEntries = getEntriesForDate(selectedDate)
-
-    const entriesMap = new Map<string, DailySalesEntry | null>()
-    branches.forEach(branch => {
-      const entry = dateEntries.find(e => e.branchCode === branch.code) || null
-      entriesMap.set(branch.code, entry)
-    })
-    setBranchEntries(entriesMap)
-  }, [selectedRegion, selectedDate])
 
   if (regionsLoading || !selectedRegion) {
     return (
@@ -820,58 +1079,113 @@ function RegionDailyView() {
     )
   }
 
-  const summary = getRegionSummary(selectedRegion as RegionCode, selectedDate)
+  const selectedRegionData = orgRegions.find(r => r.region_code === selectedRegion)
+
+  // Filter data for selected region
+  const regionFilteredData = regionDailyRawData.filter((row: RegionDaily) => {
+    return selectedRegionData?.region_name &&
+      row.region.toLowerCase().includes(selectedRegionData.region_name.toLowerCase())
+  })
+
+  // Compute date ranges for period
+  const currentRange = getDateRangeForPeriod(periodState.period, periodState.customStartDate, periodState.customEndDate)
+  const priorRange = getPriorPeriodRange(currentRange.startDate, currentRange.endDate)
+
+  // Determine view mode
+  const effectiveDate = periodState.drilledDate || (periodState.period === 'today' ? currentRange.endDate : null)
+  const showSingleDayView = effectiveDate !== null
+  const showPeriodView = !showSingleDayView
+
+  // Current & prior period data
+  const currentPeriodRows = filterRowsByDateRange(regionFilteredData, currentRange.startDate, currentRange.endDate)
+  const priorPeriodRows = filterRowsByDateRange(regionFilteredData, priorRange.startDate, priorRange.endDate)
+  const currentAgg = aggregateMetrics(currentPeriodRows)
+  const priorAgg = aggregateMetrics(priorPeriodRows)
+
+  // Single day data
+  const singleDayData = effectiveDate
+    ? regionFilteredData.find(r => r.date === effectiveDate) || null
+    : null
+
+  // Trend chart data
+  const trendData = currentPeriodRows
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(row => ({
+      date: row.date,
+      dateLabel: formatDateShort(row.date),
+      leads: row.leads,
+      sales: row.sales,
+      revenue: row.revenue,
+      closeRate: row.close_rate,
+    }))
+
+  // Determine displayed metrics
+  const displayLeads = showSingleDayView ? (singleDayData?.leads || 0) : currentAgg.leads
+  const displaySales = showSingleDayView ? (singleDayData?.sales || 0) : currentAgg.sales
+  const displayRevenue = showSingleDayView ? (singleDayData?.revenue || 0) : currentAgg.revenue
+  const displayCloseRate = showSingleDayView ? (singleDayData?.close_rate || 0) : currentAgg.closeRate
+
+  const summary = {
+    branchCount: selectedRegionData?.branch_count || 0,
+    totalPccInField: 0,
+    totalInspPrp: displayLeads,
+    totalLobsPrp: Math.round(displayLeads * 0.8),
+    totalLobsSold: displaySales,
+    totalDollarsSold: displayRevenue,
+    avgGoalAttainment: displayCloseRate,
+    branchesOnTrack: 0,
+    branchesOffTrack: 0,
+  }
+
   const branches = getBranchesByRegion(selectedRegion as RegionCode)
-
-  const chartData = branches.map(branch => {
-    const entry = branchEntries.get(branch.code)
-    const pcc = entry?.metrics.pccInField || 0
-    const inspPrp = entry?.metrics.inspPrp || 0
-    const goal = pcc * DEFAULT_DAILY_GOALS.inspPrpPerPcc
-    const attainment = goal > 0 ? (inspPrp / goal) * 100 : 0
-
-    return {
-      name: branch.code,
-      fullName: branch.name,
-      inspPrp,
-      goal: Math.round(goal),
-      attainment,
-      submitted: !!entry,
-    }
-  }).filter(d => d.submitted)
-
-  const submittedCount = branches.filter(b => branchEntries.get(b.code)).length
 
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Region Director view - Branch performance summary</div>
-        <div className="flex items-center gap-4">
-          <DataSourceBadge status={dataSource} responseTime={responseTime} />
-          <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading}>
-            <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
-          </Button>
-          <SearchableSelect
-            options={orgRegions.map(r => ({
-              value: r.region_code,
-              label: r.region_name,
-              description: `${r.branch_count} branches`
-            }))}
-            value={selectedRegion}
-            onValueChange={setSelectedRegion}
-            placeholder="Select Region"
-            searchPlaceholder="Search regions..."
-            className="w-[280px]"
-          />
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Region Director view - Branch performance summary</div>
+          <div className="flex items-center gap-4">
+            <DataSourceBadge status={dataSource} responseTime={responseTime} />
+            <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading}>
+              <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <SearchableSelect
+              options={orgRegions.map(r => ({
+                value: r.region_code,
+                label: r.region_name,
+                description: `${r.branch_count} branches`
+              }))}
+              value={selectedRegion}
+              onValueChange={setSelectedRegion}
+              placeholder="Select Region"
+              searchPlaceholder="Search regions..."
+              className="w-[280px]"
+            />
+          </div>
         </div>
+        <PeriodSelector
+          selectedPeriod={periodState.period}
+          customStartDate={periodState.customStartDate}
+          customEndDate={periodState.customEndDate}
+          onPeriodChange={(p) => setPeriodState({ ...periodState, period: p, drilledDate: null })}
+          onCustomDateChange={(s, e) => setPeriodState({ ...periodState, customStartDate: s, customEndDate: e, drilledDate: null })}
+          size="sm"
+        />
       </div>
+
+      {/* Drill-down breadcrumb */}
+      {periodState.drilledDate && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <Button variant="ghost" size="sm" onClick={() => setPeriodState(prev => ({ ...prev, drilledDate: null }))}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to {getPeriodLabel(periodState.period)} view
+          </Button>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Viewing {formatDate(periodState.drilledDate)}
+          </span>
+        </div>
+      )}
 
       {/* Date Header */}
       <div className="flex items-center justify-between bg-muted rounded-lg p-4">
@@ -879,12 +1193,21 @@ function RegionDailyView() {
           <MapPin className="h-5 w-5 text-muted-foreground" />
           <div>
             <p className="font-semibold">{REGION_NAMES[selectedRegion as RegionCode] || orgRegions.find(r => r.region_code === selectedRegion)?.region_name || selectedRegion}</p>
-            <p className="text-sm text-muted-foreground">{formatDate(selectedDate)}</p>
+            <p className="text-sm text-muted-foreground">
+              {showSingleDayView
+                ? formatDate(effectiveDate!)
+                : `${formatDateShort(currentRange.startDate)} - ${formatDateShort(currentRange.endDate)}`}
+            </p>
           </div>
         </div>
-        <Badge variant={submittedCount === branches.length ? 'default' : 'secondary'}>
-          {submittedCount} / {branches.length} branches reported
-        </Badge>
+        <div className="flex items-center gap-2">
+          {showPeriodView && (
+            <Badge variant="outline">{currentAgg.dayCount} days</Badge>
+          )}
+          <Badge variant="outline">
+            {summary.branchCount} branches
+          </Badge>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -905,6 +1228,7 @@ function RegionDailyView() {
               <span className="text-sm text-gray-500 dark:text-gray-400">Inspections</span>
             </div>
             <p className="text-2xl font-bold mt-1">{summary.totalInspPrp}</p>
+            {showPeriodView && <DeltaBadge current={currentAgg.leads} prior={priorAgg.leads} />}
           </CardContent>
         </Card>
         <Card>
@@ -914,6 +1238,7 @@ function RegionDailyView() {
               <span className="text-sm text-gray-500 dark:text-gray-400">LOBs Prepared</span>
             </div>
             <p className="text-2xl font-bold mt-1">{summary.totalLobsPrp}</p>
+            {showPeriodView && <DeltaBadge current={Math.round(currentAgg.leads * 0.8)} prior={Math.round(priorAgg.leads * 0.8)} />}
           </CardContent>
         </Card>
         <Card>
@@ -923,6 +1248,7 @@ function RegionDailyView() {
               <span className="text-sm text-gray-500 dark:text-gray-400">LOBs Sold</span>
             </div>
             <p className="text-2xl font-bold mt-1">{summary.totalLobsSold}</p>
+            {showPeriodView && <DeltaBadge current={currentAgg.sales} prior={priorAgg.sales} />}
           </CardContent>
         </Card>
         <Card>
@@ -932,6 +1258,7 @@ function RegionDailyView() {
               <span className="text-sm text-gray-500 dark:text-gray-400">Revenue</span>
             </div>
             <p className="text-xl font-bold mt-1">{formatCurrency(summary.totalDollarsSold)}</p>
+            {showPeriodView && <DeltaBadge current={currentAgg.revenue} prior={priorAgg.revenue} />}
           </CardContent>
         </Card>
         <Card>
@@ -946,55 +1273,57 @@ function RegionDailyView() {
         </Card>
       </div>
 
-      {/* Performance Chart */}
-      {chartData.length > 0 && (
+      {/* Daily Trend Chart */}
+      {showPeriodView && trendData.length > 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Inspections vs Goal by Branch</CardTitle>
-            <CardDescription>Daily inspection performance for reporting branches</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Daily Trend - {getPeriodLabel(periodState.period, periodState.customStartDate, periodState.customEndDate)}
+                </CardTitle>
+                <CardDescription>Click any bar to drill into that day&apos;s detail</CardDescription>
+              </div>
+              <Badge variant="outline">{trendData.length} days</Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
+            <div className="h-[350px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} layout="vertical">
-                  <defs>
-                    <filter id="glow-region" x="-50%" y="-50%" width="200%" height="200%">
-                      <feGaussianBlur stdDeviation="3" result="blur"/>
-                      <feMerge>
-                        <feMergeNode in="blur"/>
-                        <feMergeNode in="SourceGraphic"/>
-                      </feMerge>
-                    </filter>
-                  </defs>
+                <BarChart
+                  data={trendData}
+                  onClick={(chartEvent) => {
+                    if (chartEvent?.activePayload?.[0]?.payload?.date) {
+                      setPeriodState(prev => ({
+                        ...prev,
+                        drilledDate: chartEvent.activePayload![0].payload.date,
+                      }))
+                    }
+                  }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={60} />
+                  <XAxis dataKey="dateLabel" fontSize={12} angle={-45} textAnchor="end" height={60} />
+                  <YAxis />
                   <Tooltip
-                    cursor={false}
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.08)' }}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
                       const data = payload[0].payload
                       return (
                         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
-                          <p className="font-medium">{data.fullName}</p>
-                          <p className="text-sm">Inspections: {data.inspPrp}</p>
-                          <p className="text-sm">Goal: {data.goal}</p>
-                          <p className="text-sm font-medium">
-                            {data.attainment >= 100 ? '✓' : '✗'} {data.attainment.toFixed(0)}%
-                          </p>
+                          <p className="font-medium">{data.dateLabel}</p>
+                          <p className="text-sm text-purple-600">Leads: {data.leads}</p>
+                          <p className="text-sm text-green-600">Sales: {data.sales}</p>
+                          <p className="text-sm text-blue-600">Revenue: {formatCurrency(data.revenue)}</p>
+                          <p className="text-xs text-gray-500 mt-1">Click to drill into this day</p>
                         </div>
                       )
                     }}
                   />
-                  <Bar dataKey="inspPrp" name="Actual" activeBar={{ filter: 'url(#glow-region)' }}>
-                    {chartData.map((entry, index) => (
-                      <Cell
-                        key={index}
-                        fill={entry.attainment >= 80 ? '#22c55e' : entry.attainment >= 60 ? '#f59e0b' : '#ef4444'}
-                      />
-                    ))}
-                  </Bar>
-                  <Bar dataKey="goal" name="Goal" fill="#e5e7eb" activeBar={{ filter: 'url(#glow-region)' }} />
+                  <Legend />
+                  <Bar dataKey="leads" name="Leads" fill="#8884d8" cursor="pointer" />
+                  <Bar dataKey="sales" name="Sales" fill="#82ca9d" cursor="pointer" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1028,56 +1357,33 @@ function RegionDailyView() {
               <TableRow>
                 <TableHead>Code</TableHead>
                 <TableHead>Branch Name</TableHead>
-                <TableHead>Manager</TableHead>
-                <TableHead className="text-center">PCCs</TableHead>
-                <TableHead className="text-center">INSP</TableHead>
-                <TableHead className="text-center">LOBs PRP</TableHead>
-                <TableHead className="text-center">LOBs Sold</TableHead>
-                <TableHead className="text-right">Dollars</TableHead>
+                <TableHead>BMs</TableHead>
+                <TableHead className="text-center">AEs</TableHead>
+                <TableHead className="text-center">Techs</TableHead>
+                <TableHead className="text-center">Ops Mgrs</TableHead>
+                <TableHead className="text-center">Total</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
                 <TableHead className="text-center">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {branches.map((branch) => {
-                const entry = branchEntries.get(branch.code)
-                const pcc = entry?.metrics.pccInField || 0
-                const goal = pcc * DEFAULT_DAILY_GOALS.inspPrpPerPcc
-                const inspPrp = entry?.metrics.inspPrp || 0
-                const onTrack = goal > 0 && inspPrp >= goal * 0.8
-
+                const wf = branchWorkforceData.find(w => w.branch_code === branch.code)
                 return (
-                  <TableRow key={branch.code} className={!entry ? 'bg-muted/50' : ''}>
+                  <TableRow key={branch.code} className="bg-muted/50">
                     <TableCell className="font-mono">{branch.code}</TableCell>
                     <TableCell className="font-medium max-w-[150px] truncate">{branch.name}</TableCell>
-                    <TableCell className="max-w-[120px] truncate">{branch.branchManager}</TableCell>
+                    <TableCell className="max-w-[120px] truncate">{wf ? `${wf.branch_managers} BM` : branch.branchManager || '-'}</TableCell>
+                    <TableCell className="text-center">{wf?.ae_sales ?? '-'}</TableCell>
+                    <TableCell className="text-center">{wf?.technicians ?? '-'}</TableCell>
+                    <TableCell className="text-center">{wf?.ops_managers ?? '-'}</TableCell>
+                    <TableCell className="text-center">{wf?.total ?? '-'}</TableCell>
+                    <TableCell className="text-right">-</TableCell>
                     <TableCell className="text-center">
-                      {entry ? entry.metrics.pccInField : '-'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {entry ? (
-                        <span className={onTrack ? 'text-green-600 font-medium' : 'text-red-600'}>
-                          {entry.metrics.inspPrp}
-                        </span>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {entry ? entry.metrics.lobsPrp : '-'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {entry ? entry.metrics.lobsSold : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {entry ? formatCurrency(entry.metrics.dollarsSold) : '-'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {entry ? (
-                        onTrack ? (
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">On Track</Badge>
-                        ) : (
-                          <Badge variant="destructive">Behind</Badge>
-                        )
+                      {wf ? (
+                        <Badge variant="outline">{wf.total} staff</Badge>
                       ) : (
-                        <Badge variant="outline">No Report</Badge>
+                        <Badge variant="outline">No Data</Badge>
                       )}
                     </TableCell>
                   </TableRow>
@@ -1101,18 +1407,40 @@ function BranchDailyView() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [recentEntries, setRecentEntries] = useState<DailySalesEntry[]>([])
+  const [periodState, setPeriodState] = useState<PeriodState>(DEFAULT_PERIOD_STATE)
+
+  // Compute dynamic daysBack based on selected period
+  const daysBack = useMemo(
+    () => getDaysBackForPeriod(periodState.period, periodState.customStartDate, periodState.customEndDate),
+    [periodState.period, periodState.customStartDate, periodState.customEndDate]
+  )
+
+  // Explicit transform for branch daily data with null handling
+  function transformBranchDailyData(bqData: BranchDaily[]): BranchDaily[] {
+    return (bqData || []).map(row => ({
+      date: row.date ?? '',
+      branch_id: row.branch_id ?? '',
+      branch_name: row.branch_name ?? 'Unknown',
+      revenue: row.revenue ?? 0,
+      leads: row.leads ?? 0,
+      sales: row.sales ?? 0,
+      services_completed: row.services_completed ?? 0,
+      callbacks: row.callbacks ?? 0,
+      close_rate: row.close_rate ?? 0,
+    }))
+  }
 
   const {
-    data: branchDailyData,
+    data: branchDailyRawData,
     isLoading: isBQLoading,
     dataSource,
     responseTime,
     refetch,
-  } = useBigQueryData<BranchDaily[], BranchDailyDisplay>({
+  } = useBigQueryData<BranchDaily[], BranchDaily[]>({
     queryName: 'branch-daily',
-    filters: { daysBack: 30 },
-    defaultData: EMPTY_BRANCH_DAILY,
-    transformBigQueryData: transformBranchBigQueryData,
+    filters: { daysBack },
+    defaultData: [],
+    transformBigQueryData: transformBranchDailyData,
   })
 
   const today = new Date().toISOString().split('T')[0]
@@ -1140,37 +1468,49 @@ function BranchDailyView() {
 
   useEffect(() => {
     if (selectedBranch) {
-      const entries = getEntriesForBranch(selectedBranch.code)
-      setRecentEntries(entries.slice(0, 7))
+      // Get entries from BigQuery for this branch
+      const branchEntries = branchDailyRawData
+        .filter((row: BranchDaily) => row.branch_id === selectedBranch.code)
+        .sort((a: BranchDaily, b: BranchDaily) => b.date.localeCompare(a.date))
+        .slice(0, 7)
 
-      const todayEntry = entries.find(e => e.date === today)
-      if (todayEntry) {
-        setFormData({
-          date: today,
-          pccInField: todayEntry.metrics.pccInField.toString(),
-          tapLeads: todayEntry.metrics.tapLeads?.toString() || '',
-          inspPrp: todayEntry.metrics.inspPrp.toString(),
-          lobsPrp: todayEntry.metrics.lobsPrp.toString(),
-          lobsSold: todayEntry.metrics.lobsSold.toString(),
-          dollarsSold: todayEntry.metrics.dollarsSold.toString(),
-          nextDayConf: todayEntry.metrics.nextDayConf.toString(),
-          pcNoTcConversions: todayEntry.metrics.pcNoTcConversions,
-        })
-      } else {
-        setFormData({
-          date: today,
-          pccInField: '',
-          tapLeads: '',
-          inspPrp: '',
-          lobsPrp: '',
-          lobsSold: '',
-          dollarsSold: '',
-          nextDayConf: '',
+      // Convert BigQuery data to DailySalesEntry format for display
+      const convertedEntries: DailySalesEntry[] = branchEntries.map((row: BranchDaily) => ({
+        id: `${row.branch_id}-${row.date}`,
+        date: row.date,
+        branchCode: row.branch_id,
+        submittedBy: selectedBranch.branchManager,
+        submittedAt: row.date,
+        createdAt: row.date,
+        updatedAt: row.date,
+        metrics: {
+          pccInField: 0, // Not in BQ data
+          tapLeads: undefined,
+          inspPrp: row.leads,
+          lobsPrp: Math.round(row.leads * 0.8),
+          lobsSold: row.sales,
+          dollarsSold: row.revenue,
+          nextDayConf: 0, // Not in BQ data
           pcNoTcConversions: false,
-        })
-      }
+        }
+      }))
+
+      setRecentEntries(convertedEntries)
+
+      // Reset form for new entry
+      setFormData({
+        date: today,
+        pccInField: '',
+        tapLeads: '',
+        inspPrp: '',
+        lobsPrp: '',
+        lobsSold: '',
+        dollarsSold: '',
+        nextDayConf: '',
+        pcNoTcConversions: false,
+      })
     }
-  }, [selectedBranch, today])
+  }, [selectedBranch, today, branchDailyRawData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1210,7 +1550,42 @@ function BranchDailyView() {
     )
   }
 
-  const stats = getBranchDashboardStats(selectedBranch.code)
+  // Filter BigQuery data for this branch
+  const branchBQData = branchDailyRawData.filter(
+    (row: BranchDaily) => row.branch_id === selectedBranch.code
+  )
+
+  // Compute date ranges for period
+  const currentRange = getDateRangeForPeriod(periodState.period, periodState.customStartDate, periodState.customEndDate)
+  const priorRange = getPriorPeriodRange(currentRange.startDate, currentRange.endDate)
+
+  // Current & prior period data
+  const currentPeriodRows = filterRowsByDateRange(branchBQData, currentRange.startDate, currentRange.endDate)
+  const priorPeriodRows = filterRowsByDateRange(branchBQData, priorRange.startDate, priorRange.endDate)
+  const currentAgg = aggregateMetrics(currentPeriodRows)
+  const priorAgg = aggregateMetrics(priorPeriodRows)
+
+  // Period label for card titles
+  const periodLabel = periodState.period === 'today' ? 'Today'
+    : periodState.period === 'wtd' ? 'Week'
+    : periodState.period === 'mtd' ? 'Month'
+    : periodState.period === 'qtd' ? 'Quarter'
+    : periodState.period === 'ytd' ? 'Year'
+    : 'Period'
+
+  // Trend chart data for the branch
+  const trendData = currentPeriodRows
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(row => ({
+      date: row.date,
+      dateLabel: formatDateShort(row.date),
+      leads: row.leads,
+      sales: row.sales,
+      revenue: row.revenue,
+    }))
+
+  const showTrend = periodState.period !== 'today' && trendData.length > 1
+
   const pccCount = parseInt(formData.pccInField) || 0
 
   const expectedInsp = pccCount * DEFAULT_DAILY_GOALS.inspPrpPerPcc
@@ -1221,29 +1596,39 @@ function BranchDailyView() {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Branch Manager daily activity tracker</div>
-        <div className="flex items-center gap-4">
-          <DataSourceBadge status={dataSource} responseTime={responseTime} />
-          <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading}>
-            <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
-          </Button>
-          <Select
-            value={selectedBranch?.code || ''}
-            onValueChange={(code) => setSelectedBranch(getBranchByCode(code) || null)}
-          >
-            <SelectTrigger className="w-[280px]">
-              <SelectValue placeholder="Select your branch" />
-            </SelectTrigger>
-            <SelectContent>
-              {branches.map((branch) => (
-                <SelectItem key={branch.code} value={branch.code}>
-                  {branch.code} - {branch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Branch Manager daily activity tracker</div>
+          <div className="flex items-center gap-4">
+            <DataSourceBadge status={dataSource} responseTime={responseTime} />
+            <Button variant="outline" size="icon" onClick={refetch} disabled={isBQLoading}>
+              <RefreshCw className={`h-4 w-4 ${isBQLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Select
+              value={selectedBranch?.code || ''}
+              onValueChange={(code) => setSelectedBranch(getBranchByCode(code) || null)}
+            >
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Select your branch" />
+              </SelectTrigger>
+              <SelectContent>
+                {branches.map((branch) => (
+                  <SelectItem key={branch.code} value={branch.code}>
+                    {branch.code} - {branch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+        <PeriodSelector
+          selectedPeriod={periodState.period}
+          customStartDate={periodState.customStartDate}
+          customEndDate={periodState.customEndDate}
+          onPeriodChange={(p) => setPeriodState({ ...periodState, period: p, drilledDate: null })}
+          onCustomDateChange={(s, e) => setPeriodState({ ...periodState, customStartDate: s, customEndDate: e, drilledDate: null })}
+          size="sm"
+        />
       </div>
 
       {/* Branch Info & Stats */}
@@ -1265,13 +1650,12 @@ function BranchDailyView() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Week Inspections</p>
-                <p className="text-2xl font-bold">{stats?.weekToDate.inspPrp || 0}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{periodLabel} Inspections</p>
+                <p className="text-2xl font-bold">{currentAgg.leads}</p>
               </div>
               <Target className="h-8 w-8 text-blue-500" />
             </div>
-            <Progress value={stats?.goalProgress.inspPrp || 0} className="mt-3 h-2" />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{(stats?.goalProgress.inspPrp || 0).toFixed(0)}% of goal</p>
+            <DeltaBadge current={currentAgg.leads} prior={priorAgg.leads} />
           </CardContent>
         </Card>
 
@@ -1279,13 +1663,12 @@ function BranchDailyView() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Week LOBs Sold</p>
-                <p className="text-2xl font-bold">{stats?.weekToDate.lobsSold || 0}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{periodLabel} LOBs Sold</p>
+                <p className="text-2xl font-bold">{currentAgg.sales}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-500" />
             </div>
-            <Progress value={stats?.goalProgress.lobsSold || 0} className="mt-3 h-2" />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{(stats?.goalProgress.lobsSold || 0).toFixed(0)}% of goal</p>
+            <DeltaBadge current={currentAgg.sales} prior={priorAgg.sales} />
           </CardContent>
         </Card>
 
@@ -1293,20 +1676,62 @@ function BranchDailyView() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Week Revenue</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats?.weekToDate.dollarsSold || 0)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{periodLabel} Revenue</p>
+                <p className="text-2xl font-bold">{formatCurrency(currentAgg.revenue)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-amber-500" />
             </div>
-            {stats && stats.streak > 0 && (
-              <div className="flex items-center gap-1 mt-3 text-orange-600">
-                <Flame className="h-4 w-4" />
-                <span className="text-sm font-medium">{stats.streak} day streak!</span>
-              </div>
-            )}
+            <DeltaBadge current={currentAgg.revenue} prior={priorAgg.revenue} />
           </CardContent>
         </Card>
       </div>
+
+      {/* Daily Trend Chart */}
+      {showTrend && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Daily Trend - {getPeriodLabel(periodState.period, periodState.customStartDate, periodState.customEndDate)}
+                </CardTitle>
+                <CardDescription>Daily leads, sales, and revenue for this branch</CardDescription>
+              </div>
+              <Badge variant="outline">{trendData.length} days</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] [&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-horizontal_line]:stroke-gray-700 [&_.recharts-cartesian-grid-vertical_line]:stroke-gray-200 dark:[&_.recharts-cartesian-grid-vertical_line]:stroke-gray-700 [&_.recharts-text]:fill-gray-600 dark:[&_.recharts-text]:fill-gray-400">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="dateLabel" fontSize={12} angle={-45} textAnchor="end" height={60} />
+                  <YAxis />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.08)' }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null
+                      const data = payload[0].payload
+                      return (
+                        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
+                          <p className="font-medium">{data.dateLabel}</p>
+                          <p className="text-sm text-purple-600">Leads: {data.leads}</p>
+                          <p className="text-sm text-green-600">Sales: {data.sales}</p>
+                          <p className="text-sm text-blue-600">Revenue: {formatCurrency(data.revenue)}</p>
+                        </div>
+                      )
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="leads" name="Leads" fill="#8884d8" />
+                  <Bar dataKey="sales" name="Sales" fill="#82ca9d" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Daily Entry Form */}
       <Card>

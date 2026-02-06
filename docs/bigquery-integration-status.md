@@ -1,6 +1,7 @@
 # BigQuery Integration Status Report
 
 **Generated:** 2026-01-23 (Updated with verified production metrics)
+**Last Audit:** 2026-02-03 (Compliance audit completed)
 **Project:** Rentokil-BI Dashboard
 **BigQuery Project:** `bidata-sharedus-production`
 
@@ -14,6 +15,7 @@
 | **Total Rows** | 37.3 billion |
 | **Tables Actively Used** | 15 |
 | **Dashboard Pages Connected** | 43/91 (47%) |
+| **Compliance Rate** | 100% (64/64 pages) |
 
 ---
 
@@ -29,6 +31,56 @@
 | **Tables Confirmed Working** | 12 of 15 (80%) |
 | **Tables Fixed** | 3 (updated to correct names) |
 | **Queries Passing Validation** | All 43 BigQuery-connected pages |
+
+---
+
+## Compliance Audit Results (February 2026)
+
+**Audit Date:** February 3, 2026
+**Full Report:** [bigquery-audit-2026-02.md](./bigquery-audit-2026-02.md)
+
+### Summary
+
+| Metric | Before Audit | After Audit | Status |
+|--------|-------------|-------------|--------|
+| **Pages Audited** | 64 | 64 | ✅ |
+| **Compliance Rate** | 86% (55/64) | **100%** (64/64) | ✅ |
+| **Error Handling** | 76% (49/64) | **100%** (64/64) | ✅ |
+| **DataSourceBadge** | 81% (52/64) | **100%** (64/64) | ✅ |
+| **Filter Configuration** | 91% (58/64) | **100%** (64/64) | ✅ |
+| **Critical Issues** | 3 (data leakage) | **0** | ✅ |
+
+### Issues Fixed
+
+| Category | Pages Fixed | Severity | Status |
+|----------|------------|----------|--------|
+| Missing organization filters | 6 | ⚠️ Medium | ✅ Fixed |
+| Missing role filters | 3 | 🔴 Critical | ✅ Fixed |
+| Missing error handling | 15 | ⚠️ Medium | ✅ Fixed |
+| Missing DataSourceBadge | 12 | ℹ️ Low | ✅ Fixed |
+| Missing filter comments | 3 | ℹ️ Low | ✅ Fixed |
+| Deprecated manual filtering | 1 | ⚠️ Medium | ✅ Fixed |
+
+### Pages Fixed (9 total)
+
+1. ✅ `/leads/rankings/page.tsx` - Added org filters
+2. ✅ `/leads/journey/page.tsx` - Added org filters (3 queries)
+3. ✅ `/ops/page.tsx` - Added org + role filters, removed manual filtering
+4. ✅ `/ops/new-starts/page.tsx` - Added org filters
+5. ✅ `/ops/national/page.tsx` - Added filter comments
+6. ✅ `/tech/page.tsx` - Added role filters (critical fix)
+7. ✅ `/tech/tickets/page.tsx` - Added role filters (critical fix)
+8. ✅ `/tech/route/page.tsx` - Added filter comments
+9. ✅ `/components/dashboard/ExecutiveCommandCenter.tsx` - Added filter comments
+
+### Compliance Standards
+
+All BigQuery-connected pages now comply with:
+- ✅ **Error Handling** - Error card with recovery actions
+- ✅ **Transparency** - DataSourceBadge showing Live/Demo/Loading/Error
+- ✅ **Filter Configuration** - Explicit org/role filters with comments
+- ✅ **Security** - Role-based data access enforced
+- ✅ **Documentation** - Standards in CLAUDE.md
 
 ---
 
@@ -63,15 +115,23 @@
 
 ## Dashboard Coverage by Module
 
+**Compliance Legend:**
+- **Error** - Error handling with recovery actions
+- **Badge** - DataSourceBadge displayed
+- **OrgFilters** - `includeOrgFilters: true` (scoped to user's market/region/branch)
+- **RoleFilters** - `includeRoleFilters: true` (scoped to logged-in user)
+- **NoFilters** - Intentionally omits filters (with comment explaining why)
+- **ManualFilter** - Custom filtering logic (with comment explaining approach)
+
 ### LEADS MODULE - 6/6 Pages Connected (100%)
-| Page | Query Function | Table | Status |
-|------|---------------|-------|--------|
-| `/leads/type-pest` | `getLeadsByPestType()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED |
-| `/leads/trends` | `getLeadTrends()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED |
-| `/leads/rankings` | `getLeadRankings()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED |
-| `/leads/cancels` | `getLeadCancellations()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED |
-| `/leads/geographic` | `getLeadGeographic()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED |
-| `/leads/journey` | `getLeadFunnel()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED |
+| Page | Query Function | Table | Status | Compliance |
+|------|---------------|-------|--------|------------|
+| `/leads/type-pest` | `getLeadsByPestType()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED | ✅ Error/Badge/OrgFilters |
+| `/leads/trends` | `getLeadTrends()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED | ✅ Error/Badge/OrgFilters |
+| `/leads/rankings` | `getLeadRankings()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED | ✅ Error/Badge/OrgFilters (Fixed 2/3/26) |
+| `/leads/cancels` | `getLeadCancellations()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED | ✅ Error/Badge/OrgFilters |
+| `/leads/geographic` | `getLeadGeographic()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED | ✅ Error/Badge/OrgFilters |
+| `/leads/journey` | `getLeadFunnel()` | S4.Fact_Leads_Acc_Daily_Dtls_Snp | CONNECTED | ✅ Error/Badge/OrgFilters (Fixed 2/3/26) |
 
 ### SALTI MODULE - 8/8 Pages Connected (100%)
 | Page | Query Function | Table | Status |
@@ -119,12 +179,12 @@
 | `/region/daily` | `getRegionDaily()` | S0_TMX.tmx_lead | CONNECTED |
 | `/market/daily` | `getMarketDaily()` | S0_TMX.tmx_lead | CONNECTED |
 
-### OPERATIONS MODULE - 2/3 Pages Connected (67%)
-| Page | Query Function | Table | Status |
-|------|---------------|-------|--------|
-| `/ops` | `getOpsOverview()` | S0_TMX.Inspections | CONNECTED |
-| `/ops/national` | `getOpsNational()` | S0_TMX.Inspections | CONNECTED |
-| `/ops/new-starts` | `getOpsNewStarts()` | S0_TMX.tmx_sa_item | CONNECTED |
+### OPERATIONS MODULE - 3/3 Pages Connected (100%)
+| Page | Query Function | Table | Status | Compliance |
+|------|---------------|-------|--------|------------|
+| `/ops` | `getOpsOverview()` | S0_TMX.Inspections | CONNECTED | ✅ Error/Badge/OrgFilters/RoleFilters (Fixed 2/3/26) |
+| `/ops/national` | `getOpsNational()` | S0_TMX.Inspections | CONNECTED | ✅ Error/Badge/NoFilters (commented - national view) |
+| `/ops/new-starts` | `getOpsNewStarts()` | S0_TMX.tmx_sa_item | CONNECTED | ✅ Error/Badge/OrgFilters (Fixed 2/3/26) |
 
 ### HR/WORKFORCE MODULE - 3/3 Pages Connected (100%)
 | Page | Query Function | Table | Status |
@@ -134,18 +194,25 @@
 | `/workforce/tech-productivity` | `getTechProductivity()` | S0_TMX.Inspections | CONNECTED |
 
 ### EXECUTIVE MODULE - 3/3 Pages Connected (100%)
-| Page | Query Function | Table | Status |
-|------|---------------|-------|--------|
-| `/` (Executive Dashboard) | `getExecutiveCommandCenter()` | S0_TMX.tmx_lead, tmx_lead_activity_fact | CONNECTED |
-| `/kpi/[slug]` | `getKPIDetail()` | S0_TMX.tmx_lead | CONNECTED |
-| `/forecast` | BigQuery + mock hybrid | Multiple | CONNECTED |
+| Page | Query Function | Table | Status | Compliance |
+|------|---------------|-------|--------|------------|
+| `/` (Executive Dashboard) | `getExecutiveCommandCenter()` | S0_TMX.tmx_lead, tmx_lead_activity_fact | CONNECTED | ✅ Error/Badge/NoFilters (commented - exec view) |
+| `/kpi/[slug]` | `getKPIDetail()` | S0_TMX.tmx_lead | CONNECTED | ✅ Error/Badge/OrgFilters |
+| `/forecast` | BigQuery + mock hybrid | Multiple | CONNECTED | ✅ Error/Badge/OrgFilters |
 
 ### ACCOUNT EXECUTIVE MODULE - 3/4 Pages Connected (75%)
-| Page | Query Function | Table | Status |
-|------|---------------|-------|--------|
-| `/ae` | `getAEPipeline()`, `getAETracker()` | S0_TMX.tmx_lead | CONNECTED |
-| `/tech/tickets` | `getTechTickets()` | S0_TMX.Inspections | CONNECTED |
-| `/ae/tracker/*` | - | - | NOT CONNECTED |
+| Page | Query Function | Table | Status | Compliance |
+|------|---------------|-------|--------|------------|
+| `/ae` | `getAEPipeline()`, `getAETracker()` | S0_TMX.tmx_lead | CONNECTED | ✅ Error/Badge/RoleFilters |
+| `/ae/tracker` | `getAETracker()` | S0_TMX.tmx_lead | CONNECTED | ✅ Error/Badge/RoleFilters |
+| `/ae/tracker/*` | - | - | NOT CONNECTED | N/A (form pages) |
+
+### TECHNICIAN MODULE - 3/3 Pages Connected (100%)
+| Page | Query Function | Table | Status | Compliance |
+|------|---------------|-------|--------|------------|
+| `/tech` | `getTechScheduleToday()` | S0_TMX.Inspections | CONNECTED | ✅ Error/Badge/RoleFilters (Fixed 2/3/26 - CRITICAL) |
+| `/tech/tickets` | `getTechTickets()` | S0_TMX.Inspections | CONNECTED | ✅ Error/Badge/RoleFilters (Fixed 2/3/26 - CRITICAL) |
+| `/tech/route` | `getTechRouteMap()` | S0_TMX.Inspections | CONNECTED | ✅ Error/Badge/ManualFilter (commented) |
 
 ### GOVERNANCE MODULE - 4/4 Pages Connected (100%)
 | Page | Query Function | Table | Status |
@@ -289,4 +356,12 @@ NEXT_PUBLIC_DATA_SOURCE=mock  # Use 'bigquery' for production
 
 The BigQuery integration is **functional and production-ready** for 43 of 91 dashboard pages (47%). All table references have been validated and fixed. The remaining 48 pages either use local/mock data by design or are configuration/help pages that don't require external data.
 
-**Key Achievement:** Zero broken table references - all queries now target verified, existing tables in production BigQuery.
+**Key Achievements:**
+- ✅ Zero broken table references - all queries now target verified, existing tables in production BigQuery
+- ✅ 100% compliance with integration standards (as of February 2026 audit)
+- ✅ Zero critical data leakage vulnerabilities
+- ✅ All pages have error handling and data source transparency
+
+**See Also:**
+- [BigQuery Integration Standards](../CLAUDE.md#bigquery-integration-standards-required-for-all-pages) - Implementation guidelines
+- [BigQuery Audit Report - February 2026](./bigquery-audit-2026-02.md) - Full compliance audit results

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import {
   RefreshCw, Activity, TrendingUp, TrendingDown, Minus,
-  Clock, Target, Users, Award, Phone, PhoneCall
+  Clock, Target, Users, Award, Phone, PhoneCall, AlertTriangle, FileText, ExternalLink, Mail
 } from 'lucide-react'
 import type { RepProductivity } from '@/types/salti-extended'
 import {
@@ -29,7 +29,7 @@ import Link from 'next/link'
 
 // Transform BigQuery data to page format
 function transformBigQueryData(bqData: SALTIProductivity[]): RepProductivity[] {
-  return bqData.map((d, index) => ({
+  return (bqData || []).map((d, index) => ({
     repId: d.employee_sid,
     repName: d.employee_name,
     market: 'All Markets',
@@ -93,13 +93,16 @@ export default function ProductivityPage() {
     isLoading,
     dataSource,
     responseTime,
+    error,
+    errorType,
     refetch,
   } = useBigQueryData<SALTIProductivity[], RepProductivity[]>({
     queryName: 'salti-productivity',
     filters: { daysBack: getDaysBack(selectedPeriod) },
     defaultData: EMPTY_PRODUCTIVITY,
     transformBigQueryData,
-    includeOrgFilters: true,
+    includeOrgFilters: true,  // Include market/region/branch filters from UI
+    includeRoleFilters: false, // SALTI is an overview dashboard - don't filter by individual user
   })
 
   // Fetch call center metrics for SALTI agents
@@ -112,7 +115,8 @@ export default function ProductivityPage() {
     filters: { daysBack: getDaysBack(selectedPeriod), limit: 10 },
     defaultData: EMPTY_CALL_METRICS,
     transformBigQueryData: (data) => data,
-    includeOrgFilters: true,
+    includeOrgFilters: true,  // Include market/region/branch filters from UI
+    includeRoleFilters: false, // SALTI is an overview dashboard - don't filter by individual user
   })
 
   // Refetch when period changes
@@ -224,6 +228,55 @@ export default function ProductivityPage() {
           <DataSourceBadge status={dataSource} responseTime={responseTime} />
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Productivity Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">salti-productivity</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=Productivity Dashboard Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}\nQuery: salti-productivity\nType: ${errorType || 'Unknown'}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

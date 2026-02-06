@@ -35,7 +35,7 @@ export async function logSecurityEvent(data: SecurityEventData): Promise<void> {
   try {
     // Determine base URL - use relative URL on client, absolute on server
     const baseUrl = typeof window === 'undefined'
-      ? process.env.NEXT_PUBLIC_APP_URL || 'https://rentokil-bi-git-alpha-test-clasaks-projects.vercel.app'
+      ? process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       : ''
 
     const response = await fetch(`${baseUrl}/api/security/events`, {

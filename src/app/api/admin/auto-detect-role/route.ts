@@ -68,11 +68,13 @@ export async function POST(request: NextRequest) {
 
     // Verify admin access
     const supabase = await createClient()
+    // Use getUser() to validate JWT server-side (getSession() only reads from cookie without validation)
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }

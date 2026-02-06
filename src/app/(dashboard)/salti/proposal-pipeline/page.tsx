@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import {
   RefreshCw, FileText, DollarSign, Clock, AlertTriangle,
-  CheckCircle, XCircle, Eye, Send, MessageSquare
+  CheckCircle, XCircle, Eye, Send, MessageSquare, ExternalLink, Mail
 } from 'lucide-react'
 import type { ProposalPipelineItem, ProposalPipelineSummary, ProposalStatus } from '@/types/salti-extended'
 import {
@@ -27,7 +27,7 @@ import type { SALTIProposalPipeline } from '@/lib/bigquery/queries/salti'
 
 // Transform BigQuery data to page format
 function transformBigQueryData(bqData: SALTIProposalPipeline[]): ProposalPipelineItem[] {
-  return bqData.map((d, index) => ({
+  return (bqData || []).map((d, index) => ({
     id: d.proposal_id,
     accountName: d.customer_name,
     repId: `REP-${index + 1}`,
@@ -44,7 +44,7 @@ function transformBigQueryData(bqData: SALTIProposalPipeline[]): ProposalPipelin
     customerEmail: undefined,
     daysOpen: d.days_pending,
     touchpoints: Math.max(1, Math.floor(d.days_pending / 7)),
-    lastTouchpoint: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+    lastTouchpoint: new Date(Date.now() - (d.days_pending % 7) * 24 * 60 * 60 * 1000),
   }))
 }
 
@@ -108,12 +108,16 @@ export default function ProposalPipelinePage() {
     isLoading,
     dataSource,
     responseTime,
+    error,
+    errorType,
     refetch,
   } = useBigQueryData<SALTIProposalPipeline[], ProposalPipelineItem[]>({
     queryName: 'salti-proposal-pipeline',
     filters: { daysBack: 90 },
     defaultData: EMPTY_PROPOSALS,
     transformBigQueryData,
+    includeOrgFilters: true,  // Include market/region/branch filters from UI
+    includeRoleFilters: false, // SALTI is an overview dashboard - don't filter by individual user
   })
 
   // Calculate summary from the proposals data
@@ -199,6 +203,55 @@ export default function ProposalPipelinePage() {
           <DataSourceBadge status={dataSource} responseTime={responseTime} />
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Proposal Pipeline Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">salti-proposal-pipeline</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=Proposal Pipeline Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}\nQuery: salti-proposal-pipeline\nType: ${errorType || 'Unknown'}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

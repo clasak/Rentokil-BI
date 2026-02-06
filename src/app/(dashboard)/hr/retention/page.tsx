@@ -94,16 +94,12 @@ const EMPTY_HEADCOUNT: HeadcountSummary = {
 
 // Transform BigQuery retention data to page format
 function transformBigQueryData(bqData: HRRetention[]): RetentionMetrics {
-  const latest = bqData[0] || {
-    period: 'MTD',
-    total_employees: 500,
-    terminations: 10,
-    turnover_rate: 2,
-    voluntary_terms: 6,
-    involuntary_terms: 4,
-    avg_tenure_months: 24,
-    top_term_reason: 'Voluntary Resignation'
+  if (!bqData || bqData.length === 0) {
+    // Return empty state instead of hardcoded fallback values that mask data issues
+    return EMPTY_RETENTION
   }
+
+  const latest = bqData[0]
 
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -119,9 +115,9 @@ function transformBigQueryData(bqData: HRRetention[]): RetentionMetrics {
     voluntaryTerminations: latest.voluntary_terms,
     involuntaryTerminations: latest.involuntary_terms,
     transfers: 0,
-    retentionRate: (100 - latest.turnover_rate) / 100,
+    retentionRate: latest.total_employees > 0 ? (100 - latest.turnover_rate) / 100 : 0,
     turnoverRate: latest.turnover_rate / 100,
-    voluntaryTurnoverRate: latest.voluntary_terms / latest.total_employees,
+    voluntaryTurnoverRate: latest.total_employees > 0 ? latest.voluntary_terms / latest.total_employees : 0,
     attritionRate: latest.turnover_rate / 100,
     avgTenure: latest.avg_tenure_months,
     medianTenure: latest.avg_tenure_months * 0.9,
@@ -133,7 +129,7 @@ function transformBigQueryData(bqData: HRRetention[]): RetentionMetrics {
 
 // Transform BigQuery department retention data
 function transformDepartmentData(bqData: BQRetentionByDepartment[]): RetentionBySegment[] {
-  return bqData.map(d => ({
+  return (bqData || []).map(d => ({
     segment: d.department.toLowerCase().replace(/\s+/g, '_'),
     segmentType: 'department' as const,
     headcount: d.total_employees,
@@ -148,7 +144,7 @@ function transformDepartmentData(bqData: BQRetentionByDepartment[]): RetentionBy
 
 // Transform BigQuery termination reasons data
 function transformTerminationReasons(bqData: BQTerminationReason[]): TerminationReason[] {
-  return bqData.map(r => ({
+  return (bqData || []).map(r => ({
     reason: r.reason,
     category: r.reason.toLowerCase().includes('voluntary') ? 'voluntary' as const : 'involuntary' as const,
     count: r.count,
@@ -159,6 +155,7 @@ function transformTerminationReasons(bqData: BQTerminationReason[]): Termination
 
 // Transform BigQuery headcount summary
 function transformHeadcountSummary(bqData: BQHeadcountSummary): HeadcountSummary {
+  if (!bqData) return { asOfDate: new Date(), totalHeadcount: 0, activeEmployees: 0, onLeave: 0, byDepartment: {} as Record<string, number>, byRole: {} as Record<string, number>, byMarket: {}, fullTime: 0, partTime: 0, contractor: 0, vsLastMonth: 0, vsLastMonthPercent: 0, vsLastYear: 0, vsLastYearPercent: 0 }
   return {
     asOfDate: new Date(),
     totalHeadcount: bqData.total_headcount,
@@ -190,6 +187,8 @@ export default function RetentionPage() {
     filters: { daysBack: 365 },
     defaultData: EMPTY_RETENTION,
     transformBigQueryData,
+    includeOrgFilters: true, // HR data - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Use BigQuery for retention by department
@@ -202,6 +201,8 @@ export default function RetentionPage() {
     filters: { limit: 20 },
     defaultData: EMPTY_SEGMENTS,
     transformBigQueryData: transformDepartmentData,
+    includeOrgFilters: true, // HR data - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Use BigQuery for termination reasons
@@ -214,6 +215,8 @@ export default function RetentionPage() {
     filters: { daysBack: 365 },
     defaultData: EMPTY_REASONS,
     transformBigQueryData: transformTerminationReasons,
+    includeOrgFilters: true, // HR data - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Use BigQuery for headcount summary
@@ -226,6 +229,8 @@ export default function RetentionPage() {
     filters: {},
     defaultData: EMPTY_HEADCOUNT,
     transformBigQueryData: transformHeadcountSummary,
+    includeOrgFilters: true, // HR data - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const isLoading = isLoadingRetention || isLoadingDept || isLoadingReasons || isLoadingHeadcount

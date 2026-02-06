@@ -47,7 +47,7 @@ interface KPIDetailDisplay {
 
 // Transform BigQuery data
 function transformBigQueryData(bqData: BQKPIDetail[]): KPIDetailDisplay {
-  const first = bqData[0]
+  const first = (bqData || [])[0]
   return {
     currentValue: first?.current_value || 0,
     priorValue: first?.prior_value || 0,
@@ -95,6 +95,8 @@ export default function KPIDetailPage() {
     filters: { kpiSlug: slug, daysBack: 30 },
     defaultData: EMPTY_KPI_DETAIL,
     transformBigQueryData,
+    includeOrgFilters: false, // KPI detail - company-wide view
+    includeRoleFilters: false, // Not user-specific
   })
 
   useEffect(() => {

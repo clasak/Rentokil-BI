@@ -37,7 +37,7 @@ const EMPTY_SCHEDULE: ScheduleDisplay = {
 function transformBigQueryData(bqData: BCGTechWorkOrder[]): ScheduleDisplay {
   // Transform BCG tech work order data to today's schedule format
   // Generate schedule times based on order index (8:00 AM start)
-  const schedule: ScheduleItem[] = bqData.slice(0, 10).map((workOrder, index) => {
+  const schedule: ScheduleItem[] = (bqData || []).slice(0, 10).map((workOrder, index) => {
     const hour = 8 + Math.floor(index * 0.75) // ~45 min per stop
     const minute = (index * 45) % 60
     const timeStr = `${hour}:${minute.toString().padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`
@@ -59,7 +59,7 @@ function transformBigQueryData(bqData: BCGTechWorkOrder[]): ScheduleDisplay {
     completedCount: schedule.filter(s => s.status === 'completed').length,
     totalCount: schedule.length,
     totalDuration: schedule.reduce((acc, s) => acc + s.estimatedDuration, 0),
-    callbackCount: bqData.filter(wo => wo.completion_rate < 1).length, // Incomplete as callbacks
+    callbackCount: (bqData || []).filter(wo => wo.completion_rate < 1).length, // Incomplete as callbacks
   }
 }
 
@@ -76,6 +76,7 @@ export default function TechSchedulePage() {
     filters: { daysBack: 1 },
     defaultData: EMPTY_SCHEDULE,
     transformBigQueryData,
+    includeRoleFilters: true, // Filter schedule to logged-in technician's work orders
   })
 
   const schedule = scheduleData?.schedule || []

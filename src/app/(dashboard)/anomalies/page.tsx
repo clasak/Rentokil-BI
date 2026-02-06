@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import {
   Brain, AlertTriangle, AlertCircle, Info, Clock,
   CheckCircle, RefreshCw, Database, TrendingUp, TrendingDown
@@ -28,6 +29,8 @@ export default function AnomaliesPage() {
   const {
     data: anomalies,
     isLoading,
+    dataSource,
+    responseTime,
     error,
     refetch,
   } = useBigQueryData<AnomalyAlert[], AnomalyAlert[]>({
@@ -126,10 +129,13 @@ export default function AnomaliesPage() {
           </p>
         </div>
 
-        <Button variant="outline" onClick={refetch}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" onClick={refetch}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

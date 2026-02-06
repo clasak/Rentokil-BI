@@ -50,6 +50,7 @@ interface BacklogDisplayData {
 
 // Transform BigQuery sales data
 function transformBigQueryData(bqData: SalesToday): SalesDisplayData {
+  if (!bqData) return { closedWon: 0, closedWonValue: 0, canceled: 0, canceledValue: 0, newContracts: 0 }
   return {
     closedWon: bqData.closed_won || 0,
     closedWonValue: bqData.closed_won_value || 0,
@@ -211,6 +212,7 @@ interface KPIsDisplayData {
 
 // Transform BigQuery KPIs data
 function transformKPIsData(bqData: SalesKPIs): KPIsDisplayData {
+  if (!bqData) return EMPTY_KPIS
   return {
     pipelineValue: bqData.pipeline_value || 0,
     pipeline30Day: bqData.pipeline_30_day || 0,
@@ -485,6 +487,8 @@ export default function SalesPage() {
     filters: queryFilters,
     defaultData: EMPTY_SALES,
     transformBigQueryData,
+    includeOrgFilters: true, // Sales overview - shows org-level data
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // BigQuery integration for backlog data
@@ -498,6 +502,8 @@ export default function SalesPage() {
     filters: { ...queryFilters, limit: 50 },
     defaultData: EMPTY_BACKLOG,
     transformBigQueryData: transformBacklogData,
+    includeOrgFilters: true, // Sales overview - shows org-level data
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // BigQuery integration for pipeline by stage
@@ -511,6 +517,8 @@ export default function SalesPage() {
     filters: queryFilters,
     defaultData: EMPTY_PIPELINE,
     transformBigQueryData: transformPipelineData,
+    includeOrgFilters: true, // Sales overview - shows org-level data
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // BigQuery integration for rep performance
@@ -524,6 +532,8 @@ export default function SalesPage() {
     filters: { ...queryFilters, limit: 15 },
     defaultData: EMPTY_REP,
     transformBigQueryData: transformRepData,
+    includeOrgFilters: true, // Sales overview - shows org-level data
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // BigQuery integration for at-risk leads
@@ -537,6 +547,8 @@ export default function SalesPage() {
     filters: { ...queryFilters, limit: 15 },
     defaultData: EMPTY_AT_RISK,
     transformBigQueryData: transformAtRiskData,
+    includeOrgFilters: true, // Sales overview - shows org-level data
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // BigQuery integration for sales KPIs
@@ -550,6 +562,8 @@ export default function SalesPage() {
     filters: queryFilters,
     defaultData: EMPTY_KPIS,
     transformBigQueryData: transformKPIsData,
+    includeOrgFilters: true, // Sales overview - shows org-level data
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Combined loading and refetch

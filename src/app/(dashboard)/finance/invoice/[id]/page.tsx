@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { getInvoiceById, getAccountById } from '@/lib/data'
-import { Invoice, Account } from '@/types'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { ARDetailRecord } from '@/lib/bigquery/queries/finance'
+import type { AccountDetails } from '@/lib/bigquery/queries/accounts'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,26 +13,119 @@ import { Separator } from '@/components/ui/separator'
 import { formatCurrency } from '@/lib/utils'
 import {
   ArrowLeft, Building, Calendar, Clock, AlertTriangle,
-  CheckCircle, DollarSign, FileText, Phone, Mail
+  CheckCircle, DollarSign, FileText, Phone, Mail, RefreshCw
 } from 'lucide-react'
-import { format, differenceInDays } from 'date-fns'
+import { format } from 'date-fns'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 
 export default function InvoiceDetailPage() {
   const params = useParams()
   const id = params.id as string
-
-  const [invoice, setInvoice] = useState<Invoice | null>(null)
-  const [account, setAccount] = useState<Account | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const inv = getInvoiceById(id)
-    setInvoice(inv || null)
+    setMounted(true)
+  }, [])
 
-    if (inv) {
-      setAccount(getAccountById(inv.accountId) || null)
-    }
-  }, [id])
+  // Fetch invoice details from BigQuery AR data
+  // Uses new invoice-by-id query with proper org/role filtering
+  const {
+    data: invoice,
+    isLoading: invoiceLoading,
+    dataSource: invoiceDataSource,
+    error: invoiceError,
+    errorType: invoiceErrorType,
+    refetch: refetchInvoice,
+  } = useBigQueryData<ARDetailRecord | null, ARDetailRecord | null>({
+    queryName: 'invoice-by-id',
+    filters: { invoiceNumber: id },
+    defaultData: null,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: true,  // Enable org filtering for security
+    includeRoleFilters: true, // Enable role filtering for security
+  })
+
+  // Fetch account details if we have an invoice
+  const { data: account } = useBigQueryData<AccountDetails | null, AccountDetails | null>({
+    queryName: 'account-details',
+    filters: { accountId: invoice?.customer_number || '' },
+    defaultData: null,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  if (!mounted || invoiceLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center text-muted-foreground">Loading invoice...</div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (invoiceError) {
+    return (
+      <div className="space-y-6">
+        <Breadcrumb
+          items={[
+            { label: 'Finance', href: '/finance' },
+            { label: 'Invoice Details' }
+          ]}
+        />
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Invoice</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {invoiceError}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">Invoice Number:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{id}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Error Type:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{invoiceErrorType || 'Unknown'}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetchInvoice}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/finance">
+                  <ArrowLeft className="h-3 w-3 mr-1.5" />
+                  Back to Finance
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const subject = encodeURIComponent(`Invoice Error - ${id}`)
+                  const body = encodeURIComponent(`Error loading invoice ${id}:\n\n${invoiceError}\n\nError Type: ${invoiceErrorType || 'Unknown'}`)
+                  window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!invoice) {
     return (
@@ -39,6 +133,9 @@ export default function InvoiceDetailPage() {
         <div className="text-center">
           <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h2 className="text-lg font-semibold">Invoice Not Found</h2>
+          <p className="text-sm text-gray-500 mt-2">
+            Invoice {id} does not exist or you don&apos;t have access to it.
+          </p>
           <Button asChild className="mt-4">
             <Link href="/finance">Back to Finance</Link>
           </Button>
@@ -47,9 +144,17 @@ export default function InvoiceDetailPage() {
     )
   }
 
-  const daysPastDue = invoice.dueDate < new Date()
-    ? differenceInDays(new Date(), invoice.dueDate)
-    : 0
+  const daysPastDue = invoice.days_outstanding
+  const invoiceStatus = invoice.outstanding_amount === 0 ? 'paid' :
+                        invoice.days_outstanding > 30 ? 'overdue' : 'open'
+
+  // Calculate due date (invoice_date + 30 days standard payment terms)
+  const invoiceDate = new Date(invoice.invoice_date)
+  const dueDate = new Date(invoiceDate)
+  dueDate.setDate(dueDate.getDate() + 30)
+
+  // Show paid date estimate if invoice is paid (we don't have exact paid date)
+  const isPaid = invoice.outstanding_amount === 0
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -63,7 +168,7 @@ export default function InvoiceDetailPage() {
   }
 
   const suggestedActions = []
-  if (invoice.status === 'overdue') {
+  if (invoiceStatus === 'overdue') {
     if (daysPastDue > 90) {
       suggestedActions.push({ action: 'Escalate to collections', priority: 'critical' })
       suggestedActions.push({ action: 'Review for write-off', priority: 'high' })
@@ -74,10 +179,8 @@ export default function InvoiceDetailPage() {
       suggestedActions.push({ action: 'Follow-up call', priority: 'medium' })
       suggestedActions.push({ action: 'Send payment reminder', priority: 'low' })
     }
-  } else if (invoice.status === 'disputed') {
-    suggestedActions.push({ action: 'Review dispute reason', priority: 'high' })
-    suggestedActions.push({ action: 'Schedule resolution call', priority: 'medium' })
   }
+  // Note: 'disputed' status would require additional data field not currently available
 
   return (
     <div className="space-y-6">
@@ -85,7 +188,7 @@ export default function InvoiceDetailPage() {
       <Breadcrumb
         items={[
           { label: 'Finance', href: '/finance' },
-          { label: invoice.id }
+          { label: invoice.invoice_number }
         ]}
       />
 
@@ -99,32 +202,35 @@ export default function InvoiceDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold font-mono">{invoice.id}</h1>
-              <Badge variant={getStatusColor(invoice.status)} className="capitalize">
-                {invoice.status}
+              <h1 className="text-2xl font-bold font-mono">{invoice.invoice_number}</h1>
+              <Badge variant={getStatusColor(invoiceStatus)} className="capitalize">
+                {invoiceStatus}
               </Badge>
-              {invoice.status !== 'paid' && invoice.status !== 'void' && (
+              {invoiceStatus !== 'paid' && (
                 <Badge variant={
-                  invoice.agingBucket === '90+' ? 'danger' :
-                  invoice.agingBucket === '61-90' ? 'warning' : 'secondary'
+                  invoice.aging_bucket === '90+' ? 'danger' :
+                  invoice.aging_bucket === '61-90' || invoice.aging_bucket === '31-60' ? 'warning' : 'secondary'
                 }>
-                  {invoice.agingBucket} days
+                  {invoice.aging_bucket}
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-gray-500 mt-1">{invoice.accountName}</p>
+            <p className="text-sm text-gray-500 mt-1">{account?.name || invoice.branch_name}</p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-bold">{formatCurrency(invoice.amount)}</div>
-          {daysPastDue > 0 && invoice.status !== 'paid' && (
-            <div className="text-sm text-red-600">{daysPastDue} days past due</div>
-          )}
+        <div className="flex flex-col items-end gap-3">
+          <DataSourceBadge status={invoiceDataSource} />
+          <div className="text-right">
+            <div className="text-3xl font-bold">{formatCurrency(invoice.outstanding_amount)}</div>
+            {daysPastDue > 0 && invoiceStatus !== 'paid' && (
+              <div className="text-sm text-red-600">{daysPastDue} days past due</div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Alert Banner */}
-      {invoice.status === 'overdue' && (
+      {invoiceStatus === 'overdue' && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-4">
             <div className="flex items-start gap-3">
@@ -155,41 +261,41 @@ export default function InvoiceDetailPage() {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <div className="text-sm text-gray-500">Invoice Number</div>
-                  <div className="font-mono font-medium">{invoice.id}</div>
+                  <div className="font-mono font-medium">{invoice.invoice_number}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-500">Amount</div>
-                  <div className="text-xl font-bold">{formatCurrency(invoice.amount)}</div>
+                  <div className="text-sm text-gray-500">Outstanding Amount</div>
+                  <div className="text-xl font-bold">{formatCurrency(invoice.outstanding_amount)}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Invoice Date</div>
-                  <div className="font-medium">{format(invoice.invoiceDate, 'MMMM d, yyyy')}</div>
+                  <div className="font-medium">{invoice.invoice_date}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-500">Due Date</div>
+                  <div className="text-sm text-gray-500">Days Outstanding</div>
                   <div className={`font-medium ${daysPastDue > 0 ? 'text-red-600' : ''}`}>
-                    {format(invoice.dueDate, 'MMMM d, yyyy')}
+                    {invoice.days_outstanding} days
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Status</div>
-                  <Badge variant={getStatusColor(invoice.status)} className="capitalize">
-                    {invoice.status}
+                  <Badge variant={getStatusColor(invoiceStatus)} className="capitalize">
+                    {invoiceStatus}
                   </Badge>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Aging Bucket</div>
-                  <div className="font-medium">{invoice.agingBucket} days</div>
+                  <div className="font-medium">{invoice.aging_bucket}</div>
                 </div>
-                {invoice.paidDate && (
+                {isPaid && (
                   <>
                     <div className="col-span-2">
                       <Separator />
                     </div>
                     <div>
-                      <div className="text-sm text-gray-500">Paid Date</div>
+                      <div className="text-sm text-gray-500">Status</div>
                       <div className="font-medium text-green-600">
-                        {format(invoice.paidDate, 'MMMM d, yyyy')}
+                        Paid in Full
                       </div>
                     </div>
                   </>
@@ -309,7 +415,7 @@ export default function InvoiceDetailPage() {
                   <div>
                     <div className="font-medium text-sm">Invoice Created</div>
                     <div className="text-xs text-muted-foreground">
-                      {format(invoice.invoiceDate, 'MMM d, yyyy')}
+                      {invoice.invoice_date}
                     </div>
                   </div>
                 </div>
@@ -322,19 +428,19 @@ export default function InvoiceDetailPage() {
                   <div>
                     <div className="font-medium text-sm">Due Date</div>
                     <div className="text-xs text-muted-foreground">
-                      {format(invoice.dueDate, 'MMM d, yyyy')}
+                      {format(dueDate, 'MMM d, yyyy')}
                     </div>
                   </div>
                 </div>
-                {invoice.paidDate && (
+                {isPaid && (
                   <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <div className="font-medium text-sm">Payment Received</div>
-                      <div className="text-xs text-gray-500">
-                        {format(invoice.paidDate, 'MMM d, yyyy')}
+                      <div className="font-medium text-sm">Paid in Full</div>
+                      <div className="text-xs text-muted-foreground">
+                        Outstanding: {formatCurrency(0)}
                       </div>
                     </div>
                   </div>

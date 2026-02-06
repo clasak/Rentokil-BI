@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import {
   ArrowLeft,
   Download,
@@ -115,6 +116,8 @@ export default function DataQualityDimensionPage() {
   const {
     data: dimensions,
     isLoading: isLoadingScore,
+    dataSource,
+    responseTime,
   } = useBigQueryData<DataQualityScorecardDimension[], DataQualityScorecardDimension[]>({
     queryName: 'data-quality-scorecard-dimensions',
     defaultData: [],
@@ -221,10 +224,13 @@ LIMIT 100`
             <p className="text-gray-600 dark:text-gray-400">{info.description}</p>
           </div>
         </div>
-        <Button onClick={handleExportCSV} disabled={affectedRecords.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button onClick={handleExportCSV} disabled={affectedRecords.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Score Card */}

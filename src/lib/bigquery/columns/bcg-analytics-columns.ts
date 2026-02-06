@@ -477,4 +477,5 @@ export const DR_LEADS: TableColumns = {
 registerTable(DR_CONTRACT_SALES)
 registerTable(DR_LEADS)
 
-export default { DR_CONTRACT_SALES, DR_LEADS }
+const bcgAnalyticsColumns = { DR_CONTRACT_SALES, DR_LEADS }
+export default bcgAnalyticsColumns

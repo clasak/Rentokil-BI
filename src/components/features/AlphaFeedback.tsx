@@ -55,6 +55,7 @@ interface UserProfile {
 type SubmitState = 'idle' | 'submitting' | 'success' | 'error'
 
 export function AlphaFeedback() {
+  const [mounted, setMounted] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [step, setStep] = useState<'type' | 'details'>('type')
   const [feedbackType, setFeedbackType] = useState<FeedbackType | null>(null)
@@ -74,6 +75,9 @@ export function AlphaFeedback() {
   const { settings } = useAppStore()
 
   const supabase = createClient()
+
+  // Hydration guard - prevents SSR/client mismatch from Zustand persisted state
+  useEffect(() => { setMounted(true) }, [])
 
   // Check if screen capture is supported (not available on mobile)
   useEffect(() => {
@@ -427,6 +431,8 @@ export function AlphaFeedback() {
   const currentTypeConfig = feedbackType
     ? FEEDBACK_TYPE_CONFIGS.find((c) => c.type === feedbackType)
     : null
+
+  if (!mounted) return null
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import {
   Users, UserPlus, Eye, TrendingUp, TrendingDown,
   Download, GitBranch, Search, Moon, Presentation,
@@ -48,6 +49,8 @@ export default function UserAdoptionPage() {
   const {
     data: metrics,
     isLoading,
+    dataSource,
+    responseTime,
     error,
     refetch,
   } = useBigQueryData<UserAdoptionMetrics, UserAdoptionMetrics>({
@@ -135,6 +138,7 @@ export default function UserAdoptionPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
           <Button variant="outline" onClick={refetch}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh

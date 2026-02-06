@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,12 +9,23 @@ import {
   XCircle, RefreshCw, ExternalLink
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import {
-  getPlatformHealthMetrics,
-  getFailedJobs,
-  type PlatformHealthMetrics,
-  type FailedJob
-} from '@/lib/mock/platformAdminData'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { PlatformHealthMetrics, FailedJob } from '@/lib/bigquery/queries/platform-health'
+
+// Empty states (BigQuery-only, no mock fallback)
+const EMPTY_METRICS: PlatformHealthMetrics = {
+  pipelineUptime: 100,
+  etlJobsSuccessful: 0,
+  etlJobsTotal: 0,
+  avgQueryTime: 0,
+  apiLatency: 0,
+  dataDowntimeMinutes: 0,
+  failedJobsCount: 0,
+  lastUpdated: new Date(),
+  restricted: false,
+}
+
+const EMPTY_FAILED_JOBS: FailedJob[] = []
 
 function MetricCard({
   title,
@@ -71,30 +83,22 @@ function MetricCard({
 }
 
 function FailedJobRow({ job }: { job: FailedJob }) {
-  const statusBadge = {
-    failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    retrying: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    manual_intervention: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-  }
-
   return (
     <div className="flex items-center justify-between py-3 border-b last:border-0 dark:border-gray-700">
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">{job.jobName}</span>
-          <Badge variant="outline" className="text-xs">{job.sourceSystem}</Badge>
+          <span className="font-medium text-sm">{job.jobId}</span>
+          <Badge variant="outline" className="text-xs">{job.errorCode || 'Error'}</Badge>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">{job.errorMessage}</p>
+        <p className="text-xs text-muted-foreground mt-1 truncate max-w-md">{job.errorMessage}</p>
         <p className="text-xs text-muted-foreground">
-          Failed {formatDistanceToNow(job.failedAt, { addSuffix: true })} | Retries: {job.retryCount}
+          Failed {formatDistanceToNow(job.creationTime, { addSuffix: true })}
+          {job.user && ` | User: ${job.user}`}
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadge[job.status]}`}>
-          {job.status.replace('_', ' ')}
-        </span>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <RefreshCw className="h-4 w-4" />
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="View in BigQuery Console">
+          <ExternalLink className="h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -102,8 +106,74 @@ function FailedJobRow({ job }: { job: FailedJob }) {
 }
 
 export function PlatformHealth() {
-  const metrics = getPlatformHealthMetrics()
-  const failedJobs = getFailedJobs()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Explicit transform for platform health metrics with null handling
+  function transformPlatformHealthMetrics(data: PlatformHealthMetrics): PlatformHealthMetrics {
+    if (!data) return { pipelineUptime: 100, etlJobsSuccessful: 0, etlJobsTotal: 0, avgQueryTime: 0, apiLatency: 0, dataDowntimeMinutes: 0, failedJobsCount: 0, lastUpdated: new Date(), restricted: false }
+    return {
+      pipelineUptime: data.pipelineUptime ?? 100,
+      etlJobsSuccessful: data.etlJobsSuccessful ?? 0,
+      etlJobsTotal: data.etlJobsTotal ?? 0,
+      avgQueryTime: data.avgQueryTime ?? 0,
+      apiLatency: data.apiLatency ?? 0,
+      dataDowntimeMinutes: data.dataDowntimeMinutes ?? 0,
+      failedJobsCount: data.failedJobsCount ?? 0,
+      lastUpdated: data.lastUpdated ?? new Date(),
+      restricted: data.restricted ?? false,
+    }
+  }
+
+  // Explicit transform for failed jobs with null handling
+  function transformFailedJobs(bqData: FailedJob[]): FailedJob[] {
+    return (bqData || []).map(job => ({
+      jobId: job.jobId ?? '',
+      query: job.query ?? '',
+      errorMessage: job.errorMessage ?? '',
+      creationTime: job.creationTime ?? new Date(),
+      errorCode: job.errorCode,
+      user: job.user,
+    }))
+  }
+
+  // Fetch platform health metrics from BigQuery
+  const {
+    data: metrics,
+    isLoading: isLoadingMetrics,
+    error: metricsError,
+    refetch: refetchMetrics,
+  } = useBigQueryData<PlatformHealthMetrics, PlatformHealthMetrics>({
+    queryName: 'platform-health-metrics',
+    defaultData: EMPTY_METRICS,
+    transformBigQueryData: transformPlatformHealthMetrics,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  // Fetch failed jobs from BigQuery
+  const {
+    data: failedJobs,
+    isLoading: isLoadingJobs,
+    refetch: refetchJobs,
+  } = useBigQueryData<FailedJob[], FailedJob[]>({
+    queryName: 'platform-failed-jobs',
+    filters: { limit: 10 },
+    defaultData: EMPTY_FAILED_JOBS,
+    transformBigQueryData: transformFailedJobs,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  const isLoading = isLoadingMetrics || isLoadingJobs
+
+  const handleRefresh = () => {
+    refetchMetrics()
+    refetchJobs()
+  }
 
   const getUptimeStatus = (uptime: number) => {
     if (uptime >= 99.5) return 'good'
@@ -143,11 +213,41 @@ export function PlatformHealth() {
                 Real-time monitoring of data pipeline and system performance
               </CardDescription>
             </div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Updated {formatDistanceToNow(metrics.lastUpdated, { addSuffix: true })}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              {mounted && (
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Updated {formatDistanceToNow(metrics.lastUpdated, { addSuffix: true })}
+                </div>
+              )}
             </div>
           </div>
+          {metrics.restricted && (
+            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400 text-sm">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Limited access to INFORMATION_SCHEMA - showing placeholder data</span>
+              </div>
+            </div>
+          )}
+          {metricsError && (
+            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-400 text-sm">
+                <XCircle className="h-4 w-4" />
+                <span>Error loading metrics: {metricsError}</span>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -219,7 +319,7 @@ export function PlatformHealth() {
           <CardContent>
             <div className="divide-y dark:divide-gray-700">
               {failedJobs.map(job => (
-                <FailedJobRow key={job.id} job={job} />
+                <FailedJobRow key={job.jobId} job={job} />
               ))}
             </div>
           </CardContent>

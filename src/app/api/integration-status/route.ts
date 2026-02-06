@@ -5,6 +5,8 @@
  * by querying INFORMATION_SCHEMA.JOBS_BY_PROJECT for recent ETL job executions
  */
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { bigQueryClient, BIGQUERY_CONFIG } from '@/lib/bigquery/client'
 
@@ -12,7 +14,7 @@ import { bigQueryClient, BIGQUERY_CONFIG } from '@/lib/bigquery/client'
 // Types
 // =============================================================================
 
-type IntegrationStatus = 'healthy' | 'degraded' | 'critical'
+type IntegrationStatus = 'healthy' | 'degraded' | 'critical' | 'unknown'
 
 interface SourceSystemStatus {
   sourceName: string
@@ -98,11 +100,27 @@ function determineStatus(
   return 'healthy'
 }
 
+/**
+ * Generate fallback status when job history is unavailable.
+ * Returns "unknown" status for all sources with explanation.
+ */
+function getFallbackStatus(reason: string): SourceSystemStatus[] {
+  return SOURCE_SYSTEMS.map((sourceDef) => ({
+    sourceName: sourceDef.name,
+    status: 'unknown' as IntegrationStatus,
+    lastSyncTime: null,
+    lastJobId: null,
+    errorMessage: reason,
+    successRate: -1, // -1 indicates unknown
+    jobCount: 0,
+  }))
+}
+
 // =============================================================================
 // API Handler
 // =============================================================================
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const PROJECT = BIGQUERY_CONFIG.projectId
 
@@ -196,13 +214,50 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[integration-status] Error:', error)
+    // Extract detailed error information for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
 
+    // Check for common BigQuery permission errors
+    const isPermissionError = errorMessage.includes('Permission') ||
+                              errorMessage.includes('Access Denied') ||
+                              errorMessage.includes('403') ||
+                              errorMessage.includes('does not have permission')
+
+    console.error('[integration-status] BigQuery Error:', {
+      message: errorMessage,
+      stack: errorStack,
+      isPermissionError,
+      projectId: BIGQUERY_CONFIG.projectId,
+    })
+
+    // For permission errors, return graceful fallback with "unknown" status
+    // This allows the UI to still render without breaking
+    if (isPermissionError) {
+      return NextResponse.json({
+        success: true,
+        data: getFallbackStatus('Job history unavailable (requires bigquery.jobs.list permission)'),
+        metadata: {
+          timestamp: new Date().toISOString(),
+          windowHours: 24,
+          fallbackMode: true,
+          fallbackReason: 'PERMISSION_DENIED',
+          hint: 'Grant bigquery.jobs.list permission to enable ETL job tracking',
+        },
+      })
+    }
+
+    // For other errors, return error response with details
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to fetch integration status',
         errorCode: 'QUERY_ERROR',
+        details: {
+          message: errorMessage,
+          projectId: BIGQUERY_CONFIG.projectId,
+          hint: 'Check BigQuery query syntax and table access',
+        },
       },
       { status: 500 }
     )

@@ -459,7 +459,7 @@ export const ADMIN_NAV: NavItem[] = [
   },
   {
     name: 'Data Quality',
-    href: '/data-quality',
+    href: '/governance/data-quality',
     icon: ClipboardCheck,
     description: 'Data validation and quality metrics'
   },

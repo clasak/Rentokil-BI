@@ -98,7 +98,8 @@ export default function CustomerSatisfactionPage() {
     filters: { daysBack },
     defaultData: EMPTY_NPS,
     transformBigQueryData: transformNPSScore,
-    includeOrgFilters: true,
+    includeOrgFilters: true, // CSAT data - org-level aggregation
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch recent survey responses
@@ -111,7 +112,8 @@ export default function CustomerSatisfactionPage() {
     filters: { daysBack, limit: 50 },
     defaultData: EMPTY_RESPONSES,
     transformBigQueryData: transformResponses,
-    includeOrgFilters: true,
+    includeOrgFilters: true, // CSAT data - org-level aggregation
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch detractor analysis
@@ -124,7 +126,8 @@ export default function CustomerSatisfactionPage() {
     filters: { daysBack },
     defaultData: EMPTY_DETRACTORS,
     transformBigQueryData: transformDetractors,
-    includeOrgFilters: true,
+    includeOrgFilters: true, // CSAT data - org-level aggregation
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch branch comparison
@@ -137,7 +140,8 @@ export default function CustomerSatisfactionPage() {
     filters: { daysBack, limit: 20 },
     defaultData: EMPTY_BRANCHES,
     transformBigQueryData: transformBranches,
-    includeOrgFilters: true,
+    includeOrgFilters: true, // CSAT data - org-level aggregation
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Refetch all when period changes

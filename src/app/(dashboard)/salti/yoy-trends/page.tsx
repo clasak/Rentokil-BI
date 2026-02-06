@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import {
   RefreshCw, TrendingUp, TrendingDown, Minus, Calendar,
-  DollarSign, Users, Target, Clock
+  DollarSign, Users, Target, Clock, AlertTriangle, FileText, ExternalLink, Mail
 } from 'lucide-react'
 import type { YoYComparison } from '@/types/salti-extended'
 import {
@@ -28,10 +28,11 @@ import type { SALTIYoYTrends } from '@/lib/bigquery/queries/salti'
 
 // Transform BigQuery data to page format
 function transformBigQueryData(bqData: SALTIYoYTrends[]): YoYComparison[] {
-  const totalCurrent = bqData.reduce((sum, d) => sum + d.current_year_sales, 0)
-  const totalPrior = bqData.reduce((sum, d) => sum + d.prior_year_sales, 0)
-  const countCurrent = bqData.reduce((sum, d) => sum + d.current_year_count, 0)
-  const countPrior = bqData.reduce((sum, d) => sum + d.prior_year_count, 0)
+  const safeData = bqData || []
+  const totalCurrent = safeData.reduce((sum, d) => sum + d.current_year_sales, 0)
+  const totalPrior = safeData.reduce((sum, d) => sum + d.prior_year_sales, 0)
+  const countCurrent = safeData.reduce((sum, d) => sum + d.current_year_count, 0)
+  const countPrior = safeData.reduce((sum, d) => sum + d.prior_year_count, 0)
 
   const now = new Date()
   const yearStart = new Date(now.getFullYear(), 0, 1)
@@ -121,13 +122,16 @@ export default function YoYTrendsPage() {
     isLoading,
     dataSource,
     responseTime,
+    error,
+    errorType,
     refetch,
   } = useBigQueryData<SALTIYoYTrends[], YoYComparison[]>({
     queryName: 'salti-yoy-trends',
     filters: { daysBack: 365 },
     defaultData: EMPTY_COMPARISONS,
     transformBigQueryData,
-    includeOrgFilters: true,
+    includeOrgFilters: true,  // Include market/region/branch filters from UI
+    includeRoleFilters: false, // SALTI is an overview dashboard - don't filter by individual user
   })
 
   const handleRefresh = () => {
@@ -214,6 +218,55 @@ export default function YoYTrendsPage() {
           <DataSourceBadge status={dataSource} responseTime={responseTime} />
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Year-over-Year Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">salti-yoy-trends</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=YoY Trends Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}\nQuery: salti-yoy-trends\nType: ${errorType || 'Unknown'}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* YoY Comparison Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

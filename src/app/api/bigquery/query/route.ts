@@ -5,6 +5,39 @@
  * Falls back gracefully with error information.
  */
 
+// =============================================================================
+// In-memory rate limiter (per-user sliding window)
+// =============================================================================
+const RATE_LIMIT_WINDOW_MS = 60_000 // 1 minute window
+const RATE_LIMIT_MAX_REQUESTS = 60  // 60 requests per minute per user
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(userId: string): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now()
+  const entry = rateLimitMap.get(userId)
+
+  if (!entry || now >= entry.resetAt) {
+    // New window
+    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt }
+  }
+
+  entry.count++
+  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count, resetAt: entry.resetAt }
+}
+
+// Periodically clean up expired entries to prevent memory leak
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(key)
+  }
+}, 5 * 60_000) // Clean every 5 minutes
+
 import { NextRequest, NextResponse } from 'next/server'
 import { BigQueryError } from '@/lib/bigquery/error-handler'
 import { ValidationError } from '@/lib/bigquery/validation'
@@ -43,6 +76,8 @@ import {
   getAtRiskLeads,
   getSalesPipelineSummary,
   getSalesKPIs,
+  getTopOpportunities,
+  getOpportunityById,
 } from '@/lib/bigquery/queries/sales-pipeline'
 
 import {
@@ -50,6 +85,7 @@ import {
   getARSummary,
   getARByBranch,
   getARDetails,
+  getInvoiceById,
   getRevenueProjections,
   getProjectionAccuracy,
   getVarianceAnalysis,
@@ -143,12 +179,18 @@ import {
   getOpsAccounts,
   getOpsServiceEvents,
   getOpsComplaints,
+  getTechnicianRoute,
 } from '@/lib/bigquery/queries/ops'
 
 import {
   getExecutiveCommandCenter,
   getKPIDetail,
 } from '@/lib/bigquery/queries/executive'
+
+import {
+  getKPIHistoricalComparisons,
+  getKPIMonthlyTrends,
+} from '@/lib/bigquery/queries/kpi-historical'
 
 import {
   getBranchDetail,
@@ -199,6 +241,7 @@ import {
 import {
   getLeadServiceStageMetrics,
   getLeadServiceHandoffMetrics,
+  getLeadServiceHandoffTrend,
   getLeadServicePipelineSummary,
   getLeadServiceAtRiskLeads,
   getLeadServiceHandoffLeads,
@@ -304,6 +347,7 @@ import {
 import {
   getPlatformHealthMetrics,
   getFailedJobs,
+  getETLJobStats,
 } from '@/lib/bigquery/queries/platform-health'
 
 import {
@@ -312,7 +356,59 @@ import {
 
 import {
   getAnomalyAlerts,
+  acknowledgeAnomaly,
 } from '@/lib/bigquery/queries/anomaly-detection'
+
+import {
+  getHistoricalRevenue,
+  getRevenueKPIs,
+  getForecastMetrics,
+} from '@/lib/bigquery/queries/forecast'
+
+import {
+  getAccountDetails,
+  getAccountOpportunities,
+  getAccountServiceHistory,
+  getAccountComplaints,
+  getAccountInvoices,
+  getAccountOwner,
+} from '@/lib/bigquery/queries/accounts'
+
+import {
+  getMarketWorkforce,
+  getRegionWorkforce,
+  getBranchWorkforce,
+  getWorkforceHierarchy,
+} from '@/lib/bigquery/queries/organization-workforce'
+
+import {
+  getSoldAccountsFullDetails,
+  getSoldAccountsSummary,
+} from '@/lib/bigquery/queries/sold-accounts-full-details'
+
+// =============================================================================
+// User profile cache (avoids repeated DB lookups for rapid successive queries)
+// =============================================================================
+const PROFILE_CACHE_TTL_MS = 30_000 // 30 seconds
+const profileCache = new Map<string, { profile: User; cachedAt: number }>()
+
+function getCachedProfile(userId: string): User | null {
+  const entry = profileCache.get(userId)
+  if (!entry || Date.now() - entry.cachedAt > PROFILE_CACHE_TTL_MS) {
+    if (entry) profileCache.delete(userId)
+    return null
+  }
+  return entry.profile
+}
+
+function cacheProfile(userId: string, profile: User): void {
+  profileCache.set(userId, { profile, cachedAt: Date.now() })
+  // Prevent unbounded growth
+  if (profileCache.size > 500) {
+    const oldest = [...profileCache.entries()].sort((a, b) => a[1].cachedAt - b[1].cachedAt)
+    for (let i = 0; i < 100; i++) profileCache.delete(oldest[i][0])
+  }
+}
 
 // Query registry mapping query names to functions
 const QUERY_REGISTRY: Record<string, (options: Record<string, unknown>) => Promise<unknown>> = {
@@ -335,18 +431,21 @@ const QUERY_REGISTRY: Record<string, (options: Record<string, unknown>) => Promi
   'sales-branches': getSalesBranches,
   'sales-filter-hierarchy': getSalesFilterHierarchy,
 
-  // Sales Pipeline (5 queries)
+  // Sales Pipeline (7 queries)
   'pipeline-by-stage': getPipelineByStage,
   'rep-performance': getRepPerformance,
   'at-risk-leads': getAtRiskLeads,
   'sales-pipeline-summary': getSalesPipelineSummary,
   'sales-kpis': getSalesKPIs,
+  'top-opportunities': getTopOpportunities,
+  'opportunity-by-id': getOpportunityById as unknown as (options: Record<string, unknown>) => Promise<unknown>,
 
-  // Finance (7 queries)
+  // Finance (8 queries)
   'ar-aging': getARAging,
   'ar-summary': getARSummary,
   'ar-by-branch': getARByBranch,
   'ar-details': getARDetails,
+  'invoice-by-id': getInvoiceById,
   'revenue-projections': getRevenueProjections,
   'projection-accuracy': getProjectionAccuracy,
   'variance-analysis': getVarianceAnalysis,
@@ -392,10 +491,15 @@ const QUERY_REGISTRY: Record<string, (options: Record<string, unknown>) => Promi
   'ops-accounts': getOpsAccounts,
   'ops-service-events': getOpsServiceEvents,
   'ops-complaints': getOpsComplaints,
+  'technician-route': getTechnicianRoute,
 
   // Executive (2 queries)
   'executive-command-center': getExecutiveCommandCenter,
   'kpi-detail': getKPIDetail,
+
+  // KPI Historical Comparisons (2 queries)
+  'kpi-historical-comparisons': getKPIHistoricalComparisons,
+  'kpi-monthly-trends': getKPIMonthlyTrends,
 
   // Branch/Region/Market (5 queries)
   'branch-detail': getBranchDetail,
@@ -580,6 +684,47 @@ const QUERY_REGISTRY: Record<string, (options: Record<string, unknown>) => Promi
 
   // Anomaly Detection (1 query) - Statistical Z-score anomaly detection
   'anomaly-alerts': getAnomalyAlerts,
+
+  // Revenue Forecasting (3 queries) - W3_Contract_Checker historical revenue
+  'forecast-historical-revenue': getHistoricalRevenue,
+  'forecast-revenue-kpis': getRevenueKPIs,
+  'forecast-metrics': getForecastMetrics,
+
+  // Account Details (6 queries) - W3_Contract_Checker + S4 + S0_TMX + Reports
+  'account-details': getAccountDetails,
+  'account-opportunities': getAccountOpportunities,
+  'account-service-history': getAccountServiceHistory,
+  'account-complaints': getAccountComplaints,
+  'account-invoices': getAccountInvoices,
+  'account-owner': getAccountOwner,
+
+  // Organization Workforce (4 queries) - S2.VwUnf_Branch + S0_TMX.tmx_employee
+  'market-workforce': getMarketWorkforce,
+  'region-workforce': getRegionWorkforce,
+  'branch-workforce': getBranchWorkforce,
+  'workforce-hierarchy': getWorkforceHierarchy,
+
+  // Sold Accounts Full Details (2 queries) - BCG_RTD_DB + PestPac + Salesforce
+  'sold-accounts-full-details': getSoldAccountsFullDetails,
+  'sold-accounts-summary': getSoldAccountsSummary,
+
+  // Pipeline Reconciliation (5 queries) - Quote/Contract alignment tracking
+  'sold-quotes-not-in-tracker': getSoldQuotesNotInTracker,
+  'sales-not-yet-started': getSalesNotYetStarted,
+  'starts-without-quote': getStartsWithoutQuote,
+  'complete-pipeline-timeline': getCompletePipelineTimeline,
+  'pipeline-health-summary': getPipelineHealthSummary,
+
+  // Lead Service Engine - Handoff Trend (1 query)
+  'lead-service-handoff-trend': (options: Record<string, unknown>) =>
+    getLeadServiceHandoffTrend(options.handoffType as 'lead_to_schedule' | 'sales_to_ops', options),
+
+  // Platform Health - ETL Job Stats (1 query)
+  'etl-job-stats': getETLJobStats,
+
+  // Anomaly Detection - Acknowledge (1 query)
+  'acknowledge-anomaly': (options: Record<string, unknown>) =>
+    acknowledgeAnomaly(options.anomalyId as string),
 }
 
 /**
@@ -621,10 +766,11 @@ export async function POST(request: NextRequest) {
 
     if (!DEMO_MODE) {
       const supabase = await createClient()
-      const { data: { session } } = await supabase.auth.getSession()
+      // Use getUser() instead of getSession() to validate JWT server-side
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-      if (!session) {
-        // No valid session - log and reject
+      if (authError || !user) {
+        // No valid user - log and reject
         await logUnauthorized(
           query,
           filters,
@@ -643,12 +789,16 @@ export async function POST(request: NextRequest) {
       }
 
       // Get user profile with role and assignments
-      const userEmail = session.user.email
+      const userEmail = user.email
 
-      // Check if admin user (skip profile lookup, assign exec)
-      if (userEmail && isAdminEmail(userEmail)) {
+      // Check profile cache first (avoids DB lookup on rapid successive queries)
+      const cachedProfile = getCachedProfile(user.id)
+      if (cachedProfile) {
+        userProfile = cachedProfile
+      } else if (userEmail && isAdminEmail(userEmail)) {
+        // Check if admin user (skip profile lookup, assign exec)
         userProfile = {
-          id: session.user.id,
+          id: user.id,
           name: extractNameFromEmail(userEmail),
           email: userEmail,
           role: 'exec' as Role,
@@ -658,12 +808,13 @@ export async function POST(request: NextRequest) {
           assignedBranches: [],
           assignedTeams: [],
         }
+        cacheProfile(user.id, userProfile)
       } else {
         // Non-admin: Load from database
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('id', session.user.id)
+          .eq('id', user.id)
           .single()
 
         if (profileError || !profile) {
@@ -686,7 +837,7 @@ export async function POST(request: NextRequest) {
 
         // Build User object from profile
         userProfile = {
-          id: session.user.id,
+          id: user.id,
           name: profile.name,
           email: profile.email,
           role: (profile.role_override ? profile.role : (profile.auto_detected_role || profile.role)) as Role,
@@ -696,6 +847,7 @@ export async function POST(request: NextRequest) {
           assignedBranches: profile.branch_code ? [profile.branch_code] : [],
           assignedTeams: [],
         }
+        cacheProfile(user.id, userProfile)
       }
     } else {
       // DEMO MODE - Allow access without auth but log warning
@@ -713,6 +865,27 @@ export async function POST(request: NextRequest) {
         assignedBranches: [],
         assignedTeams: [],
       }
+    }
+
+    // 1b. RATE LIMIT CHECK - Prevent API abuse
+    const rateLimit = checkRateLimit(userProfile.id)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Rate limit exceeded. Please wait before making more requests.',
+          errorCode: 'RATE_LIMITED',
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)),
+            'X-RateLimit-Limit': String(RATE_LIMIT_MAX_REQUESTS),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(Math.ceil(rateLimit.resetAt / 1000)),
+          },
+        }
+      )
     }
 
     // 2. AUTHORIZATION CHECK - Verify user can access this query
@@ -789,8 +962,8 @@ export async function POST(request: NextRequest) {
     const data = await queryFn(serverSideFilters)
     const responseTime = Date.now() - startTime
 
-    // 6. LOG SUCCESSFUL ACCESS for audit trail
-    await logQueryAccess(
+    // 6. LOG SUCCESSFUL ACCESS for audit trail (fire-and-forget to avoid blocking response)
+    void logQueryAccess(
       userProfile.id,
       userProfile.name,
       userProfile.email,
@@ -798,7 +971,7 @@ export async function POST(request: NextRequest) {
       query,
       serverSideFilters,
       responseTime
-    )
+    ).catch(() => {}) // Silently ignore audit logging failures
 
     return NextResponse.json({
       success: true,
@@ -915,7 +1088,7 @@ export async function GET() {
       termite: ['pni-by-branch', 'pni-details', 'termite-renewals', 'termite-renewal-summary'],
       salti: ['salti-overview', 'salti-daily-check-in', 'salti-productivity', 'salti-proposal-pipeline', 'salti-weekend-blitz', 'salti-yoy-trends', 'salti-funnel-fallout', 'salti-sales-ladders'],
       ops: ['ops-overview', 'ops-national', 'ops-new-starts'],
-      executive: ['executive-command-center', 'kpi-detail'],
+      executive: ['executive-command-center', 'kpi-detail', 'kpi-historical-comparisons', 'kpi-monthly-trends'],
       branch: ['branch-detail', 'branch-daily', 'region-daily', 'market-daily', 'branch-overview'],
       ae: ['ae-pipeline', 'ae-tracker', 'ae-tracker-totals', 'ae-category-breakdown', 'ae-monthly-progression', 'ae-monthly-totals-detail', 'tech-tickets', 'tech-dispatch'],
       hr: ['hr-retention', 'people-overview', 'retention-by-department', 'termination-reasons', 'headcount-summary'],

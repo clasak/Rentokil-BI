@@ -22,8 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Role, User } from '@/types'
-import { ROLE_PERMISSIONS } from '@/store'
+import { Role } from '@/types'
 import {
   ADMIN_NAV,
   ROLE_PREVIEW_NAV,
@@ -48,11 +47,8 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
     isPreviewingRole,
     previewedRole,
     setPreviewingRole,
-    setPreviewingRoleWithOrg,
-    setPreviewedEmployee,
     exitRolePreview,
     setRole,
-    currentUser
   } = useAppStore()
   const [isClient, setIsClient] = useState(false)
 
@@ -131,23 +127,10 @@ export function AdminSidebar({ onNavigate, isMobile }: AdminSidebarProps) {
             setRole('exec')
             router.push('/admin')
           } else {
-            // Set the role in settings first
+            // Create preview user FIRST (reads currentUser before setRole could change it)
+            setPreviewingRole(item.role)
+            // Then update settings role for dashboard rendering
             setRole(item.role)
-
-            // If currentUser exists, use their actual data for preview
-            // This allows admins to preview as themselves with real BigQuery data
-            if (currentUser) {
-              // Create preview user from currentUser but with the previewed role
-              const previewUser: User = {
-                ...currentUser,
-                role: item.role,
-                title: ROLE_PERMISSIONS[item.role]?.label || item.role,
-              }
-              setPreviewedEmployee(previewUser)
-            } else {
-              // No current user data, use synthetic preview user
-              setPreviewingRole(item.role)
-            }
 
             router.push(ROLE_ROUTES[item.role])
           }

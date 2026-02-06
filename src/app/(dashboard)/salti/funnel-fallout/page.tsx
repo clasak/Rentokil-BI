@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select'
 import {
   RefreshCw, Filter, ArrowDown, AlertTriangle,
-  TrendingDown, Users, Target, Clock
+  TrendingDown, Users, Target, Clock, FileText, ExternalLink, Mail
 } from 'lucide-react'
 import type { FunnelFalloutStage } from '@/types/salti-extended'
 import {
@@ -28,7 +28,7 @@ import type { SALTIFunnelFallout } from '@/lib/bigquery/queries/salti'
 
 // Transform BigQuery data to page format
 function transformBigQueryData(bqData: SALTIFunnelFallout[]): FunnelFalloutStage[] {
-  return bqData.map((d, index) => ({
+  return (bqData || []).map((d, index) => ({
     stage: d.stage,
     stageOrder: index + 1,
     entered: d.entered_count,
@@ -70,12 +70,16 @@ export default function FunnelFalloutPage() {
     isLoading,
     dataSource,
     responseTime,
+    error,
+    errorType,
     refetch,
   } = useBigQueryData<SALTIFunnelFallout[], FunnelFalloutStage[]>({
     queryName: 'salti-funnel-fallout',
     filters: { daysBack: getDaysBack(selectedPeriod) },
     defaultData: EMPTY_STAGES,
     transformBigQueryData,
+    includeOrgFilters: true,  // Include market/region/branch filters from UI
+    includeRoleFilters: false, // SALTI is an overview dashboard - don't filter by individual user
   })
 
   const handleRefresh = () => {
@@ -163,6 +167,55 @@ export default function FunnelFalloutPage() {
           <DataSourceBadge status={dataSource} responseTime={responseTime} />
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Funnel Fallout Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">salti-funnel-fallout</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=Funnel Fallout Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}\nQuery: salti-funnel-fallout\nType: ${errorType || 'Unknown'}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

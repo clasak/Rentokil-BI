@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '@/store'
 import { calculateKPIValues, getForecastData, getActionItems } from '@/lib/kpi-calculations'
 import { TOP_10_KPIS, getKPIBySlug } from '@/lib/kpis'
-import { getMarkets } from '@/lib/data'
 import { KPICard } from '@/components/features/KPICard'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -39,10 +38,11 @@ interface QBRDisplayData {
 
 // Transform BigQuery data
 function transformBigQueryData(bqData: ExecutiveCommandCenter[]): QBRDisplayData {
-  const revenueMetric = bqData.find(m => m.metric === 'Revenue')
-  const pipelineMetric = bqData.find(m => m.metric === 'New Leads')
-  const winRateMetric = bqData.find(m => m.metric === 'Win Rate')
-  const callbackMetric = bqData.find(m => m.metric === 'Callbacks')
+  const safeData = bqData || []
+  const revenueMetric = safeData.find(m => m.metric === 'Revenue')
+  const pipelineMetric = safeData.find(m => m.metric === 'New Leads')
+  const winRateMetric = safeData.find(m => m.metric === 'Win Rate')
+  const callbackMetric = safeData.find(m => m.metric === 'Callbacks')
 
   return {
     revenue: revenueMetric?.value || 0,
@@ -66,8 +66,6 @@ export default function QBRPage() {
   const [forecastData, setForecastData] = useState<any>({ forecast: [], assumptions: [], backtest: [] })
   const printRef = useRef<HTMLDivElement>(null)
 
-  const markets = getMarkets()
-
   // BigQuery integration
   const {
     data: bqQBR,
@@ -80,6 +78,8 @@ export default function QBRPage() {
     filters: { daysBack: 90 },
     defaultData: EMPTY_QBR_DATA,
     transformBigQueryData,
+    includeOrgFilters: false, // QBR - executive company-wide view
+    includeRoleFilters: false, // Not user-specific
   })
 
   useEffect(() => {

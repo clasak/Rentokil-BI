@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -7,7 +8,19 @@ import {
   Users, UserPlus, TrendingUp, TrendingDown, BarChart3,
   Eye, Download, Search, GitBranch, Filter
 } from 'lucide-react'
-import { getUserAdoptionMetrics } from '@/lib/mock/platformAdminData'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { UserAdoptionMetrics } from '@/lib/bigquery/queries/user-adoption'
+
+// Empty state (BigQuery-only)
+const EMPTY_ADOPTION: UserAdoptionMetrics = {
+  activeUsers: 0,
+  totalUsers: 0,
+  newUsersThisWeek: 0,
+  mostViewedDashboards: [],
+  featureUsage: [],
+  trackingAvailable: false,
+  lastUpdated: new Date(),
+}
 
 function TrendBadge({ value }: { value: number }) {
   if (value > 0) {
@@ -42,8 +55,45 @@ function FeatureIcon({ feature }: { feature: string }) {
 }
 
 export function UserAdoption() {
-  const metrics = getUserAdoptionMetrics()
-  const adoptionRate = (metrics.activeUsers / metrics.totalUsers) * 100
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Explicit transform for user adoption metrics with null handling
+  function transformUserAdoptionMetrics(data: UserAdoptionMetrics): UserAdoptionMetrics {
+    if (!data) return { activeUsers: 0, totalUsers: 0, newUsersThisWeek: 0, mostViewedDashboards: [], featureUsage: [], trackingAvailable: false, lastUpdated: new Date() }
+    return {
+      activeUsers: data.activeUsers ?? 0,
+      totalUsers: data.totalUsers ?? 0,
+      newUsersThisWeek: data.newUsersThisWeek ?? 0,
+      mostViewedDashboards: (data.mostViewedDashboards ?? []).map(dash => ({
+        name: dash.name ?? '',
+        views: dash.views ?? 0,
+      })),
+      featureUsage: (data.featureUsage ?? []).map(feat => ({
+        feature: feat.feature ?? '',
+        usageCount: feat.usageCount ?? 0,
+      })),
+      trackingAvailable: data.trackingAvailable ?? false,
+      lastUpdated: data.lastUpdated ?? new Date(),
+    }
+  }
+
+  // Fetch user adoption metrics from BigQuery
+  const {
+    data: metrics,
+    isLoading,
+  } = useBigQueryData<UserAdoptionMetrics, UserAdoptionMetrics>({
+    queryName: 'user-adoption-summary',
+    defaultData: EMPTY_ADOPTION,
+    transformBigQueryData: transformUserAdoptionMetrics,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  const adoptionRate = metrics.totalUsers > 0 ? (metrics.activeUsers / metrics.totalUsers) * 100 : 0
 
   return (
     <div className="space-y-6">
@@ -125,10 +175,7 @@ export function UserAdoption() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{dashboard.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold">{dashboard.views.toLocaleString()}</span>
-                        <TrendBadge value={dashboard.trend} />
-                      </div>
+                      <span className="text-sm font-bold">{dashboard.views.toLocaleString()}</span>
                     </div>
                     <Progress
                       value={(dashboard.views / metrics.mostViewedDashboards[0].views) * 100}
@@ -152,20 +199,24 @@ export function UserAdoption() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {metrics.featureUsage.map(feature => (
-                <div key={feature.feature} className="flex items-center gap-3">
-                  <FeatureIcon feature={feature.feature} />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">{feature.feature}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {feature.usageCount} uses ({feature.usagePercent}%)
-                      </span>
+              {metrics.featureUsage.map(feature => {
+                const maxUsage = Math.max(...metrics.featureUsage.map(f => f.usageCount))
+                const usagePercent = maxUsage > 0 ? Math.round((feature.usageCount / maxUsage) * 100) : 0
+                return (
+                  <div key={feature.feature} className="flex items-center gap-3">
+                    <FeatureIcon feature={feature.feature} />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium">{feature.feature}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {feature.usageCount} uses ({usagePercent}%)
+                        </span>
+                      </div>
+                      <Progress value={usagePercent} className="h-1.5" />
                     </div>
-                    <Progress value={feature.usagePercent} className="h-1.5" />
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>
@@ -185,7 +236,7 @@ export function UserAdoption() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {metrics.leastViewedDashboards.map(dashboard => (
+            {metrics.mostViewedDashboards.slice().reverse().slice(0, 3).map(dashboard => (
               <div
                 key={dashboard.name}
                 className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800"

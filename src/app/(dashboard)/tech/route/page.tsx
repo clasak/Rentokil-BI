@@ -1,11 +1,21 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { TechnicianRouteStop } from '@/lib/bigquery/queries/ops'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { MapPin, Navigation, Clock, Truck, ExternalLink, Phone } from 'lucide-react'
-import { RouteMap } from '@/components/maps/RouteMap'
+import { MapPin, Navigation, Clock, Truck, ExternalLink, Phone, AlertTriangle, RefreshCw, Mail, FileText } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { useAuth } from '@/components/providers/AuthProvider'
+
+// Lazy-load RouteMap to avoid bundling mapbox-gl (~200KB) on initial page load
+const RouteMap = dynamic(
+  () => import('@/components/maps/RouteMap').then(m => ({ default: m.RouteMap })),
+  { ssr: false, loading: () => <div className="h-[400px] bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" /> }
+)
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 
 interface RouteStop {
   id: string
@@ -21,86 +31,65 @@ interface RouteStop {
   phone?: string
 }
 
+// Transform BigQuery data to RouteStop format
+function transformRouteStops(bqStops: TechnicianRouteStop[]): RouteStop[] {
+  return bqStops.map(stop => ({
+    id: stop.id,
+    order: stop.order,
+    accountName: stop.accountName,
+    address: stop.address,
+    city: stop.city,
+    estimatedArrival: stop.estimatedArrival,
+    estimatedDuration: stop.estimatedDuration,
+    status: stop.status,
+    distance: stop.distance,
+    coordinates: [0, 0] as [number, number], // Geocoding not available in BigQuery
+    phone: stop.phone || undefined,
+  }))
+}
+
+const EMPTY_STOPS: TechnicianRouteStop[] = []
+
 export default function TechRoutePage() {
-  const [stops, setStops] = useState<RouteStop[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
   const [selectedStop, setSelectedStop] = useState<string | null>(null)
+  const { profile } = useAuth()
 
   useEffect(() => {
-    // Springfield, IL area coordinates for demo
-    const mockStops: RouteStop[] = [
-      {
-        id: '1',
-        order: 1,
-        accountName: 'ABC Manufacturing',
-        address: '123 Industrial Blvd',
-        city: 'Springfield',
-        estimatedArrival: '8:00 AM',
-        estimatedDuration: 45,
-        status: 'completed',
-        distance: '0 mi',
-        coordinates: [-89.6501, 39.7817],
-        phone: '(217) 555-0101'
-      },
-      {
-        id: '2',
-        order: 2,
-        accountName: 'Downtown Cafe',
-        address: '456 Main St',
-        city: 'Springfield',
-        estimatedArrival: '9:30 AM',
-        estimatedDuration: 60,
-        status: 'completed',
-        distance: '3.2 mi',
-        coordinates: [-89.6437, 39.7990],
-        phone: '(217) 555-0202'
-      },
-      {
-        id: '3',
-        order: 3,
-        accountName: 'City Hospital',
-        address: '789 Health Way',
-        city: 'Springfield',
-        estimatedArrival: '11:00 AM',
-        estimatedDuration: 90,
-        status: 'current',
-        distance: '5.1 mi',
-        coordinates: [-89.6590, 39.8120],
-        phone: '(217) 555-0303'
-      },
-      {
-        id: '4',
-        order: 4,
-        accountName: 'Sunrise Apartments',
-        address: '321 Residential Dr',
-        city: 'Riverside',
-        estimatedArrival: '1:30 PM',
-        estimatedDuration: 120,
-        status: 'upcoming',
-        distance: '8.4 mi',
-        coordinates: [-89.6200, 39.7650],
-        phone: '(217) 555-0404'
-      },
-      {
-        id: '5',
-        order: 5,
-        accountName: 'Tech Solutions Inc',
-        address: '555 Corporate Park',
-        city: 'Riverside',
-        estimatedArrival: '4:00 PM',
-        estimatedDuration: 45,
-        status: 'upcoming',
-        distance: '2.3 mi',
-        coordinates: [-89.6050, 39.7500],
-        phone: '(217) 555-0505'
-      },
-    ]
-
-    setTimeout(() => {
-      setStops(mockStops)
-      setIsLoading(false)
-    }, 300)
+    setMounted(true)
   }, [])
+
+  // Get technician ID from user profile (using employee_number field)
+  const technicianId = profile?.employee_number || undefined
+
+  // Fetch route data from BigQuery
+  const {
+    data: routeStops,
+    isLoading,
+    dataSource,
+    responseTime,
+    error,
+    errorType,
+    refetch,
+  } = useBigQueryData<TechnicianRouteStop[], TechnicianRouteStop[]>({
+    queryName: 'technician-route',
+    filters: {
+      technicianId, // Manually filter by technician ID from user profile
+      date: new Date().toISOString().split('T')[0],
+    },
+    defaultData: EMPTY_STOPS,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false, // Route already filtered by technicianId above
+    includeRoleFilters: false, // Route already filtered by technicianId above
+  })
+
+  // Transform to display format
+  const stops = mounted ? transformRouteStops(routeStops) : []
+
+  // Hydration guard
+  if (!mounted) {
+    return null
+  }
 
   const totalDistance = stops.reduce((acc, s) => acc + parseFloat(s.distance), 0).toFixed(1)
   const completedStops = stops.filter(s => s.status === 'completed').length
@@ -112,11 +101,79 @@ export default function TechRoutePage() {
   }
 
   if (isLoading) {
-    return <div className="p-6">Loading route...</div>
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-lg font-semibold">Loading today&apos;s route...</div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
+      {/* Error State - Comprehensive */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Route Data</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">Error Type:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType || 'Unknown'}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">technician-route</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Technician ID:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{technicianId || 'Not set'}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Date:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{new Date().toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=Technician Route Dashboard Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}%0D%0ATechnician ID: ${technicianId || 'Not set'}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Route</h1>
@@ -124,10 +181,16 @@ export default function TechRoutePage() {
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <Badge variant="outline" className="gap-1">
-          <Truck className="h-3 w-3" />
-          {completedStops}/{stops.length} Stops Complete
-        </Badge>
+        <div className="flex items-center gap-3">
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetch} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Badge variant="outline" className="gap-1">
+            <Truck className="h-3 w-3" />
+            {completedStops}/{stops.length} Stops Complete
+          </Badge>
+        </div>
       </div>
 
       {/* Route Summary */}
@@ -212,10 +275,32 @@ export default function TechRoutePage() {
       {/* Route Map */}
       <Card>
         <CardHeader>
-          <CardTitle>Route Map</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            Route Map
+            <Badge variant="outline" className="text-xs font-normal">
+              Geocoding unavailable
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <RouteMap stops={stops} className="h-80" />
+          {stops.length === 0 ? (
+            <div className="h-80 flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div className="text-center text-gray-500">
+                <MapPin className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                <p>No stops scheduled for today</p>
+              </div>
+            </div>
+          ) : (
+            <div className="h-80 flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+              <div className="text-center text-gray-500 max-w-md px-4">
+                <MapPin className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                <p className="font-medium mb-1">Map Visualization Unavailable</p>
+                <p className="text-sm">
+                  Address geocoding data is not available in BigQuery. Route optimization and turn-by-turn navigation requires integration with a mapping service.
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

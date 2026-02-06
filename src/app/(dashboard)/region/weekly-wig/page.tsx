@@ -55,6 +55,7 @@ import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import { useOrganizationData } from '@/hooks/useOrganizationData'
 import type { WIGRegionSummary, WIGBranchMetrics as BQWIGBranchMetrics } from '@/lib/bigquery/queries/wig'
+import type { BranchWorkforce } from '@/lib/bigquery/queries/organization-workforce'
 
 const statusColors: Record<MetricStatus, string> = {
   success: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-700',
@@ -70,7 +71,8 @@ const statusTextColors: Record<MetricStatus, string> = {
 
 // Transform BigQuery data to UI format
 function transformBigQueryToUI(bqData: WIGRegionSummary): RegionWeeklyWIG {
-  const branches: BranchWIGEntry[] = bqData.branch_metrics.map((bm: BQWIGBranchMetrics) => ({
+  if (!bqData) return { regionCode: '' as RegionCode, weekEndDate: '', laggingMetrics: { salesYOY: 0, revenueGrowth: 0, retention: 0, profitVsAOP: 0, colleagueRetention: 0, safetyYOYReduction: 0 }, branches: [], totals: { salesDollarsPerRep: 0, tapDollarPerTech: 0, missedStops: 0, twentyFourHourStart: 0, npsScore: 0, pastDueCcmCfr: 0, techsOver55Hours: 0, serviceRevPerHour: 0, driverScore: 0, fundamentalsChecklistMTD: 0, rdBranchMeetingsMTD: 0 } }
+  const branches: BranchWIGEntry[] = (bqData.branch_metrics || []).map((bm: BQWIGBranchMetrics) => ({
     branch: {
       code: bm.branch_code,
       name: bm.branch_name,
@@ -190,6 +192,24 @@ export default function WeeklyWIGPage() {
     transformBigQueryData: transformBigQueryToUI,
     includeOrgFilters: false, // WIG uses its own region filter
   })
+
+  // Workforce data for branch staff counts (BM/Tech/AE per branch)
+  const { data: workforceData } = useBigQueryData<BranchWorkforce[], BranchWorkforce[]>({
+    queryName: 'branch-workforce',
+    filters: { regionCode: selectedRegion },
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,  // WIG uses its own region filter
+    includeRoleFilters: false, // No user-specific filtering needed
+    enabled: !!selectedRegion,
+  })
+
+  // Create workforce lookup by branch code
+  const workforceLookup = useMemo(() => {
+    const map = new Map<string, BranchWorkforce>()
+    workforceData.forEach(w => map.set(w.branch_code, w))
+    return map
+  }, [workforceData])
 
   if (!mounted || isLoading || regionsLoading || !wigData || !selectedRegion) {
     return (
@@ -526,6 +546,14 @@ export default function WeeklyWIGPage() {
                     <TableCell className="font-mono text-sm">{branch.code}</TableCell>
                     <TableCell>
                       <p className="font-medium truncate max-w-[130px]">{branch.name}</p>
+                      {(() => {
+                        const wf = workforceLookup.get(branch.code)
+                        return wf ? (
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                            {wf.branch_managers} BM / {wf.technicians} Tech / {wf.ae_sales} AE
+                          </p>
+                        ) : null
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       <span className={

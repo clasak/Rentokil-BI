@@ -54,7 +54,7 @@ export function OpsManagerCommandCenter() {
   }, [])
 
   useEffect(() => {
-    // Get assigned technicians from current user, or use mock data as fallback
+    // Get technicians from generated user data
     const users = getUsers()
     const assignedTechIds = currentUser?.assignedTechnicians || []
 
@@ -69,8 +69,9 @@ export function OpsManagerCommandCenter() {
     const routes = ['Route 12A', 'Route 15B', 'Route 8C', 'Route 22A', 'Route 3D', 'Route 7F', 'Route 18E']
 
     const technicianData: TechnicianStatus[] = assignedTechs.slice(0, 5).map((tech, index) => {
-      const stopsTotal = 5 + Math.floor(Math.random() * 3) // 5-7 stops
-      const stopsCompleted = Math.min(Math.floor(Math.random() * (stopsTotal + 1)), stopsTotal)
+      const stopsTotal = 5 + (index % 3) // 5-7 stops, deterministic per position
+      const completionFractions = [0.5, 0.8, 1.0, 0.33, 0.67]
+      const stopsCompleted = Math.min(Math.round(stopsTotal * completionFractions[index % 5]), stopsTotal)
       return {
         id: tech.id,
         name: tech.name,
@@ -78,18 +79,14 @@ export function OpsManagerCommandCenter() {
         status: statuses[index % 4],
         stopsCompleted,
         stopsTotal,
-        callbacks: Math.floor(Math.random() * 3),
-        utilization: 75 + Math.floor(Math.random() * 20),
-        rating: 4.0 + Math.random() * 0.9,
+        callbacks: index % 3, // 0, 1, or 2 deterministically
+        utilization: 75 + ((index * 7 + 3) % 20), // 75-94 range, deterministic
+        rating: 4.0 + ((index * 3 + 1) % 9) / 10, // 4.1-4.8 range, deterministic
       }
     })
 
     setTimeout(() => {
-      setTechData(technicianData.length > 0 ? technicianData : [
-        // Fallback if no technicians found
-        { id: '1', name: 'Mike Johnson', route: 'Route 12A', status: 'at_stop', stopsCompleted: 3, stopsTotal: 6, callbacks: 0, utilization: 92, rating: 4.8 },
-        { id: '2', name: 'James Williams', route: 'Route 15B', status: 'on_route', stopsCompleted: 4, stopsTotal: 5, callbacks: 1, utilization: 88, rating: 4.5 },
-      ])
+      setTechData(technicianData)
       setIsLoading(false)
     }, 300)
   }, [currentUser])
@@ -123,12 +120,31 @@ export function OpsManagerCommandCenter() {
     remaining: t.stopsTotal - t.stopsCompleted,
   }))
 
-  // Service issues (simulated)
-  const serviceIssues = [
-    { id: '1', type: 'callback', account: 'Tech Solutions Inc', tech: 'Daniel Brown', urgency: 'high', description: 'Customer reported pest sighting' },
-    { id: '2', type: 'callback', account: 'FoodServ Restaurant', tech: 'James Williams', urgency: 'high', description: 'Follow-up treatment needed' },
-    { id: '3', type: 'delay', account: 'City Hospital', tech: 'Robert Davis', urgency: 'medium', description: 'Running 45 min behind schedule' },
-  ]
+  // Derive service issues from technician data (callbacks and delays)
+  const serviceIssues = techData.flatMap(tech => {
+    const issues: { id: string; type: string; account: string; tech: string; urgency: string; description: string }[] = []
+    if (tech.callbacks > 0) {
+      issues.push({
+        id: `cb-${tech.id}`,
+        type: 'callback',
+        account: `${tech.route} service`,
+        tech: tech.name,
+        urgency: 'high',
+        description: `${tech.callbacks} callback${tech.callbacks > 1 ? 's' : ''} pending`,
+      })
+    }
+    if (tech.status === 'delayed') {
+      issues.push({
+        id: `delay-${tech.id}`,
+        type: 'delay',
+        account: `${tech.route} schedule`,
+        tech: tech.name,
+        urgency: 'medium',
+        description: 'Running behind schedule',
+      })
+    }
+    return issues
+  })
 
   const getStatusBadge = (status: string) => {
     switch (status) {

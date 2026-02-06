@@ -32,3 +32,6 @@ next-env.d.ts
 # OS
 .DS_Store
 Thumbs.db
+
+# Backup files (may contain credentials)
+*.backup

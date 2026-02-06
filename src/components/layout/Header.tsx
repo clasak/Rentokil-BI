@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { GlobalOrganizationFilter } from './GlobalOrganizationFilter'
 import { createClient } from '@/lib/supabase/client'
+import { useEffectiveRole } from '@/hooks/useEffectiveRole'
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -75,6 +76,9 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
     theme,
     setTheme,
   } = useAppStore()
+
+  // Use effective role (considers preview mode) instead of settings.role
+  const effectiveRole = useEffectiveRole(isClient)
 
   // Load user info and recent searches
   useEffect(() => {
@@ -406,7 +410,7 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
         <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <Shield className="h-4 w-4 text-gray-600 dark:text-gray-400" />
           <span className="text-sm font-medium dark:text-gray-200">
-            <span className="text-primary">{isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'Executive') : 'Loading...'}</span>
+            <span className="text-primary">{isClient ? (ROLE_PERMISSIONS[effectiveRole]?.label ?? 'Executive') : 'Loading...'}</span>
           </span>
         </div>
 
@@ -580,7 +584,7 @@ export function Header({ onMenuClick, mobileMenuOpen }: HeaderProps) {
                 <div>
                   <div className="font-semibold text-lg">{userName || 'User'}</div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {isClient ? (ROLE_PERMISSIONS[settings.role]?.label ?? 'User') : 'Loading...'}
+                    {isClient ? (ROLE_PERMISSIONS[effectiveRole]?.label ?? 'User') : 'Loading...'}
                   </div>
                 </div>
               </div>

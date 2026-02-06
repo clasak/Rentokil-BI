@@ -1,27 +1,26 @@
 /**
- * BigQuery Queries for Portfolio Analytics (BCG_RTD_DB.DR_Portfolio*)
+ * BigQuery Queries for Portfolio Analytics
  *
  * Portfolio analytics for customer retention, churn, CLV, and growth.
  *
  * Tables:
- * - DR_PortfolioDaily: Daily account snapshots
- * - DR_PortfolioMonthly: Monthly aggregated portfolio metrics
+ * - W3_Contract_Checker.T0_unf_Contract_All: Contract lifecycle data (7.8M rows)
+ * - BCG_RTD_DB.DR_PortfolioMonthly: Monthly aggregated portfolio metrics
+ * - BCG_RTD_DB.DR_Cancels: Cancellation data (513K rows)
  *
- * Columns (DR_PortfolioDaily):
- * - date: Snapshot date
- * - account_id: Unique account identifier
- * - service_type: Residential, Commercial, Termite
- * - revenue: Account monthly revenue
- * - status: Active, Cancelled, Suspended
- * - branch_id: Branch code
+ * Columns (T0_unf_Contract_All):
+ * - SellDate, StartDate, CancelDate: Contract lifecycle dates
+ * - ContractValue: Contract value
+ * - customer_name: Customer identifier
+ * - AssignedBranchCode, RegionCode, MarketCode: Organization hierarchy
+ * - CancelReasonCode: Cancellation reason
+ * - ServiceType: Service category
  *
  * Columns (DR_PortfolioMonthly):
- * - month: Period (YYYY-MM)
- * - total_accounts: Total active accounts
- * - new_accounts: New accounts added
- * - lost_accounts: Accounts lost (cancelled/non-renew)
- * - churn_reason: Cancellation reason
- * - avg_revenue: Average revenue per account
+ * - snapshot_month: Period date
+ * - monthly_revenue: Revenue for the month
+ * - ending_customers: Customer count at month end
+ * - region, market: Organization codes
  */
 
 import { bigQueryClient, BIGQUERY_CONFIG } from '../client'
@@ -85,13 +84,14 @@ export interface PortfolioQueryOptions {
 // =============================================================================
 
 const PROJECT = BIGQUERY_CONFIG.projectId
-const DATASET = 'BCG_RTD_DB'
 
 /**
  * Get Account Retention by Cohort
  *
  * Tracks retention rates for customer cohorts over time.
- * Cohort = customers who started in the same month.
+ * Cohort = customers who started in the same month (based on SellDate).
+ *
+ * Uses W3_Contract_Checker.T0_unf_Contract_All
  */
 export async function getAccountRetention(
   options: PortfolioQueryOptions = {}
@@ -104,34 +104,32 @@ export async function getAccountRetention(
     const sql = `
       WITH account_start AS (
         SELECT
-          account_id,
-          SUBSTR(branch_id, 1, 2) as market,
-          SUBSTR(branch_id, 1, 4) as region,
-          MIN(date) as start_date,
-          FORMAT_DATE('%Y-%m', MIN(date)) as cohort_month
-        FROM \`${PROJECT}.${DATASET}.DR_PortfolioDaily\`
-        WHERE status = 'Active'
-          AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
-          ${validatedMarket ? `AND SUBSTR(branch_id, 1, 2) = @market` : ''}
-          ${validatedRegion ? `AND SUBSTR(branch_id, 1, 4) = @region` : ''}
-        GROUP BY account_id, market, region
+          customer_name,
+          MarketCode as market,
+          RegionCode as region,
+          MIN(SellDate) as start_date,
+          FORMAT_DATE('%Y-%m', MIN(SellDate)) as cohort_month
+        FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\`
+        WHERE SellDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
+          ${validatedMarket ? `AND MarketCode = @market` : ''}
+          ${validatedRegion ? `AND RegionCode = @region` : ''}
+        GROUP BY customer_name, market, region
       ),
       retention_calc AS (
         SELECT
           a.cohort_month,
           a.market,
           a.region,
-          COUNT(DISTINCT a.account_id) as initial_accounts,
+          COUNT(DISTINCT a.customer_name) as initial_accounts,
           COUNT(DISTINCT CASE
-            WHEN p.status = 'Active'
-              AND p.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-            THEN p.account_id
+            WHEN c.CancelDate IS NULL OR c.CancelDate >= CURRENT_DATE()
+            THEN c.customer_name
           END) as retained_accounts,
           DATE_DIFF(CURRENT_DATE(), MIN(a.start_date), MONTH) as months_since_start
         FROM account_start a
-        LEFT JOIN \`${PROJECT}.${DATASET}.DR_PortfolioDaily\` p
-          ON a.account_id = p.account_id
-          AND p.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+        LEFT JOIN \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\` c
+          ON a.customer_name = c.customer_name
+          AND a.market = c.MarketCode
         GROUP BY a.cohort_month, a.market, a.region
       )
       SELECT
@@ -163,6 +161,7 @@ export async function getAccountRetention(
  * Get Revenue Churn Analysis
  *
  * Analyzes revenue loss from churned accounts by service type and reason.
+ * Uses W3_Contract_Checker.T0_unf_Contract_All with CancelDate and CancelReasonCode.
  */
 export async function getRevenueChurn(
   options: PortfolioQueryOptions = {}
@@ -174,31 +173,28 @@ export async function getRevenueChurn(
     const sql = `
       WITH active_revenue AS (
         SELECT
-          FORMAT_DATE('%Y-%m', date) as period,
-          SUBSTR(branch_id, 1, 2) as market,
-          service_type,
-          SUM(revenue) as total_revenue
-        FROM \`${PROJECT}.${DATASET}.DR_PortfolioDaily\`
-        WHERE status = 'Active'
-          AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
-          ${validatedMarket ? `AND SUBSTR(branch_id, 1, 2) = @market` : ''}
+          FORMAT_DATE('%Y-%m', SellDate) as period,
+          MarketCode as market,
+          ServiceType as service_type,
+          SUM(ContractValue) as total_revenue
+        FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\`
+        WHERE (CancelDate IS NULL OR CancelDate >= SellDate)
+          AND SellDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
+          ${validatedMarket ? `AND MarketCode = @market` : ''}
         GROUP BY period, market, service_type
       ),
       churned_revenue AS (
         SELECT
-          m.month as period,
-          SUBSTR(d.branch_id, 1, 2) as market,
-          d.service_type,
-          m.churn_reason,
-          SUM(d.revenue) as churned_revenue
-        FROM \`${PROJECT}.${DATASET}.DR_PortfolioMonthly\` m
-        JOIN \`${PROJECT}.${DATASET}.DR_PortfolioDaily\` d
-          ON FORMAT_DATE('%Y-%m', d.date) = m.month
-          AND d.status = 'Cancelled'
-          AND SUBSTR(d.branch_id, 1, 2) = SUBSTR(m.branch_id, 1, 2)
-        WHERE m.month >= FORMAT_DATE('%Y-%m', DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY))
-          ${validatedMarket ? `AND SUBSTR(m.branch_id, 1, 2) = @market` : ''}
-        GROUP BY period, market, d.service_type, m.churn_reason
+          FORMAT_DATE('%Y-%m', CancelDate) as period,
+          MarketCode as market,
+          ServiceType as service_type,
+          COALESCE(CancelReasonCode, 'Unknown') as churn_reason,
+          SUM(ContractValue) as churned_revenue
+        FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\`
+        WHERE CancelDate IS NOT NULL
+          AND CancelDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
+          ${validatedMarket ? `AND MarketCode = @market` : ''}
+        GROUP BY period, market, service_type, churn_reason
       )
       SELECT
         a.period,
@@ -231,7 +227,7 @@ export async function getRevenueChurn(
  * Get Customer Lifetime Value by Service Type
  *
  * Calculates CLV = Average Monthly Revenue × Average Tenure (months)
- * Provides strategic insight into customer value by segment.
+ * Uses W3_Contract_Checker.T0_unf_Contract_All to calculate tenure and revenue.
  */
 export async function getCustomerLifetimeValue(
   options: PortfolioQueryOptions = {}
@@ -243,17 +239,28 @@ export async function getCustomerLifetimeValue(
     const sql = `
       WITH customer_metrics AS (
         SELECT
-          account_id,
-          SUBSTR(branch_id, 1, 2) as market,
-          service_type,
-          AVG(revenue) as avg_monthly_revenue,
-          DATE_DIFF(MAX(date), MIN(date), MONTH) as tenure_months
-        FROM \`${PROJECT}.${DATASET}.DR_PortfolioDaily\`
-        WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
-          ${validatedMarket ? `AND SUBSTR(branch_id, 1, 2) = @market` : ''}
-          AND service_type IS NOT NULL
-        GROUP BY account_id, market, service_type
-        HAVING tenure_months >= 3  -- Only include customers with at least 3 months tenure
+          customer_name,
+          MarketCode as market,
+          ServiceType as service_type,
+          ContractValue / NULLIF(DATE_DIFF(
+            COALESCE(CancelDate, CURRENT_DATE()),
+            SellDate,
+            MONTH
+          ), 0) as avg_monthly_revenue,
+          DATE_DIFF(
+            COALESCE(CancelDate, CURRENT_DATE()),
+            SellDate,
+            MONTH
+          ) as tenure_months
+        FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\`
+        WHERE SellDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
+          ${validatedMarket ? `AND MarketCode = @market` : ''}
+          AND ServiceType IS NOT NULL
+          AND DATE_DIFF(
+            COALESCE(CancelDate, CURRENT_DATE()),
+            SellDate,
+            MONTH
+          ) >= 3  -- Only include contracts with at least 3 months tenure
       )
       SELECT
         service_type,
@@ -261,8 +268,10 @@ export async function getCustomerLifetimeValue(
         ROUND(AVG(avg_monthly_revenue), 2) as avg_monthly_revenue,
         ROUND(AVG(tenure_months), 1) as avg_tenure_months,
         ROUND(AVG(avg_monthly_revenue) * AVG(tenure_months), 2) as customer_lifetime_value,
-        COUNT(DISTINCT account_id) as total_customers
+        COUNT(DISTINCT customer_name) as total_customers
       FROM customer_metrics
+      WHERE avg_monthly_revenue IS NOT NULL
+        AND tenure_months > 0
       GROUP BY service_type, market
       HAVING total_customers >= 10  -- Only show segments with sufficient sample size
       ORDER BY customer_lifetime_value DESC, market, service_type
@@ -282,7 +291,9 @@ export async function getCustomerLifetimeValue(
 /**
  * Get Portfolio Growth Trends
  *
- * Tracks new accounts vs lost accounts to show net portfolio growth.
+ * Tracks new contracts vs cancelled contracts to show net portfolio growth.
+ * Uses BCG_RTD_DB.DR_PortfolioMonthly for monthly snapshots.
+ *
  * Growth Rate = (Net Growth / Total Active Accounts) × 100
  */
 export async function getPortfolioGrowth(
@@ -293,27 +304,54 @@ export async function getPortfolioGrowth(
     const validatedDaysBack = validateNumeric(options.daysBack, 'daysBack', 1, 365) ?? 180
 
     const sql = `
-      WITH monthly_changes AS (
+      WITH monthly_contracts AS (
         SELECT
-          month as period,
-          SUBSTR(branch_id, 1, 2) as market,
-          SUM(new_accounts) as new_accounts,
-          SUM(lost_accounts) as lost_accounts,
-          SUM(total_accounts) as total_active_accounts
-        FROM \`${PROJECT}.${DATASET}.DR_PortfolioMonthly\`
-        WHERE month >= FORMAT_DATE('%Y-%m', DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY))
-          ${validatedMarket ? `AND SUBSTR(branch_id, 1, 2) = @market` : ''}
+          FORMAT_DATE('%Y-%m', SellDate) as period,
+          MarketCode as market,
+          COUNT(*) as new_accounts
+        FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\`
+        WHERE SellDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
+          ${validatedMarket ? `AND MarketCode = @market` : ''}
         GROUP BY period, market
+      ),
+      monthly_cancels AS (
+        SELECT
+          FORMAT_DATE('%Y-%m', CancelDate) as period,
+          MarketCode as market,
+          COUNT(*) as lost_accounts
+        FROM \`${PROJECT}.W3_Contract_Checker.T0_unf_Contract_All\`
+        WHERE CancelDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
+          ${validatedMarket ? `AND MarketCode = @market` : ''}
+        GROUP BY period, market
+      ),
+      monthly_active AS (
+        SELECT
+          FORMAT_DATE('%Y-%m', snapshot_month) as period,
+          market,
+          ending_customers as total_active_accounts
+        FROM \`${PROJECT}.BCG_RTD_DB.DR_PortfolioMonthly\`
+        WHERE snapshot_month >= DATE_SUB(CURRENT_DATE(), INTERVAL ${validatedDaysBack} DAY)
+          ${validatedMarket ? `AND market = @market` : ''}
+        GROUP BY period, market, ending_customers
       )
       SELECT
-        period,
-        market,
-        new_accounts,
-        lost_accounts,
-        (new_accounts - lost_accounts) as net_growth,
-        total_active_accounts,
-        ROUND(((new_accounts - lost_accounts) / NULLIF(total_active_accounts, 0)) * 100, 2) as growth_rate
-      FROM monthly_changes
+        COALESCE(n.period, c.period, a.period) as period,
+        COALESCE(n.market, c.market, a.market) as market,
+        COALESCE(n.new_accounts, 0) as new_accounts,
+        COALESCE(c.lost_accounts, 0) as lost_accounts,
+        (COALESCE(n.new_accounts, 0) - COALESCE(c.lost_accounts, 0)) as net_growth,
+        COALESCE(a.total_active_accounts, 0) as total_active_accounts,
+        ROUND((
+          (COALESCE(n.new_accounts, 0) - COALESCE(c.lost_accounts, 0)) /
+          NULLIF(COALESCE(a.total_active_accounts, 1), 0)
+        ) * 100, 2) as growth_rate
+      FROM monthly_contracts n
+      FULL OUTER JOIN monthly_cancels c
+        ON n.period = c.period AND n.market = c.market
+      FULL OUTER JOIN monthly_active a
+        ON COALESCE(n.period, c.period) = a.period
+        AND COALESCE(n.market, c.market) = a.market
+      WHERE COALESCE(n.period, c.period, a.period) IS NOT NULL
       ORDER BY period DESC, market
       LIMIT ${options.limit ?? 100}
     `

@@ -83,6 +83,7 @@ const defaultMarketData: MarketBreakdown[] = []
 
 // Transform BigQuery response to match expected format
 function transformSummary(raw: CrossFunctionalSummary): CrossFunctionalSummary {
+  if (!raw) return { kpis: [], departments: [], trends: [], overall_health: 0 }
   return {
     kpis: raw.kpis || [],
     departments: raw.departments || [],
@@ -138,6 +139,8 @@ export default function CrossFunctionalPage() {
     filters,
     transformBigQueryData: transformSummary,
     defaultData: defaultSummaryData,
+    includeOrgFilters: true, // Cross-functional overview - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Fetch market breakdown
@@ -150,6 +153,8 @@ export default function CrossFunctionalPage() {
     filters: { daysBack: 30 },
     transformBigQueryData: transformMarkets,
     defaultData: defaultMarketData,
+    includeOrgFilters: true, // Cross-functional overview - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   const { kpis, departments, trends, overall_health } = summaryData

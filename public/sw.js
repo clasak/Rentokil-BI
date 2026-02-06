@@ -182,8 +182,9 @@ async function cacheFirstStrategy(request) {
 
     return networkResponse;
   } catch (error) {
-    console.error('[SW] Cache first strategy failed:', error);
-    throw error;
+    // Return a minimal error response instead of rejecting the FetchEvent promise,
+    // which causes noisy console errors for non-critical assets like favicon.ico
+    return new Response('', { status: 408, statusText: 'Offline' });
   }
 }
 

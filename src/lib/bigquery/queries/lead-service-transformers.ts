@@ -121,7 +121,7 @@ const STAGE_ORDER: LeadStage[] = [
  * Transform BigQuery stage metrics to Lead Engine StageMetrics[]
  */
 export function transformStageMetrics(bqData: BQStageMetricsRow[]): StageMetrics[] {
-  const stageMap = new Map(bqData.map((row) => [row.stage, row]))
+  const stageMap = new Map((bqData || []).map((row) => [row.stage, row]))
 
   return STAGE_ORDER.map((stage) => {
     const row = stageMap.get(stage)
@@ -188,7 +188,7 @@ export function transformHandoffMetrics(
   }))
 
   return (['bd_to_sales', 'sales_to_ops'] as const).map((type) => {
-    const row = bqData.find((r) => r.handoff_type === type)
+    const row = (bqData || []).find((r) => r.handoff_type === type)
 
     if (!row) {
       return {
@@ -220,6 +220,7 @@ export function transformHandoffMetrics(
  * Transform BigQuery pipeline summary
  */
 export function transformPipelineSummary(row: BQPipelineSummaryRow) {
+  if (!row) return { totalLeads: 0, healthyLeads: 0, atRiskLeads: 0, criticalLeads: 0, avgLeadToServiceDays: 0, conversionRate: 0, bottleneckStage: 'None', bottleneckSlaCompliance: 100, totalPipelineValue: 0, atRiskValue: 0, avgDealSize: 0 }
   return {
     totalLeads: row.total_leads || 0,
     healthyLeads: row.healthy_leads || 0,
@@ -292,7 +293,7 @@ function getRiskReasons(lead: BQAtRiskLeadRow): RiskReason[] {
  * Transform BigQuery at-risk leads to Lead Engine format
  */
 export function transformAtRiskLeads(bqData: BQAtRiskLeadRow[]): LeadServiceAtRiskLead[] {
-  return bqData.map((row) => ({
+  return (bqData || []).map((row) => ({
     id: row.lead_id || `LEAD-${Math.random().toString(36).substring(7)}`,
     companyName: row.company_name || 'Unknown Company',
     contactName: row.contact_name || 'Unknown Contact',
@@ -326,7 +327,7 @@ export interface HandoffLead {
  * Transform BigQuery handoff leads to Lead Engine format
  */
 export function transformHandoffLeads(bqData: BQHandoffLeadRow[]): HandoffLead[] {
-  return bqData.map((row) => ({
+  return (bqData || []).map((row) => ({
     id: row.lead_id || `LEAD-${Math.random().toString(36).substring(7)}`,
     companyName: row.company_name || 'Unknown Company',
     contactName: row.contact_name || 'Unknown Contact',
@@ -360,7 +361,7 @@ export interface RiskReasonBreakdown {
  * Transform BigQuery risk reasons to chart format
  */
 export function transformRiskReasons(bqData: BQRiskReasonRow[]): RiskReasonBreakdown[] {
-  return bqData
+  return (bqData || [])
     .filter((row) => row.count > 0)
     .map((row) => ({
       name: RISK_REASON_LABELS[row.reason] || row.reason,

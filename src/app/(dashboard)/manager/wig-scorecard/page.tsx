@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,7 @@ import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import { useOrganizationData } from '@/hooks/useOrganizationData'
 import type { WIGBranchMetrics as BQWIGBranchMetrics } from '@/lib/bigquery/queries/wig'
+import type { BranchWorkforce } from '@/lib/bigquery/queries/organization-workforce'
 
 // WIG Targets - these would normally come from configuration
 const WIG_TARGETS = {
@@ -104,7 +105,7 @@ const EMPTY_WIG_DATA: BranchWigData[] = []
 
 // Transform BigQuery data to UI format
 function transformBigQueryData(bqData: BQWIGBranchMetrics[]): BranchWigData[] {
-  return bqData.map(bm => ({
+  return (bqData || []).map(bm => ({
     branch: {
       code: bm.branch_code,
       name: bm.branch_name,
@@ -160,6 +161,24 @@ export default function WigScorecardPage() {
     transformBigQueryData,
     includeOrgFilters: false,
   })
+
+  // Workforce data for branch staff counts (BM/Tech/AE per branch)
+  const { data: workforceData } = useBigQueryData<BranchWorkforce[], BranchWorkforce[]>({
+    queryName: 'branch-workforce',
+    filters: { regionCode: selectedRegion },
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,  // WIG uses its own region filter
+    includeRoleFilters: false, // No user-specific filtering needed
+    enabled: !!selectedRegion,
+  })
+
+  // Create workforce lookup by branch code
+  const workforceLookup = useMemo(() => {
+    const map = new Map<string, BranchWorkforce>()
+    workforceData.forEach(w => map.set(w.branch_code, w))
+    return map
+  }, [workforceData])
 
   if (!mounted || isLoading || regionsLoading || !wigData || !selectedRegion) {
     return (
@@ -505,6 +524,14 @@ export default function WigScorecardPage() {
                     <TableCell className="font-mono text-sm">{data.branch.code}</TableCell>
                     <TableCell>
                       <p className="font-medium truncate max-w-[140px]">{data.branch.name}</p>
+                      {(() => {
+                        const wf = workforceLookup.get(data.branch.code)
+                        return wf ? (
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                            {wf.branch_managers} BM / {wf.technicians} Tech / {wf.ae_sales} AE
+                          </p>
+                        ) : null
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       <span className={getStatus(data.salesDollarsPerRep, WIG_TARGETS.salesDollarsPerRep) === 'success' ? 'text-green-600 font-medium' : getStatus(data.salesDollarsPerRep, WIG_TARGETS.salesDollarsPerRep) === 'danger' ? 'text-red-600' : ''}>

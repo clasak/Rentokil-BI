@@ -492,3 +492,129 @@ export async function getOpsComplaints(
     throw handleBigQueryError(error, 'getOpsComplaints', options)
   }
 }
+
+// =============================================================================
+// Technician Route Queries
+// =============================================================================
+
+/**
+ * Technician Route Stop interface
+ */
+export interface TechnicianRouteStop {
+  id: string
+  order: number
+  accountName: string
+  address: string
+  city: string
+  state: string
+  estimatedArrival: string
+  estimatedDuration: number
+  status: 'completed' | 'current' | 'upcoming'
+  distance: string
+  phone: string | null
+  serviceType: string
+  inspectionDate: string
+}
+
+interface BQTechnicianRouteStop {
+  id: string
+  inspection_date: { value: string }
+  account_name: string
+  billing_address: string
+  billing_city: string
+  billing_state: string
+  estimated_duration: number
+  status: string
+  phone: string
+  service_type: string
+  scheduled_time: string
+}
+
+export interface TechnicianRouteQueryOptions extends OpsQueryOptions {
+  technicianId?: string
+  date?: string
+}
+
+/**
+ * Get technician's daily route schedule
+ *
+ * Data source: S0_TMX.Inspections
+ *
+ * NOTE: Coordinates/geocoding not available in BigQuery.
+ * Returns scheduled inspections ordered by time.
+ * Map visualization requires external geocoding service.
+ *
+ * @returns Ordered list of route stops for the day
+ */
+export async function getTechnicianRoute(
+  options: TechnicianRouteQueryOptions = {}
+): Promise<TechnicianRouteStop[]> {
+  try {
+    // Validation
+    const technicianId = options.technicianId ? validateString(options.technicianId, 'technicianId') : undefined
+    const targetDate = options.date || new Date().toISOString().split('T')[0]
+    const limit = validateNumeric(options.limit, 'limit', 1, 100) || 50
+
+    const sql = `
+      SELECT
+        InspectionID as id,
+        InspectionDate as inspection_date,
+        COALESCE(CustomerName, 'Unknown Customer') as account_name,
+        COALESCE(BillingAddress, 'Address not available') as billing_address,
+        COALESCE(BillingCity, 'Unknown City') as billing_city,
+        COALESCE(BillingState, 'Unknown') as billing_state,
+        COALESCE(CAST(TimeOnSite AS INT64), 60) as estimated_duration,
+        COALESCE(UPPER(Status), 'PENDING') as status,
+        Phone as phone,
+        COALESCE(InspectionType, 'General Service') as service_type,
+        COALESCE(FORMAT_TIME('%I:%M %p', TIME(InspectionDate)), '9:00 AM') as scheduled_time
+      FROM \`${PROJECT}.S0_TMX.Inspections\`
+      WHERE DATE(InspectionDate) = DATE(@targetDate)
+        ${technicianId ? 'AND CAST(EmployeeNumber AS STRING) = @technicianId' : ''}
+      ORDER BY InspectionDate ASC
+      LIMIT @limit
+    `
+
+    const params: Record<string, string | number> = {
+      targetDate,
+      limit
+    }
+    if (technicianId) params.technicianId = technicianId
+
+    const result = await bigQueryClient.queryWithParams<BQTechnicianRouteStop>(sql, params)
+
+    // Transform to route stops with order and derived fields
+    return result.rows.map((row, index) => {
+      const statusUpper = row.status.toUpperCase()
+      let derivedStatus: 'completed' | 'current' | 'upcoming' = 'upcoming'
+
+      if (statusUpper.includes('COMPLETE') || statusUpper.includes('CLOSED') || statusUpper.includes('SOLD')) {
+        derivedStatus = 'completed'
+      } else if (index === result.rows.findIndex(r => {
+        const s = r.status.toUpperCase()
+        return !s.includes('COMPLETE') && !s.includes('CLOSED') && !s.includes('SOLD')
+      })) {
+        // First non-completed stop is current
+        derivedStatus = 'current'
+      }
+
+      return {
+        id: row.id,
+        order: index + 1,
+        accountName: row.account_name,
+        address: row.billing_address,
+        city: row.billing_city,
+        state: row.billing_state,
+        estimatedArrival: row.scheduled_time,
+        estimatedDuration: row.estimated_duration,
+        status: derivedStatus,
+        distance: index === 0 ? '0 mi' : '-- mi', // Distance calculation requires geocoding
+        phone: row.phone,
+        serviceType: row.service_type,
+        inspectionDate: new Date(row.inspection_date.value).toISOString(),
+      }
+    })
+  } catch (error) {
+    throw handleBigQueryError(error, 'getTechnicianRoute', options)
+  }
+}

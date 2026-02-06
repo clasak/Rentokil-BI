@@ -44,7 +44,7 @@ export interface ARAgingSummary {
 
   // Collections
   collectedMTD: number
-  collectedVsTarget: number
+  collectedVsTarget: number | null
 }
 
 export interface ARDetailItem {

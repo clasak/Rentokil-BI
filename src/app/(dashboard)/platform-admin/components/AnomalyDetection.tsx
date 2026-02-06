@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,10 @@ import {
   CheckCircle, ChevronRight, TrendingDown, Activity
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { getAnomalyAlerts, type AnomalyAlert } from '@/lib/mock/platformAdminData'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type { AnomalyAlert } from '@/lib/bigquery/queries/anomaly-detection'
+
+const EMPTY_ANOMALIES: AnomalyAlert[] = []
 
 function SeverityIcon({ severity }: { severity: AnomalyAlert['severity'] }) {
   const icons = {
@@ -152,7 +155,41 @@ function AnomalyCard({ anomaly }: { anomaly: AnomalyAlert }) {
 }
 
 export function AnomalyDetection() {
-  const anomalies = getAnomalyAlerts()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Fetch anomaly alerts from BigQuery
+  // Explicit transform for anomaly alerts with null handling
+  function transformAnomalyAlerts(bqData: AnomalyAlert[]): AnomalyAlert[] {
+    return (bqData || []).map(alert => ({
+      id: alert.id ?? '',
+      severity: alert.severity ?? 'info',
+      status: alert.status ?? 'active',
+      description: alert.description ?? '',
+      detectionTime: alert.detectionTime ?? new Date(),
+      likelyCause: alert.likelyCause ?? '',
+      affectedKPIs: alert.affectedKPIs ?? [],
+      metric: alert.metric ?? '',
+      actualValue: alert.actualValue ?? 0,
+      expectedValue: alert.expectedValue ?? 0,
+      zScore: alert.zScore ?? 0,
+      acknowledged: alert.acknowledged,
+    }))
+  }
+
+  const {
+    data: anomalies,
+    isLoading,
+  } = useBigQueryData<AnomalyAlert[], AnomalyAlert[]>({
+    queryName: 'anomaly-alerts',
+    defaultData: EMPTY_ANOMALIES,
+    transformBigQueryData: transformAnomalyAlerts,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
 
   const criticalCount = anomalies.filter(a => a.severity === 'critical' && a.status === 'active').length
   const warningCount = anomalies.filter(a => a.severity === 'warning' && a.status !== 'resolved').length

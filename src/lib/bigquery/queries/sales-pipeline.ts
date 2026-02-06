@@ -108,6 +108,37 @@ export interface SalesKPIs {
   sold_count: number
 }
 
+export interface TopOpportunity {
+  id: string
+  name: string
+  accountName: string
+  stage: string
+  amount: number
+  probability: number
+  assigned_rep: string
+  branch: string
+  received_date: string
+}
+
+export interface OpportunityDetail {
+  id: string
+  name: string
+  accountName: string
+  accountId: string
+  stage: string
+  amount: number
+  probability: number
+  createdDate: string
+  closeDate: string
+  daysInStage: number
+  isStalled: boolean
+  nextStep: string
+  nextStepDate: string | null
+  ownerName: string
+  ownerId: string
+  lostReason: string | null
+}
+
 // =============================================================================
 // Query Options
 // =============================================================================
@@ -609,5 +640,155 @@ export async function getSalesKPIs(
       proposals_count: 0,
       sold_count: 0,
     }
+  }
+}
+
+/**
+ * Get top opportunities by value
+ * Returns highest-value open opportunities for national sales view
+ */
+export async function getTopOpportunities(
+  options: SalesPipelineQueryOptions = {}
+): Promise<TopOpportunity[]> {
+  // Sanitize numeric inputs
+  const safeDaysBack = sanitizeNumeric(options.daysBack, 90, 1, 365)
+  const safeLimit = sanitizeNumeric(options.limit, 20, 1, 100)
+  const orgFilter = buildLeadsOrgFilterClause(options)
+
+  const params: Record<string, unknown> = {
+    ...orgFilter.params,
+    daysBack: safeDaysBack,
+    resultLimit: safeLimit
+  }
+
+  let whereClause = `DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
+  // Only active leads (not sold or canceled)
+  whereClause += ` AND sold_date IS NULL AND cancel_date IS NULL`
+  // Must have proposal amount
+  whereClause += ` AND proposal_contract_amount IS NOT NULL AND proposal_contract_amount > 0`
+  if (orgFilter.clause) whereClause += ` AND ${orgFilter.clause}`
+
+  const sql = `
+    WITH opportunities AS (
+      SELECT
+        CAST(tmx_lead_sid AS STRING) as id,
+        CONCAT('Opportunity - ', COALESCE(lead_service, 'General')) as name,
+        COALESCE(contact_full_name, 'Unknown Account') as accountName,
+        CASE
+          WHEN proposed_date IS NOT NULL THEN 'negotiation'
+          WHEN inspected_date IS NOT NULL THEN 'proposal'
+          WHEN scheduled_date IS NOT NULL THEN 'qualification'
+          ELSE 'prospecting'
+        END as stage,
+        COALESCE(proposal_contract_amount, 0) as amount,
+        -- Calculate probability based on stage
+        CASE
+          WHEN proposed_date IS NOT NULL THEN 0.70
+          WHEN inspected_date IS NOT NULL THEN 0.50
+          WHEN scheduled_date IS NOT NULL THEN 0.30
+          ELSE 0.10
+        END as probability,
+        COALESCE(assigned_sales_rep, 'Unassigned') as assigned_rep,
+        CAST(report_branch AS STRING) as branch,
+        FORMAT_DATE('%Y-%m-%d', received_date) as received_date
+      FROM \`${PROJECT}.${DATASET}.${LEADS_TABLE}\`
+      WHERE ${whereClause}
+    )
+    SELECT *
+    FROM opportunities
+    ORDER BY amount DESC
+    LIMIT @resultLimit
+  `
+
+  try {
+    const result = await bigQueryClient.queryWithParams<TopOpportunity>(sql, params)
+    return result.rows
+  } catch (error) {
+    console.error('[SalesPipeline] getTopOpportunities failed:', error)
+    return []
+  }
+}
+
+/**
+ * Get opportunity detail by ID
+ * Returns full opportunity information for opportunity detail page
+ */
+export async function getOpportunityById(
+  options: SalesPipelineQueryOptions & { leadId: string }
+): Promise<OpportunityDetail | null> {
+  const leadId = validateString(options.leadId, 'leadId')
+  if (!leadId) {
+    console.warn('[SalesPipeline] getOpportunityById: leadId is required')
+    return null
+  }
+
+  const sql = `
+    WITH opportunity_data AS (
+      SELECT
+        CAST(tmx_lead_sid AS STRING) as id,
+        CONCAT('Opportunity - ', COALESCE(lead_service, 'General')) as name,
+        COALESCE(contact_full_name, 'Unknown Account') as accountName,
+        CAST(customer_sid AS STRING) as accountId,
+        CASE
+          WHEN sold_date IS NOT NULL THEN 'closed_won'
+          WHEN cancel_date IS NOT NULL THEN 'closed_lost'
+          WHEN proposed_date IS NOT NULL THEN 'negotiation'
+          WHEN inspected_date IS NOT NULL THEN 'proposal'
+          WHEN scheduled_date IS NOT NULL THEN 'qualification'
+          ELSE 'prospecting'
+        END as stage,
+        COALESCE(proposal_contract_amount, 0) as amount,
+        CASE
+          WHEN sold_date IS NOT NULL THEN 1.0
+          WHEN cancel_date IS NOT NULL THEN 0.0
+          WHEN proposed_date IS NOT NULL THEN 0.70
+          WHEN inspected_date IS NOT NULL THEN 0.50
+          WHEN scheduled_date IS NOT NULL THEN 0.30
+          ELSE 0.10
+        END as probability,
+        FORMAT_DATE('%Y-%m-%d', received_date) as createdDate,
+        FORMAT_DATE('%Y-%m-%d', COALESCE(expected_close_date, DATE_ADD(received_date, INTERVAL 90 DAY))) as closeDate,
+        CASE
+          WHEN proposed_date IS NOT NULL THEN proposed_date
+          WHEN inspected_date IS NOT NULL THEN inspected_date
+          WHEN scheduled_date IS NOT NULL THEN scheduled_date
+          ELSE received_date
+        END as stage_entry_date,
+        COALESCE(assigned_sales_rep, 'Unassigned') as ownerName,
+        CAST(COALESCE(assigned_sales_rep_id, 'unknown') AS STRING) as ownerId,
+        cancel_reason as lostReason
+      FROM \`${PROJECT}.${DATASET}.${LEADS_TABLE}\`
+      WHERE CAST(tmx_lead_sid AS STRING) = @leadId
+      LIMIT 1
+    )
+    SELECT
+      id,
+      name,
+      accountName,
+      accountId,
+      stage,
+      amount,
+      probability,
+      createdDate,
+      closeDate,
+      DATE_DIFF(CURRENT_DATE('America/New_York'), DATE(stage_entry_date), DAY) as daysInStage,
+      CASE
+        WHEN DATE_DIFF(CURRENT_DATE('America/New_York'), DATE(stage_entry_date), DAY) > 14 THEN true
+        ELSE false
+      END as isStalled,
+      'Follow up with decision maker' as nextStep,
+      FORMAT_DATE('%Y-%m-%d', DATE_ADD(CURRENT_DATE('America/New_York'), INTERVAL 7 DAY)) as nextStepDate,
+      ownerName,
+      ownerId,
+      lostReason
+    FROM opportunity_data
+  `
+
+  try {
+    const result = await bigQueryClient.queryWithParams<OpportunityDetail>(sql, { leadId })
+    return result.rows[0] || null
+  } catch (error) {
+    console.error('[SalesPipeline] getOpportunityById failed:', error)
+    return null
   }
 }

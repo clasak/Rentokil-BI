@@ -54,6 +54,9 @@ import {
   Play,
   Banknote,
   CheckCircle2,
+  AlertTriangle,
+  ExternalLink,
+  Mail,
 } from 'lucide-react'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
@@ -70,19 +73,11 @@ import { DataFreshnessIndicator } from '@/components/sales-tracker/DataFreshness
 import { calculateYTD, getEmptyYTD } from '@/lib/sales-tracker/calculate-ytd'
 import type { Transaction, TransactionFormData } from '@/types/sales-tracker'
 import type { MonthlyTotalsDetail, SalesforceQuote, AESalesDetail } from '@/lib/bigquery/queries/ae'
+import { formatCurrency } from '@/lib/utils'
 import { toastSuccess, toastError } from '@/hooks/use-toast'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
 function formatCurrency2(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -227,32 +222,65 @@ export default function AETrackerPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 items-end">
-            {/* Year/Month Selectors */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Year</label>
-              <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2026">2026</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="space-y-4">
+            {/* Quick Selection Buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant={selectedMonth === currentDate.getMonth() + 1 && selectedYear === currentDate.getFullYear() ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setSelectedMonth(currentDate.getMonth() + 1)
+                  setSelectedYear(currentDate.getFullYear())
+                }}
+              >
+                <Clock className="h-4 w-4 mr-1.5" />
+                This Month ({MONTHS[currentDate.getMonth()]})
+              </Button>
+              <Button
+                variant={selectedMonth === 1 ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setSelectedMonth(currentDate.getMonth() + 1)
+                  setSelectedYear(currentDate.getFullYear())
+                }}
+              >
+                <Target className="h-4 w-4 mr-1.5" />
+                YTD (Jan - {MONTHS[currentDate.getMonth()]})
+              </Button>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Month</label>
-              <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((month, idx) => (
-                    <SelectItem key={month} value={String(idx + 1)}>{month}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            {/* Year/Month Selectors */}
+            <div className="flex gap-4 items-end">
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Year</label>
+                <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                  <SelectTrigger className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2025">2025</SelectItem>
+                    <SelectItem value="2026">2026</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Month</label>
+                <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((month, idx) => (
+                      <SelectItem key={month} value={String(idx + 1)}>{month}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Badge variant="outline" className="text-sm">
+                  Viewing: {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -485,6 +513,7 @@ function TotalsView({
   const {
     data: transactions,
     isLoading: transactionsLoading,
+    error: transactionsError,
   } = useBigQueryData<Transaction[], Transaction[]>({
     queryName: 'sales-tracker-transactions',
     filters: {
@@ -502,6 +531,7 @@ function TotalsView({
     isLoading,
     dataSource,
     responseTime,
+    error: totalsError,
     refetch,
   } = useBigQueryData<MonthlyTotalsDetail | null, MonthlyTotalsDetail>({
     queryName: 'ae-monthly-totals-detail',
@@ -519,25 +549,27 @@ function TotalsView({
   const displayData = useMemo(() => {
     if (!monthlyData) return EMPTY_TOTALS_DATA
 
+    // Ensure all numeric values default to 0 to prevent NaN
+    const proposalTermite = localOverrides.proposalTermite ?? monthlyData.proposalTermite ?? 0
+    const proposalContract = localOverrides.proposalContract ?? monthlyData.proposalContract ?? 0
+    const proposalJobWork = localOverrides.proposalJobWork ?? monthlyData.proposalJobWork ?? 0
+    const salesTermite = localOverrides.salesTermite ?? monthlyData.salesTermite ?? 0
+    const salesContract = localOverrides.salesContract ?? monthlyData.salesContract ?? 0
+    const salesJobWork = localOverrides.salesJobWork ?? monthlyData.salesJobWork ?? 0
+
     return {
       ...monthlyData,
-      proposalTermite: localOverrides.proposalTermite ?? monthlyData.proposalTermite,
-      proposalContract: localOverrides.proposalContract ?? monthlyData.proposalContract,
-      proposalJobWork: localOverrides.proposalJobWork ?? monthlyData.proposalJobWork,
-      salesTermite: localOverrides.salesTermite ?? monthlyData.salesTermite,
-      salesContract: localOverrides.salesContract ?? monthlyData.salesContract,
-      salesJobWork: localOverrides.salesJobWork ?? monthlyData.salesJobWork,
-      isq: localOverrides.isq ?? monthlyData.isq,
-      personalGoal: localOverrides.personalGoal ?? monthlyData.personalGoal,
-      proposalGrandTotal:
-        (localOverrides.proposalTermite ?? monthlyData.proposalTermite) +
-        (localOverrides.proposalContract ?? monthlyData.proposalContract) +
-        (localOverrides.proposalJobWork ?? monthlyData.proposalJobWork),
-      salesGrandTotal:
-        (localOverrides.salesTermite ?? monthlyData.salesTermite) +
-        (localOverrides.salesContract ?? monthlyData.salesContract) +
-        (localOverrides.salesJobWork ?? monthlyData.salesJobWork),
-      proposalsPerDay: monthlyData.totalProposalsCount / businessDays,
+      proposalTermite,
+      proposalContract,
+      proposalJobWork,
+      salesTermite,
+      salesContract,
+      salesJobWork,
+      isq: localOverrides.isq ?? monthlyData.isq ?? 0,
+      personalGoal: localOverrides.personalGoal ?? monthlyData.personalGoal ?? 0,
+      proposalGrandTotal: proposalTermite + proposalContract + proposalJobWork,
+      salesGrandTotal: salesTermite + salesContract + salesJobWork,
+      proposalsPerDay: (monthlyData.totalProposalsCount ?? 0) / (businessDays || 1),
     }
   }, [monthlyData, localOverrides, businessDays])
 
@@ -873,6 +905,7 @@ function ProposalsView({
     isLoading,
     dataSource,
     responseTime,
+    error,
     refetch,
   } = useBigQueryData<SalesforceQuote[], SalesforceQuote[]>({
     queryName: 'salesforce-quotes',
@@ -934,6 +967,69 @@ function ProposalsView({
       <div className="space-y-4">
         <div className="h-32 bg-gray-200 animate-pulse rounded-lg" />
         <div className="h-64 bg-gray-200 animate-pulse rounded-lg" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {MONTHS[selectedMonth - 1]} {selectedYear} Proposals
+        </h2>
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Proposals</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">Salesforce Quotes</p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Sales Person:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{effectiveSalesPerson}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const subject = encodeURIComponent('Tracker Error - Proposals View')
+                  const body = encodeURIComponent(`Error: ${error}\n\nSales Person: ${effectiveSalesPerson}\n\nPlease investigate.`)
+                  window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -1150,6 +1246,7 @@ function SalesView({
     isLoading,
     dataSource,
     responseTime,
+    error,
     refetch,
   } = useBigQueryData<AESalesDetail[], AESalesDetail[]>({
     queryName: 'ae-sales-details',
@@ -1211,6 +1308,69 @@ function SalesView({
       <div className="space-y-4">
         <div className="h-32 bg-gray-200 animate-pulse rounded-lg" />
         <div className="h-64 bg-gray-200 animate-pulse rounded-lg" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {MONTHS[selectedMonth - 1]} {selectedYear} Sales
+        </h2>
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Sales Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">PestPac Sales</p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Sales Person:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{effectiveSalesPerson}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const subject = encodeURIComponent('Tracker Error - Sales View')
+                  const body = encodeURIComponent(`Error: ${error}\n\nSales Person: ${effectiveSalesPerson}\n\nPlease investigate.`)
+                  window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

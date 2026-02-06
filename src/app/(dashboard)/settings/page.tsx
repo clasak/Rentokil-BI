@@ -35,6 +35,8 @@ export default function SettingsPage() {
     isAdmin,
     adminModeEnabled,
     setAdminModeEnabled,
+    presentationModeEnabled,
+    setPresentationModeEnabled,
   } = useAppStore()
 
   const scope = getCurrentUserScope()
@@ -272,6 +274,66 @@ export default function SettingsPage() {
             </div>
             <div className="text-xs text-gray-400 dark:text-gray-500">
               Disable admin mode to see the regular user experience for your current role.
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Presentation Mode - Only shown to admin users */}
+      {isAdmin && (
+        <Card className="border-indigo-200 dark:border-indigo-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+              <Monitor className="h-5 w-5" />
+              Presentation Mode
+            </CardTitle>
+            <CardDescription>
+              Enable guided demo flow and presentation tools
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium dark:text-gray-100">Enable Presentation Mode</div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Activates the presentation control bar with guided tour and spotlight tools
+                </p>
+              </div>
+              <Switch
+                checked={presentationModeEnabled}
+                onCheckedChange={setPresentationModeEnabled}
+              />
+            </div>
+            {presentationModeEnabled && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                    <Eye className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                      <div className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                        6-Dashboard Guided Tour
+                      </div>
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                        Auto-navigate through demo dashboards with talking points and transition scripts
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                    <div className="font-medium">Keyboard Shortcuts:</div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                      <span><kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] font-mono">&rarr;</kbd> Next step</span>
+                      <span><kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] font-mono">&larr;</kbd> Previous step</span>
+                      <span><kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] font-mono">S</kbd> Toggle spotlight</span>
+                      <span><kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] font-mono">M</kbd> Minimize panel</span>
+                      <span><kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] font-mono">Esc</kbd> Exit mode</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+            <div className="text-xs text-gray-400 dark:text-gray-500">
+              Completely disabled when off. No performance impact on the dashboard.
             </div>
           </CardContent>
         </Card>

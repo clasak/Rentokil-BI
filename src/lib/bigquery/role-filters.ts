@@ -20,6 +20,7 @@ export interface RoleBasedFilters {
   branchCode?: string
   regionCode?: string
   marketCode?: string
+  _denyAll?: boolean // Unknown roles get maximum restriction to prevent privilege escalation
 }
 
 /**
@@ -34,16 +35,28 @@ export function getRoleBasedFilters(user: User | null): RoleBasedFilters {
 
   const role = user.role as Role
 
+  // For synthetic preview users (name starts with "Preview"), don't apply identity filters
+  // This allows admins to preview roles without having to select a specific employee
+  const isPreviewUser = user.name?.startsWith('Preview ') ?? false
+
   switch (role) {
     // Individual contributor roles - filter by user identity
     case 'rep':
       // AE sees only their own data - filter by name since BigQuery uses SalesPerson
+      // Skip filter for preview users (they don't have real data in BigQuery)
+      if (isPreviewUser) {
+        return {}
+      }
       return {
         salesPerson: user.name,
       }
 
     case 'technician':
       // Technician sees only their routes/tickets
+      // Skip filter for preview users (they don't have real data in BigQuery)
+      if (isPreviewUser) {
+        return {}
+      }
       return {
         technicianId: user.id,
         employeeId: user.id,
@@ -98,15 +111,16 @@ export function getRoleBasedFilters(user: User | null): RoleBasedFilters {
       return {}
 
     case 'exec':
-      // Executive/admin can search for other reps, but default to their own data
-      // This allows admins to see their own metrics unless they explicitly search for someone else
-      return {
-        salesPerson: user.name,
-      }
+      // Executive/admin sees all data - no automatic filtering
+      // Org-level filtering (market/region/branch) is handled separately via includeOrgFilters
+      return {}
 
     default:
-      // Unknown roles see everything - no automatic filtering
-      return {}
+      // Unknown roles get maximum restriction - deny all data by default
+      // This prevents privilege escalation from corrupted/invalid role values
+      return {
+        _denyAll: true,
+      }
   }
 }
 

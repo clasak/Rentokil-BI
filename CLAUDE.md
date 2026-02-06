@@ -17,9 +17,13 @@ npm run clean      # Clear .next and node_modules cache
 npm run reset      # Clear cache and restart dev server
 npm run audit      # Run dashboard audit script (npx tsx scripts/audit-dashboard.ts)
 npm run pre-demo   # Run pre-demo checks (npx tsx scripts/pre-demo-check.ts)
+npm test           # Run tests in watch mode (Vitest)
+npm run test:run   # Run tests once (CI mode)
+npm run test:ui    # Run tests with interactive UI
+npm run test:coverage # Run tests with coverage report
 ```
 
-**Note**: No testing framework is configured. There are no unit or integration tests.
+**Testing**: Vitest + React Testing Library configured. See [`/docs/TESTING_SETUP.md`](docs/TESTING_SETUP.md) for details. Current test coverage: 14/18 tests passing (78%) for `useBigQueryData` hook.
 
 ## Architecture Overview
 
@@ -106,6 +110,207 @@ const QUERY_REGISTRY: Record<string, QueryFn> = {
   // ... 100+ registered queries
 }
 ```
+
+### BigQuery Integration Standards (Required for All Pages)
+
+**CRITICAL**: All pages using `useBigQueryData` MUST implement these standards. Non-compliance may result in data leakage, poor UX, or production failures.
+
+#### 1. Error Handling (REQUIRED)
+
+Every page with BigQuery data MUST have error handling with recovery actions:
+
+```typescript
+// Extract error from useBigQueryData hook
+const { data, isLoading, error, dataSource, responseTime, refetch } = useBigQueryData({
+  queryName: 'your-query',
+  defaultData: EMPTY_DATA,
+  transformBigQueryData: transform,
+})
+
+// Add error display BEFORE rendering main content
+if (error) {
+  return (
+    <div className="space-y-4">
+      <Breadcrumb items={[...]} />
+      <PageHeader title="Your Page Title" />
+
+      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+          <AlertTriangle className="h-4 w-4" />
+          <span className="font-semibold">Failed to Load Data</span>
+        </div>
+
+        <div className="space-y-3">
+          {/* Error message */}
+          <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+            {error}
+          </div>
+
+          {/* Context information */}
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+              <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{dataSource}</p>
+            </div>
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Query:</span>
+              <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">your-query</p>
+            </div>
+          </div>
+
+          {/* Recovery actions */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-3 w-3 mr-1.5" />
+              Retry
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.open('/platform-admin', '_blank')}>
+              <FileText className="h-3 w-3 mr-1.5" />
+              View Logs
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+#### 2. DataSourceBadge (REQUIRED)
+
+Every page with BigQuery data MUST display `DataSourceBadge` in the page header:
+
+```typescript
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
+
+// In your JSX, place near the page title
+<div className="flex items-center justify-between">
+  <div>
+    <h1 className="text-2xl font-bold">Your Page Title</h1>
+    <p className="text-gray-500">Description</p>
+  </div>
+  <DataSourceBadge
+    source={dataSource}
+    responseTime={responseTime}
+    isLoading={isLoading}
+  />
+</div>
+```
+
+**Badge states:**
+- **Live** (green): Data from BigQuery production
+- **Demo** (purple): Mock data (test mode)
+- **Loading** (blue): Query in progress
+- **Error** (red): Query failed
+
+#### 3. Filter Configuration (REQUIRED)
+
+**CRITICAL**: Incorrect filter configuration can cause data leakage between users/roles.
+
+##### When to use `includeOrgFilters: true`
+
+Use for data that should be scoped to user's market/region/branch:
+
+```typescript
+// Examples: Lead rankings, sales by territory, operations by location
+const { data } = useBigQueryData({
+  queryName: 'lead-rankings',
+  defaultData: EMPTY_DATA,
+  includeOrgFilters: true,  // ✅ Filters to user's org
+  transformBigQueryData: transform,
+})
+```
+
+**Use cases:**
+- Lead data by geography (leads/rankings, leads/journey, leads/trends)
+- Sales performance by territory (sales/backlog, sales/today)
+- Operations metrics by location (ops/page, ops/new-starts)
+- Regional/branch dashboards
+- Any data showing organizational hierarchy
+
+##### When to use `includeRoleFilters: true`
+
+Use for user-specific data (individual performance):
+
+```typescript
+// Examples: Rep's own pipeline, tech's own schedule
+const { data } = useBigQueryData({
+  queryName: 'tech-schedule',
+  defaultData: EMPTY_DATA,
+  includeRoleFilters: true,  // ✅ Filters to logged-in user
+  transformBigQueryData: transform,
+})
+```
+
+**Use cases:**
+- Rep's own sales/pipeline (ae/tracker, ae/sales)
+- Technician's own route/tickets (tech/page, tech/tickets)
+- Manager's direct reports
+- Individual performance metrics
+
+##### When to use both filters
+
+For pages that need both organizational AND user-specific filtering:
+
+```typescript
+// Example: Operations dashboard showing user's assigned work in their org
+const { data } = useBigQueryData({
+  queryName: 'ops-overview',
+  defaultData: EMPTY_DATA,
+  includeOrgFilters: true,   // ✅ User's organization
+  includeRoleFilters: true,  // ✅ User-specific data
+  transformBigQueryData: transform,
+})
+```
+
+##### When to intentionally omit filters
+
+Use `false` with **explanatory comment** for company-wide views:
+
+```typescript
+// Executive/admin dashboards, platform monitoring, national views
+const { data } = useBigQueryData({
+  queryName: 'executive-kpis',
+  defaultData: EMPTY_DATA,
+  includeOrgFilters: false,  // Executive view - intentionally shows company-wide data
+  includeRoleFilters: false, // No user filtering needed
+  transformBigQueryData: transform,
+})
+```
+
+**Valid use cases:**
+- Executive command center (company-wide KPIs)
+- Platform admin pages (health, monitoring, data quality)
+- National aggregated views (ops/national, sales/national)
+- Pages that manually filter by user ID from profile
+
+**REQUIRED**: Always add a comment explaining why filters are omitted.
+
+#### 4. Complete Implementation Example
+
+Reference these pages as gold standard implementations:
+
+- [/daily-performance/page.tsx](src/app/(dashboard)/daily-performance/page.tsx) - Proper error handling, DataSourceBadge, org filters
+- [/finance/page.tsx](src/app/(dashboard)/finance/page.tsx) - Full error card with context, retry actions
+- [/ae/tracker/page.tsx](src/app/(dashboard)/ae/tracker/page.tsx) - Role-based filtering, multiple error states
+- [/sales/national/page.tsx](src/app/(dashboard)/sales/national/page.tsx) - Intentional filter omission with comment
+
+#### 5. Pre-Flight Checklist
+
+Before pushing BigQuery-connected pages:
+
+- [ ] Error handling implemented with recovery actions
+- [ ] DataSourceBadge displayed in header
+- [ ] `includeOrgFilters` set correctly (true/false with comment)
+- [ ] `includeRoleFilters` set correctly (true/false with comment)
+- [ ] Empty state `defaultData` defined (NOT mock data)
+- [ ] Transform function handles edge cases (empty arrays, nulls)
+- [ ] Query name registered in `/api/bigquery/query/route.ts`
+- [ ] Tested with different roles (exec, manager, rep, tech)
+- [ ] Tested with different org filters (market/region/branch)
+- [ ] Verified no data leakage between users
+
+**Audit Reference**: See [/docs/bigquery-audit-2026-02.md](docs/bigquery-audit-2026-02.md) for compliance audit results.
 
 ### BigQuery Query Modules (26 files)
 
@@ -502,6 +707,8 @@ NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=      # For technician route maps
 | `/docs/database-schema.md` | Supabase migration schemas |
 | `/docs/alpha-test-matrix.md` | Test matrix with acceptance criteria |
 | `/docs/executive-demo-script.md` | 10-12 minute demo walkthrough |
+| `/docs/TESTING_SETUP.md` | Testing framework setup guide (Vitest + React Testing Library) |
+| `/docs/TESTING_RESULTS.md` | Test suite results and regression prevention coverage |
 
 ---
 

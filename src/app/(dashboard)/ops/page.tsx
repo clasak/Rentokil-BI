@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAppStore } from '@/store'
 import { useEffectiveRole } from '@/hooks/useEffectiveRole'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
-import { getTechnicianCapacity, filterByRole, getBranches, getUsers } from '@/lib/data'
+import type { BranchWorkforce } from '@/lib/bigquery/queries/organization-workforce'
 import { calculateKPIValues, getActionItems } from '@/lib/kpi-calculations'
 import { KPICard } from '@/components/features/KPICard'
 import { ActionList } from '@/components/features/ActionList'
@@ -14,7 +14,6 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow
@@ -25,22 +24,10 @@ import {
 } from 'recharts'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
-import { Wrench, AlertTriangle, Users, ChevronRight, MapPin, Clock } from 'lucide-react'
+import { Wrench, AlertTriangle, Users, ChevronRight, MapPin, RefreshCw, Mail, FileText, ExternalLink } from 'lucide-react'
 import { Account, KPIValue, ServiceEvent, Complaint } from '@/types'
 import type { OpsOverview } from '@/lib/bigquery/queries/ops'
 import { HierarchicalOrganizationFilter } from '@/components/layout/HierarchicalOrganizationFilter'
-
-// Technician display data
-interface TechnicianDisplay {
-  id: string
-  name: string
-  branchName: string
-  todayStops: number
-  completedStops: number
-  callbacks: number
-  utilization: number
-  status: 'available' | 'on_route' | 'break' | 'off_duty'
-}
 
 // Types for display data
 interface OpsDisplayData {
@@ -63,7 +50,7 @@ const EMPTY_OPS_DATA: OpsDisplayData = {
 // Transform BigQuery data to display format
 function transformBigQueryData(bqData: OpsOverview[]): OpsDisplayData {
   const metrics = new Map<string, number>()
-  bqData.forEach(row => {
+  ;(bqData || []).forEach(row => {
     metrics.set(row.metric, row.value)
   })
 
@@ -79,12 +66,8 @@ function transformBigQueryData(bqData: OpsOverview[]): OpsDisplayData {
 export default function OpsPage() {
   const { settings, showAllBranchTechnicians, setShowAllBranchTechnicians, organizationFilters } = useAppStore()
   const effectiveRole = useEffectiveRole()
-  const [accounts, setAccounts] = useState<Account[]>([])
   const [kpiValues, setKpiValues] = useState<Map<string, KPIValue>>(new Map())
-  const [serviceEvents, setServiceEvents] = useState<ServiceEvent[]>([])
-  const [complaints, setComplaints] = useState<Complaint[]>([])
   const [actions, setActions] = useState<any[]>([])
-  const [technicians, setTechnicians] = useState<TechnicianDisplay[]>([])
   const [mounted, setMounted] = useState(false)
 
   // BigQuery integration for operations metrics
@@ -94,12 +77,26 @@ export default function OpsPage() {
     dataSource,
     responseTime,
     error,
+    errorType,
     refetch,
   } = useBigQueryData<OpsOverview[], OpsDisplayData>({
     queryName: 'ops-overview',
     filters: { daysBack: 30 },
     defaultData: EMPTY_OPS_DATA,
     transformBigQueryData,
+    includeOrgFilters: true, // Filter operations data by user's market/region/branch
+    includeRoleFilters: false, // Ops overview is org-wide, not user-specific
+  })
+
+  // Branch workforce data from BigQuery (real employee headcounts)
+  const {
+    data: workforceData,
+  } = useBigQueryData<BranchWorkforce[], BranchWorkforce[]>({
+    queryName: 'branch-workforce',
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: true, // Filter to user's market/region/branch
+    includeRoleFilters: false, // No user-specific filtering needed
   })
 
   // Hydration fix
@@ -107,186 +104,90 @@ export default function OpsPage() {
     setMounted(true)
   }, [])
 
+  // Ops accounts via useBigQueryData (ensures role/org filters are applied)
+  const { data: accountsBQ } = useBigQueryData<Record<string, unknown>[], Account[]>({
+    queryName: 'ops-accounts',
+    filters: { limit: 1000 },
+    defaultData: [],
+    transformBigQueryData: (data) => (data || []).map((acc: Record<string, unknown>) => ({
+      id: acc.id as string,
+      name: acc.name as string,
+      vertical: 'Commercial' as const,
+      contractValue: ((acc.monthlyValue as number) || 0) * 12,
+      retentionRisk: 'low' as const,
+      lastServiceDate: new Date(acc.lastServiceDate as string),
+      openIssues: 0,
+      marketId: '',
+      branchId: (acc.branch as string) || '',
+      ownerId: '',
+      createdAt: new Date(),
+      arBalance: 0,
+      serviceFrequency: 'monthly' as const,
+      complaints: 0,
+    })),
+    includeOrgFilters: true, // Filter to user's org hierarchy
+    includeRoleFilters: false, // Ops overview - not filtered to individual
+  })
+
+  // Ops service events via useBigQueryData
+  const { data: serviceEventsBQ } = useBigQueryData<Record<string, unknown>[], ServiceEvent[]>({
+    queryName: 'ops-service-events',
+    filters: { daysBack: 30, limit: 500 },
+    defaultData: [],
+    transformBigQueryData: (data) => (data || []).map((evt: Record<string, unknown>) => ({
+      id: evt.id as string,
+      accountId: evt.customerId as string,
+      technicianId: evt.technicianId as string,
+      routeId: '',
+      scheduledDate: new Date(evt.date as string),
+      completedDate: evt.status === 'completed' ? new Date(evt.date as string) : undefined,
+      status: evt.status === 'completed' ? 'completed' as const :
+              evt.status === 'in_progress' ? 'scheduled' as const :
+              evt.status === 'escalated' ? 'callback' as const : 'scheduled' as const,
+      timeOnSite: 45,
+      serviceType: evt.type as string,
+      notes: evt.reason as string,
+    })),
+    includeOrgFilters: true, // Filter to user's org hierarchy
+    includeRoleFilters: false, // Ops overview - not filtered to individual
+  })
+
+  // Ops complaints via useBigQueryData
+  const { data: complaintsBQ } = useBigQueryData<Record<string, unknown>[], Complaint[]>({
+    queryName: 'ops-complaints',
+    filters: { daysBack: 30, limit: 200 },
+    defaultData: [],
+    transformBigQueryData: (data) => (data || []).map((cmp: Record<string, unknown>) => ({
+      id: cmp.id as string,
+      accountId: cmp.customerId as string,
+      type: (cmp.category as string)?.toLowerCase().includes('service') ? 'service_quality' as const :
+            (cmp.category as string)?.toLowerCase().includes('billing') ? 'billing' as const :
+            (cmp.category as string)?.toLowerCase().includes('scheduling') ? 'scheduling' as const :
+            (cmp.category as string)?.toLowerCase().includes('tech') ? 'technician' as const : 'other' as const,
+      severity: ((cmp.severity as string)?.toLowerCase() || 'medium') as 'low' | 'medium' | 'high' | 'critical',
+      description: cmp.description as string,
+      createdAt: new Date(cmp.date as string),
+      status: (['open', 'in_progress', 'resolved', 'escalated'].includes(cmp.status as string)
+        ? cmp.status as Complaint['status']
+        : 'open') as Complaint['status'],
+    })),
+    includeOrgFilters: true, // Filter to user's org hierarchy
+    includeRoleFilters: false, // Ops overview - not filtered to individual
+  })
+
+  // Use BigQuery data as primary source
+  const accounts = accountsBQ
+  const serviceEvents = serviceEventsBQ
+  const complaints = complaintsBQ
+
   useEffect(() => {
     if (!mounted) return
-
-    const fetchOperationsData = async () => {
-      try {
-        // Fetch accounts
-        const accountsRes = await fetch('/api/bigquery/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: 'ops-accounts',
-            filters: {
-              market: organizationFilters.selectedMarket,
-              region: organizationFilters.selectedRegion,
-              branch: organizationFilters.selectedBranch,
-              limit: 1000,
-            },
-          }),
-        })
-        const accountsData = await accountsRes.json()
-
-        // Convert to Account type for compatibility with existing UI
-        const accs: Account[] = accountsData.success ? accountsData.data.map((acc: any) => ({
-          id: acc.id,
-          name: acc.name,
-          vertical: 'Commercial' as const,
-          contractValue: acc.monthlyValue * 12,
-          retentionRisk: 'low' as const,
-          lastServiceDate: new Date(acc.lastServiceDate),
-          openIssues: 0,
-          marketId: '',
-          branchId: acc.branch,
-          ownerId: '',
-          createdAt: new Date(),
-          arBalance: 0,
-          serviceFrequency: 'monthly' as const,
-          complaints: 0,
-        })) : []
-        setAccounts(accs)
-
-        // Fetch service events
-        const eventsRes = await fetch('/api/bigquery/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: 'ops-service-events',
-            filters: {
-              market: organizationFilters.selectedMarket,
-              region: organizationFilters.selectedRegion,
-              branch: organizationFilters.selectedBranch,
-              daysBack: 30,
-              limit: 500,
-            },
-          }),
-        })
-        const eventsData = await eventsRes.json()
-
-        // Convert to ServiceEvent type for compatibility with existing UI
-        const allServiceEvents: ServiceEvent[] = eventsData.success ? eventsData.data.map((evt: any) => ({
-          id: evt.id,
-          accountId: evt.customerId,
-          technicianId: evt.technicianId,
-          routeId: '',
-          scheduledDate: new Date(evt.date),
-          completedDate: evt.status === 'completed' ? new Date(evt.date) : undefined,
-          status: evt.status === 'completed' ? 'completed' :
-                  evt.status === 'in_progress' ? 'scheduled' :
-                  evt.status === 'escalated' ? 'callback' : 'scheduled',
-          timeOnSite: 45,
-          serviceType: evt.type,
-          notes: evt.reason,
-        })) : []
-        setServiceEvents(allServiceEvents)
-
-        // Fetch complaints
-        const complaintsRes = await fetch('/api/bigquery/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: 'ops-complaints',
-            filters: {
-              market: organizationFilters.selectedMarket,
-              region: organizationFilters.selectedRegion,
-              branch: organizationFilters.selectedBranch,
-              daysBack: 30,
-              limit: 200,
-            },
-          }),
-        })
-        const complaintsData = await complaintsRes.json()
-
-        // Convert to Complaint type for compatibility with existing UI
-        const complaints: Complaint[] = complaintsData.success ? complaintsData.data.map((cmp: any) => ({
-          id: cmp.id,
-          accountId: cmp.customerId,
-          type: cmp.category?.toLowerCase().includes('service') ? 'service_quality' :
-                cmp.category?.toLowerCase().includes('billing') ? 'billing' :
-                cmp.category?.toLowerCase().includes('scheduling') ? 'scheduling' :
-                cmp.category?.toLowerCase().includes('tech') ? 'technician' : 'other',
-          severity: cmp.severity?.toLowerCase() || 'medium',
-          description: cmp.description,
-          createdAt: new Date(cmp.date),
-          status: cmp.status,
-        })) : []
-        setComplaints(complaints)
-      } catch (error) {
-        console.error('[OpsPage] Error fetching operations data:', error)
-        // Set empty states on error
-        setAccounts([])
-        setServiceEvents([])
-        setComplaints([])
-      }
-    }
-
-    fetchOperationsData()
 
     // Pass role and userId to filter KPI data to user's scope
     setKpiValues(calculateKPIValues(effectiveRole, settings.userId))
     setActions(getActionItems(effectiveRole, settings.userId).filter(a => a.type === 'at_risk_account' || a.type === 'capacity_pressure'))
 
-    // Build technician display data
-    const users = getUsers()
-    const branches = getBranches()
-    const capacity = getTechnicianCapacity()
-    const techs = users.filter(u => u.role === 'technician')
-
-    // Get today's date range for filtering service events
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-
-    const techDisplayData: TechnicianDisplay[] = techs.map(tech => {
-      const branch = branches.find(b => tech.assignedBranches.includes(b.id))
-
-      // Get service events for this technician
-      const techEvents = serviceEvents.filter(e => e.technicianId === tech.id)
-      const todayEvents = techEvents.filter(e => {
-        const eventDate = new Date(e.scheduledDate)
-        return eventDate >= today && eventDate < tomorrow
-      })
-
-      // Calculate metrics
-      const completedToday = todayEvents.filter(e => e.status === 'completed').length
-      const callbacksToday = todayEvents.filter(e => e.status === 'callback').length
-      const totalToday = todayEvents.length || 6 // Default 6 stops
-
-      // Get utilization from capacity data
-      const recentCapacity = capacity.filter(c =>
-        c.technicianId === tech.id &&
-        c.date >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      )
-      const avgUtilization = recentCapacity.length > 0
-        ? recentCapacity.reduce((sum, c) => sum + c.utilization, 0) / recentCapacity.length
-        : 0.75
-
-      // Determine status based on time and completion
-      const hour = new Date().getHours()
-      let status: TechnicianDisplay['status'] = 'available'
-      if (hour < 8 || hour >= 17) {
-        status = 'off_duty'
-      } else if (completedToday > 0 && completedToday < totalToday) {
-        status = 'on_route'
-      } else if (hour >= 12 && hour < 13) {
-        status = 'break'
-      }
-
-      return {
-        id: tech.id,
-        name: tech.name,
-        branchName: branch?.name.split(' - ')[1] || branch?.name || 'Unknown',
-        todayStops: totalToday,
-        completedStops: completedToday || Math.floor(totalToday * 0.4),
-        callbacks: callbacksToday || 0,
-        utilization: avgUtilization * 100,
-        status,
-      }
-    })
-
-    setTechnicians(techDisplayData)
+    // Technicians are now sourced from BigQuery workforce data (workforceData state)
   }, [mounted, settings, showAllBranchTechnicians, effectiveRole, organizationFilters])
 
   // Show nothing until mounted (hydration fix)
@@ -320,21 +221,13 @@ export default function OpsPage() {
     .sort((a, b) => b.contractValue - a.contractValue)
     .slice(0, 10)
 
-  // Branch capacity data
-  const branches = getBranches()
-  const capacity = getTechnicianCapacity()
-  const recentCapacity = capacity.filter(c => c.date >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-
-  const branchCapacity = branches.slice(0, 8).map(branch => {
-    const branchCap = recentCapacity.filter(c => c.branchId === branch.id)
-    const avgUtilization = branchCap.length > 0
-      ? branchCap.reduce((sum, c) => sum + c.utilization, 0) / branchCap.length
-      : 0.75
-    return {
-      name: branch.name.split(' - ')[1] || branch.name,
-      utilization: Math.min(avgUtilization * 100, 120),
-    }
-  })
+  // Branch staffing data from BigQuery workforce
+  const branchCapacity = workforceData.slice(0, 8).map(w => ({
+    name: w.branch_name || w.branch_code,
+    technicians: w.technicians,
+    aeSales: w.ae_sales,
+    total: w.total,
+  }))
 
   return (
     <div className="space-y-6">
@@ -364,6 +257,60 @@ export default function OpsPage() {
           </div>
         )}
       </PageHeader>
+
+      {/* Error Display Card */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Operations Data</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">Error Type:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType || 'Unknown'}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">ops-overview</p>
+              </div>
+            </div>
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=Operations Dashboard Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Organization Hierarchy Filter */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -456,12 +403,12 @@ export default function OpsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Branch Capacity */}
+        {/* Branch Staffing */}
         <Card id="route-efficiency">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Branch Capacity Utilization
+              Branch Staffing (BigQuery)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -478,17 +425,12 @@ export default function OpsPage() {
                     </filter>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" domain={[0, 120]} tickFormatter={(v) => `${v}%`} />
-                  <YAxis dataKey="name" type="category" width={100} />
-                  <Tooltip content={<ChartTooltip formatter={(v) => `${v.toFixed(1)}%`} valueLabel="Utilization" />} cursor={false} />
-                  <Bar dataKey="utilization" radius={[0, 4, 4, 0]} activeBar={{ filter: 'url(#glow-ops-bar1)' }}>
-                    {branchCapacity.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={entry.utilization > 100 ? '#ef4444' : entry.utilization > 85 ? '#f59e0b' : '#22c55e'}
-                      />
-                    ))}
-                  </Bar>
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={120} />
+                  <Tooltip content={<ChartTooltip />} cursor={false} />
+                  <Bar dataKey="technicians" name="Technicians" fill="#22c55e" radius={[0, 4, 4, 0]} activeBar={{ filter: 'url(#glow-ops-bar1)' }} stackId="staff" />
+                  <Bar dataKey="aeSales" name="AE/Sales" fill="#6366f1" radius={[0, 4, 4, 0]} stackId="staff" />
+                  <Legend />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -528,86 +470,64 @@ export default function OpsPage() {
         </Card>
       </div>
 
-      {/* Technician Roster */}
+      {/* Branch Workforce Roster (BigQuery) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-blue-500" />
-            Technician Roster
-            <Badge variant="outline" className="ml-2">{technicians.length} Technicians</Badge>
+            Branch Workforce
+            <Badge variant="outline" className="ml-2">
+              {workforceData.reduce((sum, w) => sum + w.total, 0)} Employees
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Technician</TableHead>
                 <TableHead>Branch</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-center">Today&apos;s Stops</TableHead>
-                <TableHead className="text-center">Completed</TableHead>
-                <TableHead className="text-center">Callbacks</TableHead>
-                <TableHead className="text-right min-w-[120px] whitespace-nowrap">Utilization</TableHead>
+                <TableHead>Region</TableHead>
+                <TableHead className="text-center">BMs</TableHead>
+                <TableHead className="text-center">Techs</TableHead>
+                <TableHead className="text-center">AEs</TableHead>
+                <TableHead className="text-center">Ops Mgrs</TableHead>
+                <TableHead className="text-center">Sales Mgrs</TableHead>
+                <TableHead className="text-center">CSR</TableHead>
+                <TableHead className="text-right">Total</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {technicians.slice(0, 15).map(tech => (
-                <TableRow key={tech.id}>
+              {workforceData.slice(0, 15).map(w => (
+                <TableRow key={w.branch_code}>
                   <TableCell>
-                    <div className="font-medium">{tech.name}</div>
-                    <div className="text-xs text-gray-500">{tech.id}</div>
+                    <div className="font-medium">{w.branch_name || w.branch_code}</div>
+                    <div className="text-xs text-gray-500 font-mono">{w.branch_code}</div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <MapPin className="h-3 w-3 text-gray-400" />
-                      {tech.branchName}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={
-                      tech.status === 'on_route' ? 'success' :
-                      tech.status === 'available' ? 'default' :
-                      tech.status === 'break' ? 'warning' : 'secondary'
-                    }>
-                      {tech.status === 'on_route' ? 'On Route' :
-                       tech.status === 'off_duty' ? 'Off Duty' :
-                       tech.status.charAt(0).toUpperCase() + tech.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Clock className="h-3 w-3 text-gray-400" />
-                      {tech.todayStops}
+                      {w.region_name || w.region_code}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className={tech.completedStops === tech.todayStops ? 'text-green-600 font-medium' : ''}>
-                      {tech.completedStops}/{tech.todayStops}
+                    <span className={w.branch_managers === 0 ? 'text-red-500 font-medium' : ''}>
+                      {w.branch_managers}
                     </span>
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className={tech.callbacks > 0 ? 'text-yellow-600 font-medium' : 'text-gray-400'}>
-                      {tech.callbacks}
-                    </span>
+                    <span className="font-medium">{w.technicians}</span>
                   </TableCell>
-                  <TableCell className="text-right min-w-[120px]">
-                    <div className="flex items-center justify-end gap-2">
-                      <Progress
-                        value={Math.min(tech.utilization, 100)}
-                        className="w-16 h-2 hidden sm:block"
-                      />
-                      <span className={
-                        tech.utilization > 100 ? 'text-red-600 font-medium' :
-                        tech.utilization > 85 ? 'text-yellow-600' : 'text-green-600'
-                      }>
-                        {tech.utilization.toFixed(0)}%
-                      </span>
-                    </div>
+                  <TableCell className="text-center">{w.ae_sales}</TableCell>
+                  <TableCell className="text-center">{w.ops_managers}</TableCell>
+                  <TableCell className="text-center">{w.sales_managers}</TableCell>
+                  <TableCell className="text-center">{w.csr_office}</TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant="outline">{w.total}</Badge>
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/tech/route?id=${tech.id}`}>
+                      <Link href={`/branch/${w.branch_code}`}>
                         <ChevronRight className="h-4 w-4" />
                       </Link>
                     </Button>
@@ -616,10 +536,10 @@ export default function OpsPage() {
               ))}
             </TableBody>
           </Table>
-          {technicians.length > 15 && (
+          {workforceData.length > 15 && (
             <div className="text-center mt-4">
               <Button variant="outline" size="sm">
-                View All {technicians.length} Technicians
+                View All {workforceData.length} Branches
               </Button>
             </div>
           )}

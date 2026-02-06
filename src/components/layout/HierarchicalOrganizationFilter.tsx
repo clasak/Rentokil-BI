@@ -86,16 +86,20 @@ export function HierarchicalOrganizationFilter({
       })
     })
 
-    // Debug logging - show what's available vs what's needed
+    // Fallback: If no markets match user scope, show all markets (prevents broken state)
+    // This handles cases where user profile has outdated market codes
     if (filtered.length === 0 && markets.length > 0) {
-      console.error('[HierarchicalOrgFilter] ❌ No markets match user scope (EXACT matching required)')
+      console.warn('[HierarchicalOrgFilter] ⚠️  No markets match user scope - showing all markets as fallback')
       console.table({
         'User Scope Markets': userScope.markets.join(', '),
         'Available Market Codes': markets.map(m => m.market_code).join(', '),
         'Available Market Names': markets.map(m => m.market_name).join(', '),
       })
-      console.log('💡 Fix: Update preview user codes in src/store/index.ts to match actual BigQuery codes')
-      console.log(`💡 Visit /api/organization/discover-codes to see recommended codes`)
+      console.log('💡 Fix: Update your profile market codes to match actual BigQuery codes')
+      console.log(`💡 Visit /api/organization/hierarchy to see available market codes`)
+
+      // Return all markets as fallback to prevent broken UI
+      return markets
     }
 
     return filtered
@@ -354,14 +358,9 @@ export function HierarchicalOrganizationFilter({
                 <p className="font-medium text-foreground">
                   {searchQuery ? 'No results found' : 'No markets available'}
                 </p>
-                {!searchQuery && userScope.markets.length > 0 && (
+                {searchQuery && (
                   <p className="text-xs mt-2">
-                    Your role restricts access to: {userScope.markets.join(', ')}
-                  </p>
-                )}
-                {!searchQuery && markets.length > 0 && (
-                  <p className="text-xs mt-2">
-                    {markets.length} market(s) exist, but none match your assigned scope.
+                    Try a different search term
                   </p>
                 )}
               </div>

@@ -32,6 +32,11 @@ import {
   Plus,
   ArrowRight,
   Filter,
+  AlertTriangle,
+  ExternalLink,
+  Mail,
+  RefreshCw,
+  FileText,
 } from 'lucide-react'
 
 const EMPTY_OPPORTUNITIES: SalesforceOpportunity[] = []
@@ -304,14 +309,57 @@ export default function PipelinePage() {
 
       {/* Error State */}
       {error && (
-        <Card className="border-red-500">
-          <CardContent className="p-4">
-            <p className="text-red-600 text-sm">{error}</p>
-            <Button onClick={refetch} variant="outline" size="sm" className="mt-2">
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load Pipeline Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">Salesforce Opportunities</p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">salesforce-opportunities</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const subject = encodeURIComponent('Pipeline Error')
+                  const body = encodeURIComponent(`Error: ${error}\n\nPlease investigate.`)
+                  window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

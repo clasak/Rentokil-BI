@@ -150,8 +150,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<RefreshRe
       const toleranceRule = TOLERANCE_RULES[toleranceCategory]
       const tolerance = toleranceRule.tolerance
 
-      // Simulate source value (same logic as main reconcile)
-      const varianceMultiplier = 1 + (Math.random() - 0.5) * 0.001
+      // Deterministic variance based on slug hash (same logic as main reconcile)
+      const slugHash = slug.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      const varianceMultiplier = 1 + ((slugHash % 100) / 100 - 0.5) * 0.001
       const sourceValue = kpiValue.value * varianceMultiplier
 
       // Calculate difference

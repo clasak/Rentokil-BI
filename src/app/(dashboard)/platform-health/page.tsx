@@ -11,6 +11,7 @@ import {
   TableHeader, TableRow
 } from '@/components/ui/table'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import {
   Activity, RefreshCw, Server, Database, Zap, Clock,
   CheckCircle, AlertTriangle, XCircle, Play, Pause,
@@ -56,6 +57,8 @@ export default function PlatformHealthPage() {
   const {
     data: metrics,
     isLoading: isLoadingMetrics,
+    dataSource,
+    responseTime,
     error: metricsError,
     refetch: refetchMetrics,
   } = useBigQueryData<PlatformHealthMetrics, PlatformHealthMetrics>({
@@ -203,6 +206,7 @@ export default function PlatformHealthPage() {
           <span className="text-sm text-muted-foreground">
             Last refresh: {formatDistanceToNow(metrics.lastUpdated, { addSuffix: true })}
           </span>
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
           <Button variant="outline" onClick={handleRefresh}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh

@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import {
   RefreshCw, Zap, Target, Users, Calendar,
-  DollarSign, TrendingUp, CheckCircle2, Clock
+  DollarSign, TrendingUp, CheckCircle2, Clock, AlertTriangle, FileText, ExternalLink, Mail
 } from 'lucide-react'
 import type { WeekendBlitzCampaign } from '@/types/salti-extended'
 import {
@@ -22,7 +22,7 @@ import type { SALTIWeekendBlitz } from '@/lib/bigquery/queries/salti'
 // Transform BigQuery data to page format
 function transformBigQueryData(bqData: SALTIWeekendBlitz[]): WeekendBlitzCampaign[] {
   // Group by date to create campaigns
-  const groupedByDate = bqData.reduce((acc, d) => {
+  const groupedByDate = (bqData || []).reduce((acc, d) => {
     const dateKey = d.blitz_date
     if (!acc[dateKey]) {
       acc[dateKey] = {
@@ -92,12 +92,16 @@ export default function WeekendBlitzPage() {
     isLoading,
     dataSource,
     responseTime,
+    error,
+    errorType,
     refetch,
   } = useBigQueryData<SALTIWeekendBlitz[], WeekendBlitzCampaign[]>({
     queryName: 'salti-weekend-blitz',
     filters: { daysBack: 90 },
     defaultData: EMPTY_CAMPAIGNS,
     transformBigQueryData,
+    includeOrgFilters: true,  // Include market/region/branch filters from UI
+    includeRoleFilters: false, // SALTI is an overview dashboard - don't filter by individual user
   })
 
   // Set selected campaign when data loads
@@ -177,6 +181,55 @@ export default function WeekendBlitzPage() {
           <DataSourceBadge status={dataSource} responseTime={responseTime} />
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Weekend Blitz Data</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">salti-weekend-blitz</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}>
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=Weekend Blitz Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}\nQuery: salti-weekend-blitz\nType: ${errorType || 'Unknown'}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Campaign Selector */}
       <div className="flex flex-wrap gap-2">

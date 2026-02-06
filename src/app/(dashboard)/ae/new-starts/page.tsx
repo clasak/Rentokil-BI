@@ -41,6 +41,10 @@ import {
   RefreshCw,
   Package,
   Search,
+  AlertTriangle,
+  ExternalLink,
+  Mail,
+  FileText,
 } from 'lucide-react'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
@@ -161,6 +165,7 @@ export default function NewStartsPage() {
     isLoading: entriesLoading,
     dataSource,
     responseTime,
+    error: entriesError,
     refetch: refetchEntries,
   } = useBigQueryData<NewStartRecord[], NewStartRecord[]>({
     queryName: 'ae-new-start-entries',
@@ -177,6 +182,7 @@ export default function NewStartsPage() {
   const {
     data: summary,
     isLoading: summaryLoading,
+    error: summaryError,
     refetch: refetchSummary,
   } = useBigQueryData<NewStartsSummary, NewStartsSummary>({
     queryName: 'ae-new-start-summary',
@@ -189,6 +195,7 @@ export default function NewStartsPage() {
   })
 
   const isLoading = entriesLoading || summaryLoading
+  const hasError = entriesError || summaryError
 
   if (isLoading) {
     return (
@@ -196,6 +203,75 @@ export default function NewStartsPage() {
         <div className="h-8 w-48 bg-gray-200 animate-pulse rounded" />
         <div className="h-64 bg-gray-200 animate-pulse rounded-lg" />
       </div>
+    )
+  }
+
+  // Error state
+  if (hasError) {
+    const errorMsg = entriesError || summaryError || 'Unknown error'
+    const errorSource = entriesError ? 'New Start Entries' : 'Summary'
+
+    return (
+      <TooltipProvider delayDuration={0}>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Start Log</h1>
+            <p className="text-gray-500 dark:text-gray-400">Track handoffs from Sales to Operations</p>
+          </div>
+
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="font-semibold">Failed to Load New Starts Data</span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+                {errorMsg}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Data Source:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorSource}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Sales Person:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{salesPersonFilter || 'All'}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+                <Button variant="outline" size="sm" onClick={() => { refetchEntries(); refetchSummary(); }}>
+                  <RefreshCw className="h-3 w-3 mr-1.5" />
+                  Retry
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+                >
+                  <FileText className="h-3 w-3 mr-1.5" />
+                  View Logs
+                  <ExternalLink className="h-3 w-3 ml-1" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const subject = encodeURIComponent('New Starts Error')
+                    const body = encodeURIComponent(`Error: ${errorMsg}\n\nSource: ${errorSource}\n\nPlease investigate.`)
+                    window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                  }}
+                >
+                  <Mail className="h-3 w-3 mr-1.5" />
+                  Contact Support
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </TooltipProvider>
     )
   }
 

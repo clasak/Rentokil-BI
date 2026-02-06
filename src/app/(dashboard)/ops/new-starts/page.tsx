@@ -43,6 +43,10 @@ import {
   Wrench,
   Upload,
   Download,
+  RefreshCw,
+  Mail,
+  FileText,
+  AlertTriangle,
 } from 'lucide-react'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
@@ -155,11 +159,13 @@ export default function OpsNewStartsPage() {
   const [isExporting, setIsExporting] = useState(false)
 
   // Fetch contract data from BigQuery
-  const { data: bigQueryData, isLoading: bqLoading, dataSource } = useBigQueryData<NewStartRecord[], NewStartRecord[]>({
+  const { data: bigQueryData, isLoading: bqLoading, dataSource, responseTime, error, errorType, refetch } = useBigQueryData<NewStartRecord[], NewStartRecord[]>({
     queryName: 'new-starts',
     filters: { daysBack: 90 },
     defaultData: EMPTY_NEW_STARTS,
     transformBigQueryData: (raw) => raw as NewStartRecord[],
+    includeOrgFilters: true, // Filter new starts to operations manager's organization scope
+    includeRoleFilters: false, // Ops new starts - org-level view
   })
 
   useEffect(() => {
@@ -326,7 +332,10 @@ Manual entries preserved in columns 12-14 and 17.`)
           <p className="text-gray-500 dark:text-gray-400">Operations Manager view - Assign and schedule new starts</p>
         </div>
         <div className="flex items-center gap-3">
-          <DataSourceBadge status={dataSource} />
+          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <Button variant="outline" size="icon" onClick={refetch} disabled={bqLoading}>
+            <RefreshCw className={`h-4 w-4 ${bqLoading ? 'animate-spin' : ''}`} />
+          </Button>
 
           {/* Export to Google Sheets Buttons */}
           <div className="flex gap-2">
@@ -353,6 +362,60 @@ Manual entries preserved in columns 12-14 and 17.`)
           </div>
         </div>
       </div>
+
+      {/* Error Display Card */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load New Starts Data</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">Error Type:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType || 'Unknown'}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">new-starts</p>
+              </div>
+            </div>
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=New Starts Dashboard Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Info Banner */}
       <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">

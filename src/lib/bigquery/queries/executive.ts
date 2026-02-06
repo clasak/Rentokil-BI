@@ -51,7 +51,11 @@ export interface KPIDetail {
 export interface ExecutiveQueryOptions {
   daysBack?: number
   market?: string
+  marketCode?: string
   region?: string
+  regionCode?: string
+  branch?: string
+  branchCode?: string
   kpiSlug?: string
   limit?: number
 }
@@ -69,12 +73,46 @@ const PROJECT = BIGQUERY_CONFIG.projectId
 export async function getExecutiveCommandCenter(
   options: ExecutiveQueryOptions = {}
 ): Promise<ExecutiveCommandCenter[]> {
-  const { daysBack = 30 } = options
+  const { daysBack = 30, market, marketCode, region, regionCode, branch, branchCode } = options
+
+  // Determine which org codes to use (prefer -Code versions for consistency)
+  const effectiveMarket = marketCode || market
+  const effectiveRegion = regionCode || region
+  const effectiveBranch = branchCode || branch
+
+  // Validate org codes before use
+  if (effectiveMarket) validateOrgCode(effectiveMarket, 'market')
+  if (effectiveRegion) validateOrgCode(effectiveRegion, 'region')
+  if (effectiveBranch) validateOrgCode(effectiveBranch, 'branch')
+
+  // Build org filter conditions using parameterized queries
+  // Note: assigned_bunit_sid is INT64, RTX_Branch_Codes is STRING, so we need CAST
+  const orgJoin = (effectiveMarket || effectiveRegion)
+    ? `LEFT JOIN \`${PROJECT}.S2.VwUnf_Branch\` b ON CAST(l.assigned_bunit_sid AS STRING) = b.RTX_Branch_Codes`
+    : ''
+
+  const orgFilters: string[] = []
+  const queryParams: Record<string, unknown> = {}
+  if (effectiveMarket) {
+    orgFilters.push(`b.RTX_Market_Code = @marketCode`)
+    queryParams.marketCode = effectiveMarket
+  }
+  if (effectiveRegion) {
+    orgFilters.push(`b.RTX_Region_Code = @regionCode`)
+    queryParams.regionCode = effectiveRegion
+  }
+  if (effectiveBranch) {
+    orgFilters.push(`CAST(l.assigned_bunit_sid AS STRING) = @branchCode`)
+    queryParams.branchCode = effectiveBranch
+  }
+
+  const orgWhere = orgFilters.length > 0 ? `AND ${orgFilters.join(' AND ')}` : ''
+  const useParams = Object.keys(queryParams).length > 0
 
   // Multi-source aggregation query using verified tables
-  // Note: Using S0_TMX.tmx_lead with correct column names
+  // Consolidated: single scan of tmx_lead for leads/win_rate/backlog metrics
   const sql = `
-    -- Sales Metrics (using tmx_lead_activity_fact for amounts)
+    -- Sales Revenue (using tmx_lead_activity_fact for amounts)
     WITH sales_metrics AS (
       SELECT
         'Sales' as category,
@@ -82,43 +120,23 @@ export async function getExecutiveCommandCenter(
         COALESCE(SUM(laf.raw_sales_amt), 0) as value,
         COALESCE(SUM(laf.raw_sales_amt), 0) * 1.1 as target
       FROM \`${PROJECT}.S0_TMX.tmx_lead_activity_fact\` laf
+      INNER JOIN \`${PROJECT}.S0_TMX.tmx_lead\` l ON laf.tmx_lead_sid = l.tmx_lead_sid
+      ${orgJoin}
       WHERE laf.raw_sales_amt > 0
         AND ${buildDateFilter('laf.activity_date', daysBack)}
+        ${orgWhere}
     ),
-    -- Leads Metrics
-    leads_metrics AS (
+    -- Single scan of tmx_lead for leads, win rate, and backlog (was 3 separate scans)
+    lead_aggregates AS (
       SELECT
-        'Pipeline' as category,
-        'New Leads' as metric,
-        COUNT(*) as value,
-        COUNT(*) * 1.1 as target
+        COUNT(CASE WHEN ${buildDateFilter('l.received_date', daysBack)} THEN 1 END) as new_leads,
+        COUNT(CASE WHEN ${buildDateFilter('l.received_date', daysBack)} AND l.sold_date IS NOT NULL THEN 1 END) as sold_count,
+        COUNT(CASE WHEN ${buildDateFilter('l.received_date', daysBack)} AND l.proposed_date IS NOT NULL THEN 1 END) as proposed_count,
+        COUNT(CASE WHEN l.sold_date IS NOT NULL AND l.cancel_date IS NULL AND ${buildDateFilter('l.sold_date', daysBack)} THEN 1 END) as backlog_count
       FROM \`${PROJECT}.S0_TMX.tmx_lead\` l
-      WHERE ${buildDateFilter('l.received_date', daysBack)}
-    ),
-    -- Win Rate
-    win_rate_metrics AS (
-      SELECT
-        'Sales' as category,
-        'Win Rate' as metric,
-        ROUND(SAFE_DIVIDE(
-          COUNT(CASE WHEN l.sold_date IS NOT NULL THEN 1 END),
-          COUNT(CASE WHEN l.proposed_date IS NOT NULL THEN 1 END)
-        ) * 100, 2) as value,
-        25.0 as target
-      FROM \`${PROJECT}.S0_TMX.tmx_lead\` l
-      WHERE ${buildDateFilter('l.received_date', daysBack)}
-    ),
-    -- Backlog (sold but not started/canceled)
-    backlog_metrics AS (
-      SELECT
-        'Sales' as category,
-        'Backlog' as metric,
-        COUNT(*) as value,
-        50 as target
-      FROM \`${PROJECT}.S0_TMX.tmx_lead\` l
-      WHERE l.sold_date IS NOT NULL
-        AND l.cancel_date IS NULL
-        AND ${buildDateFilter('l.sold_date', daysBack)}
+      ${orgJoin}
+      WHERE (${buildDateFilter('l.received_date', daysBack)} OR (l.sold_date IS NOT NULL AND ${buildDateFilter('l.sold_date', daysBack)}))
+        ${orgWhere}
     )
 
     SELECT
@@ -139,14 +157,16 @@ export async function getExecutiveCommandCenter(
       END as status
     FROM (
       SELECT * FROM sales_metrics
-      UNION ALL SELECT * FROM leads_metrics
-      UNION ALL SELECT * FROM win_rate_metrics
-      UNION ALL SELECT * FROM backlog_metrics
+      UNION ALL SELECT 'Pipeline', 'New Leads', new_leads, CAST(new_leads * 1.1 AS FLOAT64) FROM lead_aggregates
+      UNION ALL SELECT 'Sales', 'Win Rate', ROUND(SAFE_DIVIDE(sold_count, NULLIF(proposed_count, 0)) * 100, 2), 25.0 FROM lead_aggregates
+      UNION ALL SELECT 'Sales', 'Backlog', backlog_count, 50 FROM lead_aggregates
     )
     ORDER BY category, metric
   `
 
-  const result = await bigQueryClient.query<ExecutiveCommandCenter>(sql)
+  const result = useParams
+    ? await bigQueryClient.queryWithParams<ExecutiveCommandCenter>(sql, queryParams)
+    : await bigQueryClient.query<ExecutiveCommandCenter>(sql)
   return result.rows
 }
 
@@ -284,10 +304,10 @@ export async function getKPIDetail(
     WHERE cv.current_value IS NOT NULL
       ${kpiSlug ? 'AND kd.kpi_slug = @kpiSlug' : ''}
     ORDER BY kd.kpi_name
-    LIMIT ${limit}
+    LIMIT @resultLimit
   `
 
-  const params: Record<string, unknown> = {}
+  const params: Record<string, unknown> = { resultLimit: Math.floor(Number(limit)) }
   if (kpiSlug) params.kpiSlug = kpiSlug
 
   const result = await bigQueryClient.queryWithParams<KPIDetail>(sql, params)

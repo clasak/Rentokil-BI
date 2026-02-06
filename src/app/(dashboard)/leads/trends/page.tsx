@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -31,7 +32,7 @@ import {
   Line,
 } from 'recharts'
 import { formatNumber, formatPercent, formatCurrency } from '@/lib/utils'
-import { TrendingUp, TrendingDown, Calendar, Database } from 'lucide-react'
+import { TrendingUp, TrendingDown, Calendar, Database, AlertTriangle, RefreshCw } from 'lucide-react'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { PageHeader } from '@/components/layout/PageHeader'
 import type { LeadTrend as BQLeadTrend } from '@/lib/bigquery/queries/leads'
@@ -48,7 +49,7 @@ const DATE_RANGES = [
 const EMPTY_LEAD_TRENDS: LeadTrend[] = []
 
 function transformBigQueryTrends(bqData: BQLeadTrend[]): LeadTrend[] {
-  return bqData.map((d) => ({
+  return (bqData || []).map((d) => ({
     date: d.date,
     leads: d.leads,
     converted: d.converted,
@@ -60,41 +61,21 @@ function transformBigQueryTrends(bqData: BQLeadTrend[]): LeadTrend[] {
 export default function LeadTrendsPage() {
   const [dateRange, setDateRange] = useState('30')
 
-  // BCG Analytics state (enhanced data from BCG_RTD_DB - 3.3M rows)
-  const [bcgLeadData, setBcgLeadData] = useState<BCGLeadAnalytics[]>([])
-  const [bcgLoading, setBcgLoading] = useState(false)
+  const EMPTY_BCG_LEADS: BCGLeadAnalytics[] = []
 
-  // Fetch BCG lead analytics
-  const fetchBCGLeads = useCallback(async () => {
-    setBcgLoading(true)
-    try {
-      const response = await fetch('/api/bigquery/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: 'bcg-lead-analytics',
-          filters: {
-            daysBack: parseInt(dateRange),
-            limit: 50
-          }
-        }),
-      })
-
-      const data = await response.json()
-      if (data.success && data.data?.length > 0) {
-        setBcgLeadData(data.data)
-      }
-    } catch (err) {
-      console.error('BCG Lead Analytics fetch failed:', err)
-    } finally {
-      setBcgLoading(false)
-    }
-  }, [dateRange])
-
-  // Fetch BCG data when filters change
-  useEffect(() => {
-    fetchBCGLeads()
-  }, [fetchBCGLeads])
+  // BCG Analytics data (enhanced data from BCG_RTD_DB - 3.3M rows)
+  // Uses useBigQueryData to ensure role/org filters are applied
+  const {
+    data: bcgLeadData,
+    isLoading: bcgLoading,
+  } = useBigQueryData<BCGLeadAnalytics[], BCGLeadAnalytics[]>({
+    queryName: 'bcg-lead-analytics',
+    filters: { daysBack: parseInt(dateRange), limit: 50 },
+    defaultData: EMPTY_BCG_LEADS,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: true, // Scope to user's org hierarchy
+    includeRoleFilters: false, // Lead analytics overview - not filtered to individual
+  })
 
   const {
     data,
@@ -102,6 +83,7 @@ export default function LeadTrendsPage() {
     dataSource,
     responseTime,
     error,
+    errorType,
     refetch,
   } = useBigQueryData<BQLeadTrend[], LeadTrend[]>({
     queryName: 'lead-trends',
@@ -125,25 +107,28 @@ export default function LeadTrendsPage() {
   )
 
   const avgDailyLeads = useMemo(
-    () => totalLeads / data.length,
+    () => data.length > 0 ? totalLeads / data.length : 0,
     [totalLeads, data.length]
   )
 
   const avgConversionRate = useMemo(
-    () => totalConverted / totalLeads,
+    () => totalLeads > 0 ? totalConverted / totalLeads : 0,
     [totalConverted, totalLeads]
   )
 
   // Calculate trend (comparing first half vs second half)
   const trend = useMemo(() => {
+    if (data.length < 2) return 0
     const mid = Math.floor(data.length / 2)
     const firstHalf = data.slice(0, mid)
     const secondHalf = data.slice(mid)
-    const firstHalfAvg =
-      firstHalf.reduce((sum, d) => sum + d.leads, 0) / firstHalf.length
-    const secondHalfAvg =
-      secondHalf.reduce((sum, d) => sum + d.leads, 0) / secondHalf.length
-    return (secondHalfAvg - firstHalfAvg) / firstHalfAvg
+    const firstHalfAvg = firstHalf.length > 0
+      ? firstHalf.reduce((sum, d) => sum + d.leads, 0) / firstHalf.length
+      : 0
+    const secondHalfAvg = secondHalf.length > 0
+      ? secondHalf.reduce((sum, d) => sum + d.leads, 0) / secondHalf.length
+      : 0
+    return firstHalfAvg > 0 ? (secondHalfAvg - firstHalfAvg) / firstHalfAvg : 0
   }, [data])
 
   // Weekly summary
@@ -195,6 +180,45 @@ export default function LeadTrendsPage() {
           </Select>
         </div>
       </PageHeader>
+
+      {/* Error State */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Lead Trends</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context */}
+            {errorType && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-500">Error Type:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Query:</span>
+                  <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">lead-trends</p>
+                </div>
+              </div>
+            )}
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

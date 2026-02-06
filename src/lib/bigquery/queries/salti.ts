@@ -159,7 +159,8 @@ function buildGeoFilterConditions(options: SALTIQueryOptions): { join: string; w
 
   // Branch can be filtered directly on the lead table
   if (branch) {
-    whereConditions.push('l.assigned_bunit_sid = @branch')
+    // Cast branch to INT64 since assigned_bunit_sid is an integer column
+    whereConditions.push('l.assigned_bunit_sid = CAST(@branch AS INT64)')
     params.branch = branch
   }
 
@@ -248,7 +249,7 @@ export async function getSALTIDailyCheckIn(
       ON CAST(l.curr_assigned_employee_sid AS STRING) = CAST(e.Employee_Number AS STRING)
     WHERE ${buildDateFilter('l.received_date', daysBack)}
       ${geoFilter.where}
-      ${employeeSid ? 'AND l.curr_assigned_employee_sid = @employeeSid' : ''}
+      ${employeeSid ? 'AND l.curr_assigned_employee_sid = CAST(@employeeSid AS INT64)' : ''}
     GROUP BY FORMAT_DATE('%Y-%m-%d', DATE(l.received_date)), l.curr_assigned_employee_sid, e.First_Name, e.Last_Name
     ORDER BY activity_date DESC, sold DESC
     LIMIT ${limit}
@@ -343,7 +344,7 @@ export async function getSALTIProposalPipeline(
     WHERE l.proposed_date IS NOT NULL
       AND ${buildDateFilter('l.proposed_date', daysBack)}
       ${geoFilter.where}
-      ${employeeSid ? 'AND l.curr_assigned_employee_sid = @employeeSid' : ''}
+      ${employeeSid ? 'AND l.curr_assigned_employee_sid = CAST(@employeeSid AS INT64)' : ''}
     ORDER BY proposal_date DESC
     LIMIT ${limit}
   `

@@ -13,8 +13,6 @@
  */
 
 import { bigQueryClient, BIGQUERY_CONFIG } from '../client'
-import { handleBigQueryError } from '../error-handler'
-import { validateOrgCode, validateNumeric, validateString } from '../validation'
 import { percentage } from './field-calculators'
 
 // =============================================================================
@@ -109,26 +107,27 @@ export async function getWIGBranchMetrics(
   // Sanitize daysBack to prevent SQL injection - must be a positive integer between 1 and 365
   const safeDaysBack = Math.max(1, Math.min(365, Math.floor(Number(daysBack) || 7)))
 
+  // DR_ContractSales actual column names (verified via new-starts.ts):
+  // region_cd, market_cd, assigned_branch_code, sales_person_nm, tech_onsite_employee_num
   let whereClause = `DATE(cs.sell_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL ${safeDaysBack} DAY)`
-  if (region) whereClause += ` AND cs.region = @region`
-  if (market) whereClause += ` AND cs.market = @market`
+  if (region) whereClause += ` AND cs.region_cd = @region`
+  if (market) whereClause += ` AND cs.market_cd = @market`
 
   const sql = `
     WITH sales_metrics AS (
       SELECT
-        COALESCE(cs.branch_code, 'Unknown') as branch_code,
-        COALESCE(cs.branch_name, 'Unknown') as branch_name,
-        COALESCE(cs.region, 'Unknown') as region,
-        COALESCE(cs.market, 'Unknown') as market,
+        COALESCE(cs.assigned_branch_code, 'Unknown') as branch_code,
+        COALESCE(cs.region_cd, 'Unknown') as region,
+        COALESCE(cs.market_cd, 'Unknown') as market,
         -- Sales per rep: total revenue / distinct sales reps
         SAFE_DIVIDE(
           SUM(COALESCE(cs.contract_value, 0)),
-          NULLIF(COUNT(DISTINCT cs.sales_rep_id), 0)
+          NULLIF(COUNT(DISTINCT cs.sales_person_nm), 0)
         ) as sales_dollars_per_rep,
         -- TAP per tech: TAP revenue / distinct technicians
         SAFE_DIVIDE(
           SUM(CASE WHEN UPPER(cs.product_group) LIKE '%TAP%' OR UPPER(cs.service_type_desc) LIKE '%INSULATION%' THEN COALESCE(cs.contract_value, 0) ELSE 0 END),
-          NULLIF(COUNT(DISTINCT CASE WHEN UPPER(cs.product_group) LIKE '%TAP%' OR UPPER(cs.service_type_desc) LIKE '%INSULATION%' THEN cs.tech_id END), 0)
+          NULLIF(COUNT(DISTINCT CASE WHEN UPPER(cs.product_group) LIKE '%TAP%' OR UPPER(cs.service_type_desc) LIKE '%INSULATION%' THEN cs.tech_onsite_employee_num END), 0)
         ) as tap_dollars_per_tech,
         -- 24-hour start percentage
         ${percentage(
@@ -137,18 +136,21 @@ export async function getWIGBranchMetrics(
         )} as twenty_four_hour_start_pct
       FROM \`${PROJECT}.${DATASET}.DR_ContractSales\` cs
       WHERE ${whereClause}
-      GROUP BY cs.branch_code, cs.branch_name, cs.region, cs.market
+      GROUP BY cs.assigned_branch_code, cs.region_cd, cs.market_cd
+    ),
+    -- Get branch names from org dimension table
+    branch_names AS (
+      SELECT DISTINCT
+        Current_State_Branch_Code as branch_code,
+        RTX_Branch_Name as branch_name
+      FROM \`${PROJECT}.S2.VwUnf_Branch\`
+      WHERE Current_State_Branch_Code IS NOT NULL
     ),
     work_order_metrics AS (
       SELECT
         COALESCE(wo.branch, 'Unknown') as branch_code,
         -- Missed stops: scheduled - completed
-        SUM(COALESCE(wo.scheduled_count, 0)) - SUM(COALESCE(wo.completed_count, 0)) as missed_stops,
-        -- Service rev per hour
-        SAFE_DIVIDE(
-          SUM(COALESCE(wo.revenue, 0)),
-          NULLIF(SUM(COALESCE(wo.total_hours, 0)), 0)
-        ) as service_rev_per_hour
+        SUM(COALESCE(wo.scheduled_count, 0)) - SUM(COALESCE(wo.completed_count, 0)) as missed_stops
       FROM \`${PROJECT}.${DATASET}.DR_BranchWOCompleted\` wo
       WHERE DATE(wo.service_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL ${safeDaysBack} DAY)
       GROUP BY wo.branch
@@ -156,37 +158,39 @@ export async function getWIGBranchMetrics(
     payroll_metrics AS (
       SELECT
         COALESCE(pb.branch, 'Unknown') as branch_code,
-        -- Techs over 55 hours
-        COUNT(CASE WHEN pb.total_hours > 55 THEN 1 END) as techs_over_55_hours
+        -- Techs over 55 hours: approximate using overtime > 15 hrs (55 - 40 standard)
+        COUNT(DISTINCT CASE WHEN pb.overtime_hours > 15 THEN pb.employee_id END) as techs_over_55_hours
       FROM \`${PROJECT}.${DATASET}.DR_PayrollBranch\` pb
       WHERE DATE(pb.pay_period_end) >= DATE_SUB(CURRENT_DATE(), INTERVAL ${safeDaysBack} DAY)
       GROUP BY pb.branch
     )
     SELECT
       sm.branch_code,
-      sm.branch_name,
+      COALESCE(bn.branch_name, sm.branch_code) as branch_name,
       sm.region,
       sm.market,
       COALESCE(sm.sales_dollars_per_rep, 0) as sales_dollars_per_rep,
       COALESCE(sm.tap_dollars_per_tech, 0) as tap_dollars_per_tech,
       GREATEST(COALESCE(wom.missed_stops, 0), 0) as missed_stops,
       COALESCE(sm.twenty_four_hour_start_pct, 0) as twenty_four_hour_start_pct,
-      -- NPS score - using placeholder as no direct NPS table identified
+      -- NPS score - placeholder (no NPS table in BCG_RTD_DB)
       70 as nps_score,
-      -- Past due CCM/CFR - using placeholder
+      -- Past due CCM/CFR - placeholder (no CCM/CFR table in BCG_RTD_DB)
       3 as past_due_ccm_cfr,
       COALESCE(pm.techs_over_55_hours, 0) as techs_over_55_hours,
-      COALESCE(wom.service_rev_per_hour, 85) as service_rev_per_hour,
-      -- Driver score - using placeholder as no Azuga data identified
+      -- Service rev per hour - placeholder (DR_BranchWOCompleted lacks revenue/hours columns)
+      85 as service_rev_per_hour,
+      -- Driver score - placeholder (Azuga data not integrated)
       87 as driver_score,
-      -- Fundamentals checklist - using placeholder
+      -- Fundamentals checklist - placeholder (no compliance table)
       3 as fundamentals_checklist_mtd,
-      -- RD meetings - using placeholder
+      -- RD meetings - placeholder (no meeting tracking table)
       2 as rd_branch_meetings_mtd
     FROM sales_metrics sm
+    LEFT JOIN branch_names bn ON sm.branch_code = bn.branch_code
     LEFT JOIN work_order_metrics wom ON sm.branch_code = wom.branch_code
     LEFT JOIN payroll_metrics pm ON sm.branch_code = pm.branch_code
-    ORDER BY sm.region, sm.branch_name
+    ORDER BY sm.region, COALESCE(bn.branch_name, sm.branch_code)
   `
 
   try {
@@ -220,7 +224,7 @@ export async function getWIGLaggingMetrics(
         COALESCE(pm.region, 'Unknown') as region,
         COALESCE(pm.market, 'Unknown') as market,
         FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(CURRENT_DATE(), WEEK(FRIDAY))) as week_end_date,
-        SUM(COALESCE(pm.monthly_revenue, 0)) as current_revenue,
+        SUM(COALESCE(pm.revenue, 0)) as current_revenue,
         SUM(COALESCE(pm.new_starts, 0)) as current_starts,
         SUM(COALESCE(pm.cancels, 0)) as current_cancels,
         SUM(COALESCE(pm.ending_customers, 0)) as current_customers
@@ -232,7 +236,7 @@ export async function getWIGLaggingMetrics(
     prior_period AS (
       SELECT
         COALESCE(pm.region, 'Unknown') as region,
-        SUM(COALESCE(pm.monthly_revenue, 0)) as prior_revenue,
+        SUM(COALESCE(pm.revenue, 0)) as prior_revenue,
         SUM(COALESCE(pm.ending_customers, 0)) as prior_customers
       FROM \`${PROJECT}.${DATASET}.DR_PortfolioMonthly\` pm
       WHERE DATE(pm.snapshot_month) >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 12 MONTH)
@@ -243,7 +247,7 @@ export async function getWIGLaggingMetrics(
       SELECT
         COALESCE(t.region, 'Unknown') as region,
         COUNT(*) as term_count,
-        COUNT(*) FILTER(WHERE DATE(t.term_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)) as prior_term_count
+        COUNTIF(DATE(t.term_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)) as prior_term_count
       FROM \`${PROJECT}.${DATASET}.DR_Terminations\` t
       WHERE DATE(t.term_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
       GROUP BY t.region
@@ -287,7 +291,7 @@ export async function getWIGLaggingMetrics(
  */
 export async function getWIGRegionSummary(
   options: WIGQueryOptions = {}
-): Promise<WIGRegionSummary | null> {
+): Promise<WIGRegionSummary> {
   try {
     const [branchMetrics, laggingMetrics] = await Promise.all([
       getWIGBranchMetrics(options),
@@ -295,7 +299,41 @@ export async function getWIGRegionSummary(
     ])
 
     if (branchMetrics.length === 0) {
-      return null
+      // Return empty-but-valid object so the API returns { success: true, data: {...} }
+      // instead of { success: true, data: null } which useBigQueryData treats as an error
+      const region = options.region || 'Unknown'
+      const market = options.market || 'Unknown'
+      return {
+        region,
+        market,
+        week_end_date: new Date().toISOString().split('T')[0],
+        branch_count: 0,
+        lagging_metrics: laggingMetrics[0] || {
+          region,
+          market,
+          week_end_date: new Date().toISOString().split('T')[0],
+          sales_yoy_pct: 0,
+          revenue_growth_pct: 0,
+          retention_pct: 0,
+          profit_vs_aop_pct: 0,
+          colleague_retention_pct: 0,
+          safety_yoy_reduction_pct: 0,
+        },
+        branch_metrics: [],
+        totals: {
+          avg_sales_per_rep: 0,
+          avg_tap_per_tech: 0,
+          total_missed_stops: 0,
+          avg_24hr_start_pct: 0,
+          avg_nps_score: 0,
+          total_past_due: 0,
+          total_techs_over_55: 0,
+          avg_service_rev_per_hour: 0,
+          avg_driver_score: 0,
+          total_fundamentals: 0,
+          total_rd_meetings: 0,
+        },
+      }
     }
 
     // Calculate totals/averages
@@ -338,6 +376,6 @@ export async function getWIGRegionSummary(
     }
   } catch (error) {
     console.error('[WIG] getWIGRegionSummary failed:', error)
-    return null
+    throw error
   }
 }

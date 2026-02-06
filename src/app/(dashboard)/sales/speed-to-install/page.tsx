@@ -22,7 +22,7 @@ import { useBigQueryData } from '@/hooks/useBigQueryData'
 
 // Transform BigQuery data to component format
 function transformBQToMetrics(bqData: BQSpeedToInstall[]): SpeedToInstallMetric[] {
-  return bqData.map((d) => {
+  return (bqData || []).map((d) => {
     const year = Math.floor(d.period / 100)
     const month = (d.period % 100) - 1
     const periodStart = new Date(year, month, 1)
@@ -58,18 +58,19 @@ function generateSyntheticDetails(metrics: SpeedToInstallMetric[]): SpeedToInsta
   const statuses: ('installed' | 'scheduled' | 'pending' | 'delayed')[] = ['installed', 'scheduled', 'pending', 'delayed']
 
   return Array.from({ length: 50 }, (_, i) => {
-    const daysAgo = Math.floor(Math.random() * 30)
+    // Deterministic values based on index instead of Math.random()
+    const daysAgo = (i * 7 + 3) % 30
     const soldDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000)
-    const status = statuses[Math.floor(Math.random() * statuses.length)]
-    const daysToInstall = status === 'installed' ? Math.floor(Math.random() * 14) + 1 : undefined
+    const status = statuses[i % statuses.length]
+    const daysToInstall = status === 'installed' ? (i % 14) + 1 : undefined
     const installedDate = status === 'installed' ? new Date(soldDate.getTime() + (daysToInstall || 7) * 24 * 60 * 60 * 1000) : undefined
 
     return {
       saleId: `S-${100000 + i}`,
       accountName: `Customer ${1000 + i}`,
-      serviceType: serviceTypes[Math.floor(Math.random() * serviceTypes.length)],
-      saleAmount: 500 + Math.random() * 2000,
-      repName: repNames[Math.floor(Math.random() * repNames.length)],
+      serviceType: serviceTypes[i % serviceTypes.length],
+      saleAmount: 500 + ((i * 137) % 2000),
+      repName: repNames[i % repNames.length],
       soldDate,
       installedDate,
       status,
@@ -95,6 +96,8 @@ export default function SpeedToInstallPage() {
     filters: { startYearMonth: 202401 },
     defaultData: EMPTY_SPEED_METRICS,
     transformBigQueryData: transformBQToMetrics,
+    includeOrgFilters: true, // Speed metrics - org-level view
+    includeRoleFilters: false, // Not filtered to individual user
   })
 
   // Generate synthetic details from metrics

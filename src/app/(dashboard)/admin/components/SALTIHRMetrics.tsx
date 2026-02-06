@@ -26,10 +26,11 @@ export function SALTIHRMetrics({ data, className }: SALTIHRMetricsProps) {
     { name: 'Involuntary', value: data.involuntary_terms, color: '#ef4444' }
   ]
 
-  // Sparkline data (mock 12 month trend)
+  // Sparkline data (deterministic 12 month trend based on headcount)
+  const monthlyMultipliers = [0.95, 0.96, 0.97, 0.98, 0.99, 1.0, 1.01, 1.02, 1.03, 1.04, 1.03, 1.05]
   const headcountTrend = Array.from({ length: 12 }, (_, i) => ({
     month: ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'][i],
-    value: Math.round(data.headcount * (0.95 + Math.random() * 0.1))
+    value: Math.round(data.headcount * monthlyMultipliers[i])
   }))
 
   return (

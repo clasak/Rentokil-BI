@@ -5,14 +5,12 @@ import Link from 'next/link'
 import { useAppStore } from '@/store'
 import { useBigQueryData } from '@/hooks/useBigQueryData'
 import { calculateKPIValues } from '@/lib/kpi-calculations'
-import { getServiceEvents, getTechnicianCapacity } from '@/lib/data'
 import { getActiveBusinessUnits } from '@/lib/business-units'
 import { ViewToggle } from '@/components/features/ViewToggle'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table'
@@ -22,7 +20,7 @@ import {
 } from 'recharts'
 import {
   Truck, Users, Clock, AlertTriangle, CheckCircle, Calendar,
-  Activity, MapPin, ArrowRight, ChevronRight, Wrench, PhoneCall, RefreshCw
+  Activity, MapPin, ArrowRight, ChevronRight, Wrench, PhoneCall, RefreshCw, Mail, FileText, ExternalLink
 } from 'lucide-react'
 import type { OpsNational } from '@/lib/bigquery/queries/ops'
 
@@ -44,7 +42,7 @@ interface OpsNationalDisplay {
 // Transform BigQuery data
 function transformBigQueryData(bqData: OpsNational[]): OpsNationalDisplay {
   return {
-    regions: bqData.map(row => ({
+    regions: (bqData || []).map(row => ({
       name: row.region,
       branchCount: row.branch_count,
       technicianCount: row.technician_count,
@@ -72,30 +70,33 @@ export default function NationalOpsPage() {
     isLoading: isBQLoading,
     dataSource,
     responseTime,
+    error,
+    errorType,
     refetch,
   } = useBigQueryData<OpsNational[], OpsNationalDisplay>({
     queryName: 'ops-national',
     filters: { daysBack: 30 },
     defaultData: EMPTY_OPS_NATIONAL,
     transformBigQueryData,
+    includeOrgFilters: false, // National view - intentionally shows all regions/branches
+    includeRoleFilters: false,
   })
 
   // Pass role and userId to filter KPI data to user's scope
   const kpiValues = useMemo(() => calculateKPIValues(settings.role, settings.userId), [settings.role, settings.userId])
-  const serviceEvents = useMemo(() => getServiceEvents(), [])
-  const technicianCapacity = useMemo(() => getTechnicianCapacity(), [])
   const businessUnits = useMemo(() => getActiveBusinessUnits(), [])
 
   // Calculate key metrics
   const serviceRiskIndex = kpiValues.get('service_risk_index')
-  const schedulingPressure = kpiValues.get('scheduling_pressure')
 
-  // Service event stats
-  const completedEvents = serviceEvents.filter(e => e.status === 'completed').length
-  const pendingEvents = serviceEvents.filter(e => e.status === 'scheduled').length
-  const callbackEvents = serviceEvents.filter(e => e.status === 'callback').length
-  const callbackRate = serviceEvents.length > 0
-    ? ((callbackEvents / serviceEvents.length) * 100).toFixed(1)
+  // Service metrics from BigQuery ops-national data (aggregated across all regions)
+  const regions = opsNationalData?.regions || []
+  const completedEvents = regions.reduce((sum, r) => sum + r.stopsCompleted, 0)
+  const targetEvents = regions.reduce((sum, r) => sum + r.stopsTarget, 0)
+  const pendingEvents = Math.max(0, targetEvents - completedEvents)
+  const callbackEvents = regions.reduce((sum, r) => sum + r.callbacks, 0)
+  const callbackRate = completedEvents > 0
+    ? ((callbackEvents / completedEvents) * 100).toFixed(1)
     : '0'
 
   // Regional ops breakdown - use BigQuery data when connected, otherwise business units
@@ -158,6 +159,60 @@ export default function NationalOpsPage() {
           <ViewToggle variant="dropdown" />
         </div>
       </div>
+
+      {/* Error Display Card */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Failed to Load National Operations Data</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Error message */}
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {error}
+            </div>
+
+            {/* Context */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">Error Type:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{errorType || 'Unknown'}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Query:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">ops-national</p>
+              </div>
+            </div>
+
+            {/* Recovery actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetch}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://console.cloud.google.com/bigquery', '_blank')}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                View Logs
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = `mailto:support@rentokil.com?subject=National Ops Dashboard Error&body=Error: ${encodeURIComponent(error || 'Unknown error')}`}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

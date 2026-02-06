@@ -116,9 +116,9 @@ export const DEV_ROLE_MAPPINGS: Record<string, DevRoleMapping> = {
   'cody.lytle@prestox.com': {
     role: 'rep',
     name: 'Cody Lytle',
-    assignedMarkets: [],
-    assignedRegions: [],
-    assignedBranches: ['098'], // Midwest Market 2941, Region R52, Branch 098
+    assignedMarkets: ['M536'],   // Midwest Market
+    assignedRegions: ['R052'],   // Region 052
+    assignedBranches: ['098'],   // Branch 098
   },
 
   // ✓ Jesus Corral: Technician - Branch 98 context (Filtered by employeeId)

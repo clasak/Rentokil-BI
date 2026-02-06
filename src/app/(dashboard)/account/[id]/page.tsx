@@ -3,11 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import {
-  getAccountById, getOpportunitiesByAccount, getServiceEventsByAccount,
-  getComplaintsByAccount, getInvoicesByAccount, getUserById
-} from '@/lib/data'
-import { Account, Opportunity, ServiceEvent, Complaint, Invoice, User } from '@/types'
+import { useBigQueryData } from '@/hooks/useBigQueryData'
+import type {
+  AccountDetails,
+  AccountOpportunity,
+  ServiceEvent,
+  AccountComplaint,
+  AccountInvoice,
+  AccountOwner,
+} from '@/lib/bigquery/queries/accounts'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,42 +21,162 @@ import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow
 } from '@/components/ui/table'
-import { formatCurrency, formatPercent } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import {
-  ArrowLeft, Building, User as UserIcon, Calendar, Clock,
-  AlertTriangle, CheckCircle, DollarSign, Wrench, FileText,
-  TrendingUp, Shield, Phone, Zap
+  ArrowLeft, Building, User as UserIcon,
+  AlertTriangle, CheckCircle, DollarSign, Wrench,
+  TrendingUp, Shield, Phone, RefreshCw, ExternalLink, Mail
 } from 'lucide-react'
-import { format, formatDistanceToNow } from 'date-fns'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer
-} from 'recharts'
+import { format } from 'date-fns'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { DataSourceBadge } from '@/components/ui/data-source-badge'
 
 export default function AccountDetailPage() {
   const params = useParams()
   const id = params.id as string
-
-  const [account, setAccount] = useState<Account | null>(null)
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
-  const [serviceEvents, setServiceEvents] = useState<ServiceEvent[]>([])
-  const [complaints, setComplaints] = useState<Complaint[]>([])
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [owner, setOwner] = useState<User | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const acc = getAccountById(id)
-    setAccount(acc || null)
+    setMounted(true)
+  }, [])
 
-    if (acc) {
-      setOpportunities(getOpportunitiesByAccount(id))
-      setServiceEvents(getServiceEventsByAccount(id))
-      setComplaints(getComplaintsByAccount(id))
-      setInvoices(getInvoicesByAccount(id))
-      setOwner(getUserById(acc.ownerId) || null)
-    }
-  }, [id])
+  // Fetch account details from BigQuery
+  const {
+    data: account,
+    isLoading: accountLoading,
+    dataSource: accountDataSource,
+    error: accountError,
+    errorType: accountErrorType,
+    refetch: refetchAccount,
+  } = useBigQueryData<AccountDetails | null, AccountDetails | null>({
+    queryName: 'account-details',
+    filters: { accountId: id },
+    defaultData: null,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  // Fetch opportunities
+  const { data: opportunities } = useBigQueryData<AccountOpportunity[], AccountOpportunity[]>({
+    queryName: 'account-opportunities',
+    filters: { accountId: id },
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  // Fetch service history
+  const { data: serviceEvents } = useBigQueryData<ServiceEvent[], ServiceEvent[]>({
+    queryName: 'account-service-history',
+    filters: { accountId: id },
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  // Fetch complaints
+  const { data: complaints } = useBigQueryData<AccountComplaint[], AccountComplaint[]>({
+    queryName: 'account-complaints',
+    filters: { accountId: id },
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  // Fetch invoices
+  const { data: invoices } = useBigQueryData<AccountInvoice[], AccountInvoice[]>({
+    queryName: 'account-invoices',
+    filters: { accountId: id },
+    defaultData: [],
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  // Fetch owner details
+  const { data: owner } = useBigQueryData<AccountOwner | null, AccountOwner | null>({
+    queryName: 'account-owner',
+    filters: { ownerId: account?.ownerId || '' },
+    defaultData: null,
+    transformBigQueryData: (data) => data,
+    includeOrgFilters: false,
+    includeRoleFilters: false,
+  })
+
+  if (!mounted || accountLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center text-muted-foreground">Loading account...</div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (accountError) {
+    return (
+      <div className="space-y-6">
+        <Breadcrumb
+          items={[
+            { label: 'Operations', href: '/ops' },
+            { label: 'Account Details' }
+          ]}
+        />
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-semibold">Error Loading Account</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
+              {accountError}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">Account ID:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{id}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Error Type:</span>
+                <p className="font-medium text-red-800 dark:text-red-200 mt-0.5">{accountErrorType || 'Unknown'}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200 dark:border-red-800">
+              <Button variant="outline" size="sm" onClick={refetchAccount}>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/ops">
+                  <ArrowLeft className="h-3 w-3 mr-1.5" />
+                  Back to Operations
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const subject = encodeURIComponent(`Account Error - ${id}`)
+                  const body = encodeURIComponent(`Error loading account ${id}:\n\n${accountError}\n\nError Type: ${accountErrorType || 'Unknown'}`)
+                  window.location.href = `mailto:support@rentokil.com?subject=${subject}&body=${body}`
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Contact Support
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!account) {
     return (
@@ -143,9 +267,12 @@ export default function AccountDetailPage() {
             </div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-500">Contract Value</div>
-          <div className="text-3xl font-bold">{formatCurrency(account.contractValue)}</div>
+        <div className="flex flex-col items-end gap-3">
+          <DataSourceBadge status={accountDataSource} />
+          <div className="text-right">
+            <div className="text-sm text-gray-500">Contract Value</div>
+            <div className="text-3xl font-bold">{formatCurrency(account.contractValue)}</div>
+          </div>
         </div>
       </div>
 
