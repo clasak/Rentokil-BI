@@ -18,7 +18,6 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useBigQueryData } from '../useBigQueryData'
-import type { QueryOptions } from '@/lib/bigquery/types'
 
 // Mock fetch globally
 const mockFetch = vi.fn()

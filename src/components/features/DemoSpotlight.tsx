@@ -47,6 +47,9 @@ export interface DemoStep {
   spotlights: SpotlightTarget[]
   autoAdvanceDelay?: number
   subStepDelay?: number
+  isInterstitial?: boolean      // NEW: Show full-screen section divider instead of page spotlights
+  interstitialSubtitle?: string // NEW: e.g. "The Traceability Challenge"
+  interstitialIcon?: string     // NEW: lucide icon name
 }
 
 // Icon mapping
@@ -511,6 +514,519 @@ export const DEMO_CONFIG: Record<string, { name: string; steps: DemoStep[] }> = 
         ]
       }
     ]
+  },
+  krishna_jha: {
+    name: 'Krishna Jha - Data Architecture Assessment',
+    steps: [
+      // Step 1: INTERSTITIAL - Opening
+      {
+        title: 'Live Production Infrastructure',
+        route: '',
+        isInterstitial: true,
+        interstitialSubtitle: 'Connected to bidata-sharedus-production',
+        script: ['10 datasets, 37 billion rows, live BigQuery connection via Application Default Credentials'],
+        tips: [],
+        spotlights: [],
+        autoAdvanceDelay: 8000,
+      },
+      // Step 2: Platform Health
+      {
+        title: 'Platform Health',
+        route: '/platform-health',
+        script: [
+          "This is the platform health dashboard — our single pane of glass for BigQuery infrastructure.",
+          "We're connected to bidata-sharedus-production with Application Default Credentials.",
+          "10 datasets, 37 billion rows across all tables. Every query monitored for latency and errors.",
+          "The health checks run on each page load — sub-2-second response times across all critical queries."
+        ],
+        tips: [
+          "Emphasize this is LIVE production data, not a mock environment",
+          "Point out the dataset list and row counts"
+        ],
+        autoAdvanceDelay: 28000,
+        subStepDelay: 7000,
+        spotlights: [
+          {
+            elementId: 'bq-connection-status',
+            label: 'BigQuery Connection',
+            description: 'Live connection to Google BigQuery production environment',
+            dataSources: [
+              { name: 'bidata-sharedus-production', system: 'Google BigQuery', icon: 'cloud', refreshRate: 'Real-time', recordCount: '37B total rows', color: 'blue' }
+            ],
+            calculation: 'ADC Auth → BigQuery Client → Query Execution → Response',
+            refreshSchedule: 'Connection validated on each API call',
+            dataFlow: ['Application Default Credentials', 'BigQuery Client', 'bidata-sharedus-production', 'Dashboard API'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          },
+          {
+            elementId: 'bq-dataset-list',
+            label: 'Production Datasets',
+            description: '10 datasets with validated table access and row counts',
+            dataSources: [
+              { name: 'S4 (Unified Views)', system: 'bidata-sharedus-production.S4', icon: 'database', refreshRate: 'Daily ETL', recordCount: 'Leads, Branch hierarchy', color: 'green' },
+              { name: 'BCG_RTD_DB (70 tables)', system: 'bidata-sharedus-production.BCG_RTD_DB', icon: 'database', refreshRate: 'Daily ETL at 2am CT', recordCount: '596M rows', color: 'purple' },
+              { name: 'S0_TMX (TMX)', system: 'bidata-sharedus-production.S0_TMX', icon: 'database', refreshRate: 'Daily ETL', recordCount: '2.2M leads', color: 'orange' }
+            ],
+            calculation: 'SELECT table_id, row_count FROM dataset.__TABLES__',
+            dataFlow: ['BigQuery INFORMATION_SCHEMA', 'Dataset Discovery', 'Table Validation', 'Health Dashboard'],
+            position: 'right',
+            arrowDirection: 'left'
+          },
+          {
+            elementId: 'bq-table-count',
+            label: 'Table Validation Results',
+            description: 'Automated validation of table access, schema, and freshness',
+            dataSources: [
+              { name: 'INFORMATION_SCHEMA', system: 'BigQuery Metadata', icon: 'server', refreshRate: 'Real-time', color: 'blue' }
+            ],
+            calculation: '16/18 core tables validated — 2 Salesforce tables (Raw_RTXSF_*) pending access',
+            refreshSchedule: 'Validated on platform health page load',
+            dataFlow: ['BigQuery Metadata API', 'Table Access Check', 'Schema Validation', 'Health Report'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          }
+        ]
+      },
+      // Step 3: Data Dictionary
+      {
+        title: 'Data Dictionary',
+        route: '/governance/data-dictionary',
+        script: [
+          "This is our data dictionary — 113 documented columns across critical BigQuery tables.",
+          "Every column has business definitions, SQL patterns, sample values, and data governance flags.",
+          "The column registry lives in src/lib/bigquery/columns/ — version controlled, not in a wiki.",
+          "This is what Krishna is assessing — do we have shared definitions across teams?"
+        ],
+        tips: [
+          "Search for a column like 'SellDate' to show the detail card",
+          "Emphasize that definitions are IN the codebase, not a separate document"
+        ],
+        autoAdvanceDelay: 28000,
+        subStepDelay: 7000,
+        spotlights: [
+          {
+            elementId: 'dd-column-table',
+            label: 'Column Registry',
+            description: '113 documented columns with full metadata across 3 critical tables',
+            dataSources: [
+              { name: 'Column Registry', system: 'src/lib/bigquery/columns/', icon: 'spreadsheet', refreshRate: 'Version controlled', recordCount: '113 columns', color: 'purple' }
+            ],
+            calculation: 'W3_Contract_Checker.T0_unf_Contract_All: 18 columns\nS4.Fact_Leads_Acc_Daily_Dtls_Snp: 17 columns\nS0_TMX.tmx_lead: 17 columns',
+            dataFlow: ['BigQuery Schema', 'Column Discovery', 'Business Definitions', 'Registry'],
+            position: 'right',
+            arrowDirection: 'left'
+          },
+          {
+            elementId: 'dd-search',
+            label: 'Column Search',
+            description: 'Search across all documented columns by name, description, or table',
+            dataSources: [
+              { name: 'Search Index', system: 'Client-side', icon: 'chart', refreshRate: 'Instant', color: 'blue' }
+            ],
+            calculation: 'searchColumns(query) → filter by name, description, table, businessPurpose',
+            dataFlow: ['User Query', 'Column Index', 'Filtered Results'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          },
+          {
+            elementId: 'dd-business-defs',
+            label: 'Business Definitions',
+            description: 'Each column includes business purpose, owner, PII flags, and validation rules',
+            dataSources: [
+              { name: 'Governance Metadata', system: 'Column Registry', icon: 'building', refreshRate: 'On code deploy', color: 'green' }
+            ],
+            calculation: 'Each column: type, nullability, precision, business purpose, SQL patterns, sample values, PII flag',
+            refreshSchedule: 'Updated with each code deployment',
+            dataFlow: ['Business Rules', 'Technical Specs', 'Governance Flags', 'Dictionary Display'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          }
+        ]
+      },
+      // Step 4: Data Quality
+      {
+        title: 'Data Quality',
+        route: '/governance/data-quality',
+        script: [
+          "Data quality monitoring across all BigQuery sources.",
+          "We track four dimensions: Completeness, Accuracy, Timeliness, and Consistency.",
+          "NULL rate monitoring catches missing data before it affects downstream metrics.",
+          "Freshness SLAs ensure ETL pipelines are running on schedule."
+        ],
+        tips: [
+          "Point out the quality score breakdown by dimension",
+          "Mention this prevents 'whose number is right' debates"
+        ],
+        autoAdvanceDelay: 26000,
+        subStepDelay: 6500,
+        spotlights: [
+          {
+            elementId: 'dq-overall-score',
+            label: 'Overall Quality Score',
+            description: 'Composite data quality score across all monitored dimensions',
+            dataSources: [
+              { name: 'Quality Engine', system: 'BI Platform', icon: 'chart', refreshRate: 'Real-time calculation', color: 'green' }
+            ],
+            calculation: 'Quality Score = (Freshness × 0.4) + (Completeness × 0.3) + (Accuracy × 0.3)',
+            refreshSchedule: 'Calculated on page load from latest ETL metadata',
+            dataFlow: ['ETL Metadata', 'Freshness Check', 'Completeness Scan', 'Score Aggregation'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          },
+          {
+            elementId: 'dq-null-rates',
+            label: 'NULL Rate Monitoring',
+            description: 'Tracks percentage of NULL values in critical columns across tables',
+            dataSources: [
+              { name: 'BigQuery Tables', system: 'bidata-sharedus-production', icon: 'database', refreshRate: 'Daily scan', color: 'blue' }
+            ],
+            calculation: 'NULL Rate = COUNT(*) WHERE column IS NULL / COUNT(*) × 100\nThreshold: Warning >5%, Critical >15%',
+            refreshSchedule: 'Daily quality scan at 4am CT',
+            dataFlow: ['BigQuery Tables', 'NULL Count Queries', 'Threshold Evaluation', 'Alert Generation'],
+            position: 'right',
+            arrowDirection: 'left'
+          },
+          {
+            elementId: 'dq-dimensions',
+            label: 'Quality Dimensions',
+            description: 'Four pillars of data quality monitoring',
+            dataSources: [
+              { name: 'Monitoring System', system: 'BI Platform', icon: 'server', refreshRate: 'Continuous', color: 'orange' }
+            ],
+            calculation: 'Completeness: % non-null critical fields\nAccuracy: Cross-source validation\nTimeliness: ETL SLA compliance\nConsistency: Duplicate detection',
+            dataFlow: ['Source Systems', 'Quality Checks', 'Dimension Scoring', 'Dashboard'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          }
+        ]
+      },
+      // Step 5: INTERSTITIAL - The Traceability Challenge
+      {
+        title: 'The Traceability Challenge',
+        route: '',
+        isInterstitial: true,
+        interstitialSubtitle: 'Following a lead across 7 source systems',
+        script: ['From Invoca call tracking through Five9, LeadExec, SalesExec, PestPac, and Salesforce — where do leads get lost?'],
+        tips: [],
+        spotlights: [],
+        autoAdvanceDelay: 8000,
+      },
+      // Step 6: Lead Traceability
+      {
+        title: 'Lead Traceability',
+        route: '/lead-flows',
+        script: [
+          "This is the lead traceability view — mapping leads across 7 source systems.",
+          "Invoca captures the call, Five9 routes it, LeadExec qualifies, SalesExec assigns.",
+          "PestPac creates the service record, Salesforce tracks the opportunity.",
+          "The gap: only 30-40% of leads can be matched across all systems. No unified lead ID."
+        ],
+        tips: [
+          "This is the key pain point for Krishna's assessment",
+          "Emphasize the match gap as the primary data architecture challenge"
+        ],
+        autoAdvanceDelay: 28000,
+        subStepDelay: 7000,
+        spotlights: [
+          {
+            elementId: 'lf-flow-diagram',
+            label: 'Lead Flow Diagram',
+            description: 'Visual mapping of lead journey across 7 source systems',
+            dataSources: [
+              { name: 'S0_TMX.tmx_lead', system: 'bidata-sharedus-production.S0_TMX', icon: 'database', refreshRate: 'Daily ETL', recordCount: '2.2M leads', color: 'blue' },
+              { name: 'S4.Fact_Leads_Acc_Daily_Dtls_Snp', system: 'bidata-sharedus-production.S4', icon: 'database', refreshRate: 'Daily ETL', recordCount: '~3M rows', color: 'green' }
+            ],
+            calculation: 'Lead journey: Invoca → Five9 → LeadExec → SalesExec → PestPac → Salesforce\nMatch rate: ~30-40% end-to-end',
+            refreshSchedule: 'Lead data refreshes daily via ETL',
+            dataFlow: ['Invoca (Call Tracking)', 'Five9 (Contact Center)', 'LeadExec (Distribution)', 'SalesExec (Assignment)', 'PestPac (Service)', 'Salesforce (CRM)'],
+            position: 'right',
+            arrowDirection: 'left'
+          },
+          {
+            elementId: 'lf-source-systems',
+            label: 'Source System Inventory',
+            description: '7 systems that touch a lead before it becomes a customer',
+            dataSources: [
+              { name: 'Invoca', system: 'Call Tracking', icon: 'users', refreshRate: 'Real-time', color: 'orange' },
+              { name: 'Five9', system: 'Contact Center', icon: 'server', refreshRate: 'Real-time', color: 'purple' },
+              { name: 'PestPac', system: 'Field Service', icon: 'database', refreshRate: 'Every 15 min', color: 'green' }
+            ],
+            calculation: 'Each system assigns its own ID.\nNo universal lead_id spans all 7 systems.\nMatching relies on phone, email, name + fuzzy logic.',
+            dataFlow: ['Invoca ID', 'Five9 Session ID', 'LeadExec ID', 'SalesExec ID', 'PestPac Account ID', 'SF Lead ID'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          },
+          {
+            elementId: 'lf-match-rates',
+            label: 'Cross-System Match Rates',
+            description: 'Percentage of leads that can be tracked across system boundaries',
+            dataSources: [
+              { name: 'Match Engine', system: 'BI Platform', icon: 'chart', refreshRate: 'Daily calculation', color: 'blue' }
+            ],
+            calculation: 'Match Rate = Leads matched in System B / Leads originated in System A × 100\n\nInvoca→Five9: ~85%\nFive9→LeadExec: ~70%\nEnd-to-end: ~30-40%',
+            refreshSchedule: 'Calculated daily from cross-system join queries',
+            dataFlow: ['System A Leads', 'Fuzzy Match Logic', 'System B Records', 'Match Rate Calculation'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          }
+        ]
+      },
+      // Step 7: Leads Dashboard
+      {
+        title: 'Lead Service Engine',
+        route: '/lead-service-engine',
+        script: [
+          "The Lead Service Engine — real-time lead pipeline from S0_TMX.tmx_lead.",
+          "2.2 million leads tracked with stage progression from MQL through Sold.",
+          "Also pulls from S4.Fact_Leads_Acc_Daily_Dtls_Snp for lead accumulation metrics.",
+          "This shows the operational view — where are leads right now in the funnel?"
+        ],
+        tips: [
+          "Point out the stage metrics showing real counts from BigQuery",
+          "Mention the handoff tracking between stages"
+        ],
+        autoAdvanceDelay: 28000,
+        subStepDelay: 7000,
+        spotlights: [
+          {
+            elementId: 'lse-stage-metrics',
+            label: 'Stage Metrics',
+            description: 'Real-time lead counts at each pipeline stage',
+            dataSources: [
+              { name: 'S0_TMX.tmx_lead', system: 'bidata-sharedus-production.S0_TMX', icon: 'database', refreshRate: 'Daily ETL', recordCount: '2.2M leads', color: 'blue' }
+            ],
+            calculation: 'SELECT lead_status, COUNT(*) as count\nFROM S0_TMX.tmx_lead\nWHERE received_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)\nGROUP BY lead_status',
+            refreshSchedule: 'Daily ETL refresh, cached for 5 minutes',
+            dataFlow: ['S0_TMX.tmx_lead', '/api/bigquery/query', 'useBigQueryData hook', 'Stage Cards'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          },
+          {
+            elementId: 'lse-handoffs',
+            label: 'Stage Handoff Tracking',
+            description: 'Conversion rates between pipeline stages',
+            dataSources: [
+              { name: 'S4.Fact_Leads_Acc_Daily_Dtls_Snp', system: 'bidata-sharedus-production.S4', icon: 'database', refreshRate: 'Daily ETL', recordCount: '~3M rows', color: 'green' }
+            ],
+            calculation: 'Conversion Rate = Leads entering Stage N+1 / Leads in Stage N × 100',
+            dataFlow: ['Lead Stage History', 'Stage Transition Query', 'Conversion Calculation', 'Funnel Display'],
+            position: 'right',
+            arrowDirection: 'left'
+          },
+          {
+            elementId: 'lse-pipeline',
+            label: 'Pipeline Overview',
+            description: 'Full lead pipeline visualization with volume and velocity',
+            dataSources: [
+              { name: 'S0_TMX.tmx_lead', system: 'bidata-sharedus-production.S0_TMX', icon: 'database', refreshRate: 'Daily ETL', recordCount: '2.2M leads', color: 'blue' },
+              { name: 'S4.Fact_Leads', system: 'bidata-sharedus-production.S4', icon: 'database', refreshRate: 'Daily ETL', color: 'green' }
+            ],
+            calculation: 'Pipeline Value = SUM(estimated_value) WHERE status IN (active stages)\nVelocity = AVG(days_in_stage) per stage',
+            dataFlow: ['TMX + S4 Lead Data', 'Pipeline Aggregation', 'Velocity Calculation', 'Dashboard'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          }
+        ]
+      },
+      // Step 8: INTERSTITIAL - Live Production Analytics
+      {
+        title: 'Live Production Analytics',
+        route: '',
+        isInterstitial: true,
+        interstitialSubtitle: 'Real-time sales and anomaly detection from BigQuery',
+        script: ['BCG_RTD_DB: 70 tables, 596M rows — the largest dataset in production, powering sales analytics and anomaly detection'],
+        tips: [],
+        spotlights: [],
+        autoAdvanceDelay: 8000,
+      },
+      // Step 9: Sales Dashboard
+      {
+        title: 'Sales Dashboard',
+        route: '/sales',
+        script: [
+          "Sales analytics powered by BCG_RTD_DB — our largest dataset at 596M rows across 70 tables.",
+          "DR_ContractSales: 78,010 contracts in the last 30 days. DR_Leads: 190,000 leads.",
+          "10 BigQuery queries power this single page — all under 2-second response time.",
+          "Contract lifecycle tracking from sell date through start date to cancellation."
+        ],
+        tips: [
+          "This page demonstrates the heaviest BigQuery integration",
+          "Point out response times in the DataSourceBadge"
+        ],
+        autoAdvanceDelay: 28000,
+        subStepDelay: 7000,
+        spotlights: [
+          {
+            elementId: 'sales-kpi-cards',
+            label: 'Sales KPI Cards',
+            description: 'Key sales metrics from BCG_RTD_DB contract and lead tables',
+            dataSources: [
+              { name: 'BCG_RTD_DB.DR_ContractSales', system: 'bidata-sharedus-production.BCG_RTD_DB', icon: 'database', refreshRate: 'Daily ETL at 2am CT', recordCount: '78,010 rows (30d)', color: 'blue' },
+              { name: 'BCG_RTD_DB.DR_Leads', system: 'bidata-sharedus-production.BCG_RTD_DB', icon: 'database', refreshRate: 'Daily ETL at 2am CT', recordCount: '190,000 rows (30d)', color: 'green' }
+            ],
+            calculation: 'SELECT COUNT(*) as total_contracts,\n  SUM(contract_value) as total_value,\n  AVG(contract_value) as avg_deal_size\nFROM DR_ContractSales\nWHERE SellDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)',
+            refreshSchedule: 'Daily ETL at 2am CT, cached for 5 minutes',
+            dataFlow: ['BCG_RTD_DB.DR_ContractSales', '/api/bigquery/query', 'useBigQueryData', 'KPI Cards'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          },
+          {
+            elementId: 'pipeline-card',
+            label: 'Pipeline Analytics',
+            description: 'Contract pipeline with stage tracking and velocity metrics',
+            dataSources: [
+              { name: 'BCG_RTD_DB.DR_ContractSales', system: 'bidata-sharedus-production.BCG_RTD_DB', icon: 'database', refreshRate: 'Daily ETL at 2am CT', recordCount: '3.2M total rows', color: 'blue' }
+            ],
+            calculation: 'Pipeline = Contracts WHERE start_date IS NULL AND CancelDate IS NULL\nStalled = Pipeline WHERE days_since_sell > 21',
+            refreshSchedule: 'Daily ETL at 2am CT',
+            dataFlow: ['DR_ContractSales', 'Pipeline Filter', 'Stage Classification', 'Velocity Calc', 'Dashboard'],
+            position: 'right',
+            arrowDirection: 'left'
+          },
+          {
+            elementId: 'conversion-funnel',
+            label: 'Cancellation Analytics',
+            description: 'Contract cancellation tracking with reason codes and revenue impact',
+            dataSources: [
+              { name: 'BCG_RTD_DB.DR_Cancels', system: 'bidata-sharedus-production.BCG_RTD_DB', icon: 'database', refreshRate: 'Daily ETL at 2am CT', recordCount: '78,000 cancels (30d)', color: 'purple' }
+            ],
+            calculation: 'SELECT cancel_reason, COUNT(*) as total,\n  SUM(contract_value) as lost_revenue\nFROM DR_Cancels\nWHERE CancelDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)\nGROUP BY cancel_reason',
+            refreshSchedule: 'Daily ETL at 2am CT',
+            dataFlow: ['BCG_RTD_DB.DR_Cancels', 'Reason Aggregation', 'Revenue Impact Calc', 'Dashboard'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          }
+        ]
+      },
+      // Step 10: Anomaly Detection
+      {
+        title: 'Anomaly Detection',
+        route: '/platform-admin',
+        script: [
+          "Platform admin with anomaly detection on T0_unf_Contract_All — 7.8 million rows.",
+          "Z-score statistical outlier detection identifies anomalous contract patterns.",
+          "Freshness monitoring ensures ETL pipelines are meeting SLAs.",
+          "This is the foundation for predictive analytics — from detection to prediction."
+        ],
+        tips: [
+          "Emphasize this as the bridge from descriptive to predictive analytics",
+          "Z-score methodology is standard statistical approach"
+        ],
+        autoAdvanceDelay: 26000,
+        subStepDelay: 6500,
+        spotlights: [
+          {
+            elementId: 'pa-anomaly-table',
+            label: 'Anomaly Detection Engine',
+            description: 'Z-score based statistical outlier detection on contract data',
+            dataSources: [
+              { name: 'W3_Contract_Checker.T0_unf_Contract_All', system: 'bidata-sharedus-production.W3_Contract_Checker', icon: 'database', refreshRate: 'Daily ETL', recordCount: '7.8M rows', color: 'blue' }
+            ],
+            calculation: 'Z-Score = (value - mean) / std_deviation\nAnomaly threshold: |Z| > 2.5\nMonitored: contract_value, days_to_start, cancel_rate_by_branch',
+            refreshSchedule: 'Anomaly scan runs daily after ETL completion',
+            dataFlow: ['T0_unf_Contract_All', 'Statistical Aggregation', 'Z-Score Calculation', 'Anomaly Flagging', 'Alert Dashboard'],
+            position: 'right',
+            arrowDirection: 'left'
+          },
+          {
+            elementId: 'pa-freshness-panel',
+            label: 'ETL Freshness Monitoring',
+            description: 'SLA tracking for all BigQuery ETL pipelines',
+            dataSources: [
+              { name: 'BigQuery Metadata', system: 'INFORMATION_SCHEMA', icon: 'server', refreshRate: 'Real-time', color: 'green' }
+            ],
+            calculation: 'Freshness = TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(modification_time), HOUR)\nSLA: Fresh < 24h, Warning < 48h, Stale > 48h',
+            refreshSchedule: 'Checked on page load',
+            dataFlow: ['BigQuery INFORMATION_SCHEMA', 'Last Modified Query', 'SLA Comparison', 'Freshness Badge'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          },
+          {
+            elementId: 'pa-health-cards',
+            label: 'Platform Health Cards',
+            description: 'System-wide health metrics for the data platform',
+            dataSources: [
+              { name: 'Health API', system: '/api/bigquery/health', icon: 'chart', refreshRate: 'On page load', color: 'orange' }
+            ],
+            calculation: 'Health = query_success_rate × uptime × freshness_compliance',
+            dataFlow: ['Health Endpoint', 'Query Metrics', 'Uptime Tracking', 'Health Score'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          }
+        ]
+      },
+      // Step 11: INTERSTITIAL - The Untapped Asset
+      {
+        title: 'The Untapped Asset',
+        route: '',
+        isInterstitial: true,
+        interstitialSubtitle: 'BCG_RTD_DB — 70 tables, 596M rows',
+        script: ['The largest dataset in production, built by BCG consultants. Rich analytics tables that no internal team is fully utilizing.'],
+        tips: [],
+        spotlights: [],
+        autoAdvanceDelay: 8000,
+      },
+      // Step 12: BCG Analytics + Closing
+      {
+        title: 'BCG Analytics Deep Dive',
+        route: '/sales',
+        script: [
+          "BCG_RTD_DB contains 70 tables with 596 million rows — the richest analytics dataset in production.",
+          "DR_ContractSales (3.2M rows), DR_Leads (3.3M rows), DR_Cancels (513K rows), DR_PNI (3.8M rows).",
+          "BCG built these as consulting deliverables. No internal team has fully mapped or utilized them.",
+          "This is the untapped asset — ready for AI, optimization models, and predictive analytics."
+        ],
+        tips: [
+          "This is the 'wow' moment — reveal the scale of untapped data",
+          "Transition to the closing summary with the 3 assessment gaps"
+        ],
+        autoAdvanceDelay: 30000,
+        subStepDelay: 7500,
+        spotlights: [
+          {
+            elementId: 'sales-kpi-cards',
+            label: 'BCG_RTD_DB Overview',
+            description: '70-table analytics dataset built by BCG consultants',
+            dataSources: [
+              { name: 'BCG_RTD_DB', system: 'bidata-sharedus-production.BCG_RTD_DB', icon: 'database', refreshRate: 'Daily ETL at 2am CT', recordCount: '596M total rows', color: 'purple' }
+            ],
+            calculation: 'Key tables:\n• DR_ContractSales: 3.2M rows, 76 columns\n• DR_Leads: 3.3M rows, 81 columns\n• DR_Cancels: 513K rows, 37 columns\n• DR_PNI: 3.8M rows, 47 columns\n• DR_GLActivity: 3.4M rows, 28 columns',
+            refreshSchedule: 'Daily ETL at 2am CT from multiple source systems',
+            dataFlow: ['SAP S4', 'PestPac', 'Salesforce', 'BCG ETL Pipeline', 'bidata-sharedus-production.BCG_RTD_DB', 'Dashboard'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          },
+          {
+            elementId: 'pipeline-card',
+            label: 'AI-Ready Data Assets',
+            description: 'Production data primed for predictive models and optimization',
+            dataSources: [
+              { name: 'Contract History', system: 'DR_ContractSales (3.2M)', icon: 'database', refreshRate: 'Daily', color: 'blue' },
+              { name: 'Lead History', system: 'DR_Leads (3.3M)', icon: 'database', refreshRate: 'Daily', color: 'green' },
+              { name: 'Cancel Patterns', system: 'DR_Cancels (513K)', icon: 'database', refreshRate: 'Daily', color: 'purple' }
+            ],
+            calculation: 'Potential AI models:\n• Lead scoring (conversion prediction)\n• Churn prediction (cancel risk)\n• Route optimization (service efficiency)\n• Revenue forecasting (contract value)',
+            dataFlow: ['Historical Data', 'Feature Engineering', 'Model Training', 'Prediction API', 'Dashboard Integration'],
+            position: 'right',
+            arrowDirection: 'left'
+          },
+          {
+            elementId: 'hygiene-score',
+            label: 'Employee & Payroll Analytics',
+            description: 'BCG payroll and employee data for workforce optimization',
+            dataSources: [
+              { name: 'BCG_EmployeePayData_NT', system: 'bidata-sharedus-production.BCG_RTD_DB', icon: 'users', refreshRate: 'Daily ETL', recordCount: '9.4M rows', color: 'orange' }
+            ],
+            calculation: 'Workforce metrics:\n• Headcount by market/region/branch\n• Compensation analysis\n• Turnover patterns\n• Capacity planning data',
+            refreshSchedule: 'Daily ETL from HR/Payroll systems',
+            dataFlow: ['Workday/ADP', 'BCG ETL', 'BCG_EmployeePayData_NT', 'Workforce Analytics'],
+            position: 'bottom',
+            arrowDirection: 'up'
+          }
+        ]
+      }
+    ]
   }
 }
 
@@ -772,6 +1288,8 @@ export function DemoSpotlight() {
   const [showNotes, setShowNotes] = useState(true)
   const [isPoppedOut, setIsPoppedOut] = useState(false)
   const [popoutWindow, setPopoutWindow] = useState<Window | null>(null)
+  const [isOffRoute, setIsOffRoute] = useState(false)
+  const [showClosingSummary, setShowClosingSummary] = useState(false)
   const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const subStepTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -1076,10 +1594,10 @@ export function DemoSpotlight() {
       nextBtn.onclick = () => {
         if (currentSubStep < totalSubSteps - 1) {
           setCurrentSubStep(prev => prev + 1)
+        } else if (presenterStep === steps.length - 1 && currentSubStep >= totalSubSteps - 1) {
+          setShowClosingSummary(true)
         } else if (presenterStep < steps.length - 1) {
           nextPresenterStep()
-        } else {
-          setPresenterMode(false)
         }
         setIsAutoPlaying(false)
       }
@@ -1121,12 +1639,15 @@ export function DemoSpotlight() {
 
   }, [popoutWindow, presenterStep, currentSubStep, currentStepConfig, currentTarget, isAutoPlaying, spotlights, totalSubSteps, steps.length, config?.name, prevPresenterStep, nextPresenterStep, setPresenterMode])
 
-  // Navigate to route when step changes
+  // Off-route guard instead of auto-redirect
   useEffect(() => {
-    if (presenterMode && currentStepConfig && pathname !== currentStepConfig.route) {
-      router.push(currentStepConfig.route)
+    if (presenterMode && currentStepConfig && currentStepConfig.route && pathname !== currentStepConfig.route && !currentStepConfig.isInterstitial) {
+      setIsOffRoute(true)
+      setIsAutoPlaying(false)
+    } else {
+      setIsOffRoute(false)
     }
-  }, [presenterMode, currentStepConfig, pathname, router])
+  }, [presenterMode, currentStepConfig, pathname])
 
   // Reset substep when main step changes
   useEffect(() => {
@@ -1197,6 +1718,8 @@ export function DemoSpotlight() {
           if (currentSubStep < totalSubSteps - 1) {
             setCurrentSubStep(prev => prev + 1)
             setIsAutoPlaying(false)
+          } else if (presenterStep === steps.length - 1 && currentSubStep >= totalSubSteps - 1) {
+            setShowClosingSummary(true)
           } else if (presenterStep < steps.length - 1) {
             nextPresenterStep()
             setIsAutoPlaying(false)
@@ -1253,8 +1776,103 @@ export function DemoSpotlight() {
 
   return (
     <>
+      {/* Interstitial overlay for section dividers */}
+      {currentStepConfig?.isInterstitial && (
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-sm">
+          <div className="text-center max-w-2xl mx-auto px-8">
+            <div className="mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/70 text-sm mb-8">
+                <span>Part {Math.ceil((presenterStep + 1) / 3)} of 4</span>
+                <span className="text-white/40">—</span>
+                <span>{currentStepConfig.title}</span>
+              </div>
+            </div>
+            <h1 className="text-5xl font-bold text-white mb-4">{currentStepConfig.title}</h1>
+            {currentStepConfig.interstitialSubtitle && (
+              <p className="text-xl text-white/70 mb-8">{currentStepConfig.interstitialSubtitle}</p>
+            )}
+            {currentStepConfig.script.length > 0 && (
+              <p className="text-lg text-white/50 mb-12">{currentStepConfig.script[0]}</p>
+            )}
+            <button
+              onClick={() => {
+                if (presenterStep < steps.length - 1) {
+                  nextPresenterStep()
+                }
+                setIsAutoPlaying(false)
+              }}
+              className="px-8 py-3 bg-rentokil-red hover:bg-rentokil-darkred text-white rounded-lg font-semibold transition-colors text-lg"
+            >
+              Continue →
+            </button>
+            <div className="mt-6 text-sm text-white/30">Press → or Space to continue</div>
+          </div>
+        </div>
+      )}
+
+      {/* Off-route guard */}
+      {isOffRoute && !currentStepConfig?.isInterstitial && (
+        <div className="fixed top-4 right-4 z-[10001] animate-in slide-in-from-top-4">
+          <button
+            onClick={() => {
+              if (currentStepConfig?.route) router.push(currentStepConfig.route)
+            }}
+            className="flex items-center gap-2 px-4 py-3 bg-rentokil-red text-white rounded-lg shadow-lg hover:bg-rentokil-darkred transition-colors font-medium"
+          >
+            <ArrowRight className="h-4 w-4" />
+            Return to Demo — {currentStepConfig?.title}
+          </button>
+        </div>
+      )}
+
+      {/* Closing summary overlay */}
+      {showClosingSummary && (
+        <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-sm">
+          <div className="max-w-3xl mx-auto px-8 text-center">
+            <h1 className="text-4xl font-bold text-white mb-2">Data Architecture Assessment</h1>
+            <p className="text-xl text-white/60 mb-10">3 Gaps Identified</p>
+
+            <div className="grid gap-6 text-left mb-12">
+              <div className="p-6 bg-white/10 rounded-xl border border-white/20">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl font-bold text-rentokil-red">1</span>
+                  <h3 className="text-xl font-semibold text-white">Lead Traceability</h3>
+                </div>
+                <p className="text-white/70">30-40% match rate across 7 source systems (Invoca → Five9 → LeadExec → SalesExec → PestPac → Salesforce). No unified lead ID across the journey.</p>
+              </div>
+
+              <div className="p-6 bg-white/10 rounded-xl border border-white/20">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl font-bold text-rentokil-red">2</span>
+                  <h3 className="text-xl font-semibold text-white">Data Definitions</h3>
+                </div>
+                <p className="text-white/70">No shared definitions across functional analytics teams. Each team defines metrics differently — &quot;conversion rate&quot; means 3 different things depending on who you ask.</p>
+              </div>
+
+              <div className="p-6 bg-white/10 rounded-xl border border-white/20">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl font-bold text-rentokil-red">3</span>
+                  <h3 className="text-xl font-semibold text-white">AI &amp; Optimization</h3>
+                </div>
+                <p className="text-white/70">37B rows in production BigQuery, anomaly detection POC running on T0_unf_Contract_All (7.8M rows). Predictive models are the next logical step — lead scoring, churn prediction, route optimization.</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowClosingSummary(false)
+                setPresenterMode(false)
+              }}
+              className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors text-lg"
+            >
+              End Demo
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Spotlight overlay - ALWAYS visible regardless of minimized/popped out state */}
-      {currentTarget && (
+      {currentTarget && !currentStepConfig?.isInterstitial && (
         <SpotlightOverlay target={currentTarget} isActive={true} subStepIndex={currentSubStep} totalSubSteps={totalSubSteps} />
       )}
 
@@ -1435,8 +2053,8 @@ export function DemoSpotlight() {
               <button
                 onClick={() => {
                   if (currentSubStep < totalSubSteps - 1) setCurrentSubStep(prev => prev + 1)
+                  else if (presenterStep === steps.length - 1 && currentSubStep >= totalSubSteps - 1) setShowClosingSummary(true)
                   else if (presenterStep < steps.length - 1) nextPresenterStep()
-                  else setPresenterMode(false)
                   setIsAutoPlaying(false)
                 }}
                 className={cn(

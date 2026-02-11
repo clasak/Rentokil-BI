@@ -480,6 +480,7 @@ export default function SalesPage() {
     isLoading: isSalesLoading,
     dataSource: salesDataSource,
     responseTime,
+    queryTimestamp,
     error,
     refetch: refetchSales,
   } = useBigQueryData<SalesToday, SalesDisplayData>({
@@ -622,6 +623,7 @@ export default function SalesPage() {
         ]}
         dataSource={dataSource}
         responseTime={responseTime}
+        timestamp={queryTimestamp}
         error={error}
         onRefresh={refetch}
         isLoading={isBQLoading}

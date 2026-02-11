@@ -185,7 +185,7 @@ export default function PipelinePage() {
     const opp = opportunities.find(o => o.opportunityId === opportunityId)
     if (opp?.pestPacBillToId) {
       // If we have a PestPac ID, could navigate to account detail
-      console.log('View opportunity:', opportunityId, opp)
+      // TODO: Navigate to opportunity detail page
     }
   }
 

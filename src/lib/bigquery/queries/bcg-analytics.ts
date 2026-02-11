@@ -136,7 +136,7 @@ export async function getBCGLeadAnalytics(
  * Get sales analytics from DR_ContractSales (3.2M rows)
  *
  * Verified columns: sales_id, sell_date, sell_date_year_month, start_date,
- * cancel_date, cancel_reason_code, product_group, service_type_desc
+ * CancelDate, cancel_reason_code, product_group, service_type_desc
  */
 export async function getBCGSalesAnalytics(
   options: BCGQueryOptions = {}
@@ -185,13 +185,13 @@ export async function getBCGCancellationAnalytics(
 ): Promise<BCGCancellationAnalytics[]> {
   const { daysBack = 90, market, limit = 50 } = options
 
-  let whereClause = `DATE(cancel_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
+  let whereClause = `DATE(CancelDate) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)`
   if (market) whereClause += ` AND market = @market`
 
   const sql = `
     WITH cancel_data AS (
       SELECT
-        FORMAT_DATE('%Y-%m', DATE(cancel_date)) as period,
+        FORMAT_DATE('%Y-%m', DATE(CancelDate)) as period,
         COALESCE(market, 'Unknown') as market,
         COUNT(*) as total_cancels,
         COALESCE(cancel_reason, 'Unknown') as cancel_reason,
@@ -946,8 +946,8 @@ export async function getBCGSalesKPIs(
       SELECT
         COUNT(*) as total_contracts,
         COUNTIF(start_date IS NOT NULL) as started_contracts,
-        COUNTIF(cancel_date IS NOT NULL) as canceled_contracts,
-        AVG(DATE_DIFF(COALESCE(start_date, cancel_date, CURRENT_DATE('America/New_York')), sell_date, DAY)) as avg_cycle_days
+        COUNTIF(CancelDate IS NOT NULL) as canceled_contracts,
+        AVG(DATE_DIFF(COALESCE(start_date, CancelDate, CURRENT_DATE('America/New_York')), sell_date, DAY)) as avg_cycle_days
       FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
       WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
     ),
@@ -969,12 +969,12 @@ export async function getBCGSalesKPIs(
         SUM(CASE WHEN DATE_DIFF(CURRENT_DATE('America/New_York'), sell_date, DAY) BETWEEN 61 AND 90 THEN COALESCE(contract_value, 0) ELSE 0 END) as pipeline_90_value,
         COUNT(*) as total_pipeline,
         SUM(COALESCE(contract_value, 0)) as total_pipeline_value,
-        COUNTIF(DATE_DIFF(CURRENT_DATE('America/New_York'), sell_date, DAY) > 21 AND start_date IS NULL AND cancel_date IS NULL) as stalled,
-        SUM(CASE WHEN DATE_DIFF(CURRENT_DATE('America/New_York'), sell_date, DAY) > 21 AND start_date IS NULL AND cancel_date IS NULL THEN COALESCE(contract_value, 0) ELSE 0 END) as stalled_value
+        COUNTIF(DATE_DIFF(CURRENT_DATE('America/New_York'), sell_date, DAY) > 21 AND start_date IS NULL AND CancelDate IS NULL) as stalled,
+        SUM(CASE WHEN DATE_DIFF(CURRENT_DATE('America/New_York'), sell_date, DAY) > 21 AND start_date IS NULL AND CancelDate IS NULL THEN COALESCE(contract_value, 0) ELSE 0 END) as stalled_value
       FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
       WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
         AND start_date IS NULL
-        AND cancel_date IS NULL
+        AND CancelDate IS NULL
     )
     SELECT
       COALESCE(pa.total_pipeline_value, 0) as pipeline_value,
@@ -1098,20 +1098,20 @@ export async function getBCGRepPerformance(
 
   const sql = `
     SELECT
-      COALESCE(sales_person, 'Unknown') as sales_person,
-      COALESCE(CAST(sales_person_id AS STRING), 'N/A') as sales_person_id,
+      COALESCE(sales_person_nm, 'Unknown') as sales_person,
+      COALESCE(sales_person_nm, 'N/A') as sales_person_id,
       COUNT(*) as total_contracts,
       SUM(COALESCE(contract_value, 0)) as total_value,
       COUNTIF(start_date IS NOT NULL) as started_contracts,
       SUM(CASE WHEN start_date IS NOT NULL THEN COALESCE(contract_value, 0) ELSE 0 END) as started_value,
-      COUNTIF(cancel_date IS NOT NULL) as canceled_contracts,
-      SUM(CASE WHEN cancel_date IS NOT NULL THEN COALESCE(contract_value, 0) ELSE 0 END) as canceled_value,
+      COUNTIF(CancelDate IS NOT NULL) as canceled_contracts,
+      SUM(CASE WHEN CancelDate IS NOT NULL THEN COALESCE(contract_value, 0) ELSE 0 END) as canceled_value,
       ROUND(SAFE_DIVIDE(COUNTIF(start_date IS NOT NULL), COUNT(*)) * 100, 1) as win_rate,
       AVG(COALESCE(contract_value, 0)) as avg_deal_size
     FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
     WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
-      AND sales_person IS NOT NULL
-    GROUP BY sales_person, sales_person_id
+      AND sales_person_nm IS NOT NULL
+    GROUP BY sales_person_nm
     ORDER BY total_contracts DESC
     LIMIT @resultLimit
   `
@@ -1153,7 +1153,7 @@ export async function getBCGAtRiskLeads(
   const sql = `
     SELECT
       CAST(lead_ID AS STRING) as lead_id,
-      COALESCE(customer_name, contact_name, 'Unknown Customer') as customer_name,
+      COALESCE(business, 'Unknown Customer') as customer_name,
       COALESCE(lead_type, 'Unknown') as current_stage,
       DATE_DIFF(CURRENT_DATE('America/New_York'), DATE(received_date), DAY) as days_in_stage,
       CASE
@@ -1164,8 +1164,8 @@ export async function getBCGAtRiskLeads(
       -- Estimate based on average contract value from historical data
       -- DR_Leads table does not have a direct value field
       450 as amount,
-      COALESCE(assigned_rep, sales_rep, 'Unassigned') as assigned_rep,
-      COALESCE(branch, 'Unknown') as branch,
+      COALESCE(lead_source, 'Unassigned') as assigned_rep,
+      COALESCE(market_type, 'Unknown') as branch,
       FORMAT_DATE('%Y-%m-%d', DATE(received_date)) as last_activity_date
     FROM \`${PROJECT}.${DATASET}.DR_Leads\`
     WHERE DATE(received_date) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
@@ -1211,7 +1211,7 @@ export async function getBCGSalesToday(
       FORMAT_DATE('%Y-%m-%d', sell_date) as date,
       COUNT(*) as new_contracts,
       COUNTIF(start_date IS NOT NULL) as started_contracts,
-      COUNTIF(cancel_date IS NOT NULL) as canceled_contracts,
+      COUNTIF(CancelDate IS NOT NULL) as canceled_contracts,
       SUM(COALESCE(contract_value, 0)) as total_value,
       COALESCE(product_group, 'Unknown') as product_group
     FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
@@ -1257,17 +1257,17 @@ export async function getBCGBacklog(
   const sql = `
     SELECT
       CAST(sales_id AS STRING) as contract_id,
-      COALESCE(customer_name, 'Unknown Customer') as customer_name,
+      COALESCE(sales_person_nm, 'Unknown Customer') as customer_name,
       FORMAT_DATE('%Y-%m-%d', sell_date) as sell_date,
       DATE_DIFF(CURRENT_DATE('America/New_York'), sell_date, DAY) as days_pending,
       COALESCE(contract_value, 0) as amount,
       COALESCE(product_group, 'Unknown') as product_group,
-      COALESCE(sales_person, 'Unknown') as sales_person,
-      COALESCE(branch, 'Unknown') as branch
+      COALESCE(sales_person_nm, 'Unknown') as sales_person,
+      COALESCE(branch_nm, 'Unknown') as branch
     FROM \`${PROJECT}.${DATASET}.DR_ContractSales\`
     WHERE sell_date >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL @daysBack DAY)
       AND start_date IS NULL
-      AND cancel_date IS NULL
+      AND CancelDate IS NULL
     ORDER BY days_pending DESC
     LIMIT @resultLimit
   `

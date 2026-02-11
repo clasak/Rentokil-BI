@@ -801,6 +801,76 @@ export interface SalesforceOpportunity {
 }
 
 /**
+ * Get opportunities for a specific Salesforce account
+ *
+ * @param options - Query options with accountId
+ * @returns Array of opportunities for the account
+ */
+export async function getSalesforceAccountOpportunities(
+  options: SalesforceQueryOptions
+): Promise<SalesforceOpportunity[]> {
+  const accountId = options.accountId
+  if (!accountId) {
+    console.error('[Salesforce] No accountId in options for getSalesforceAccountOpportunities')
+    return []
+  }
+  validateSalesforceOptions({ accountId }, 'getSalesforceAccountOpportunities')
+
+  try {
+    const sql = `
+      WITH line_item_totals AS (
+        SELECT
+          q.OpportunityId,
+          SUM(COALESCE(qli.Total_Cost__c, 0)) as total_cost
+        FROM \`${PROJECT}.S0.Raw_RTXSF_Quote_Daily\` q
+        JOIN \`${PROJECT}.S0.Raw_RTXSF_QuoteLineItem_Daily\` qli ON q.Id = qli.QuoteId
+        WHERE q.OpportunityId IS NOT NULL
+          AND q.IsDeleted = FALSE
+          AND qli.IsDeleted = FALSE
+        GROUP BY q.OpportunityId
+      )
+      SELECT
+        o.Id as opportunity_id,
+        COALESCE(o.Name, '') as opportunity_name,
+        COALESCE(o.AccountId, '') as account_id,
+        COALESCE(a.Name, '') as account_name,
+        COALESCE(o.StageName, '') as stage_name,
+        COALESCE(o.Amount, lit.total_cost, 0) as amount,
+        COALESCE(o.Probability, 0) as probability,
+        FORMAT_TIMESTAMP('%Y-%m-%d', o.CloseDate) as close_date,
+        COALESCE(o.OwnerId, '') as owner_id,
+        COALESCE(e.Name, '') as owner_name,
+        COALESCE(o.Description, '') as description,
+        COALESCE(o.NextStep, '') as next_step,
+        COALESCE(o.Type, '') as type,
+        FORMAT_TIMESTAMP('%Y-%m-%d', o.CreatedDate) as created_date
+      FROM \`${PROJECT}.S0.Raw_RTXSF_Opportunity_Daily\` o
+      LEFT JOIN \`${PROJECT}.S0.Raw_RTXSF_Account_Daily\` a ON o.AccountId = a.Id
+      LEFT JOIN \`${PROJECT}.S0.Raw_RTXSF_Employee__c_Daily\` e ON o.OwnerId = e.User__c
+      LEFT JOIN line_item_totals lit ON o.Id = lit.OpportunityId
+      WHERE o.AccountId = @accountId
+        AND o.IsDeleted = FALSE
+      ORDER BY o.CloseDate DESC
+      LIMIT 50
+    `
+
+    console.log('[Salesforce] getSalesforceAccountOpportunities:', accountId)
+
+    const result = await bigQueryClient.queryWithParams<SalesforceOpportunity>(
+      sql,
+      { accountId }
+    )
+
+    console.log(`[Salesforce] Found ${result.rows.length} opportunities for account ${accountId}`)
+
+    return result.rows
+  } catch (error) {
+    console.error('[Salesforce] getSalesforceAccountOpportunities failed:', error)
+    return []
+  }
+}
+
+/**
  * Get product catalog for quote builder
  * Retrieves active products with pricing from Raw_RTXSF_Product2_Daily
  *

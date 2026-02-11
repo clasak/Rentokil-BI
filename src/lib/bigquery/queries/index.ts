@@ -597,6 +597,14 @@ export {
   type PortfolioQueryOptions,
 } from './portfolio'
 
+// AI & Data Science Roadmap queries
+// __TABLES__ metadata - Zero-cost row counts for AI readiness indicators
+export {
+  getAIRoadmapDataCounts,
+  type AIRoadmapTableCount,
+  type AIRoadmapDataCounts,
+} from './ai-roadmap'
+
 // Salesforce Discovery queries
 // INFORMATION_SCHEMA - Discover and analyze Salesforce-related tables
 export {
@@ -616,6 +624,7 @@ export {
   getSalesforceAccounts,
   getSalesforceAccountDetail,
   getSalesforceContacts,
+  getSalesforceAccountOpportunities,
   getSalesforceOpportunityHistory,
   getSalesforceEmployees,
   getSalesforceQuoteDetail,

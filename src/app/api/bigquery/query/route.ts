@@ -155,6 +155,7 @@ import {
   getSalesforceAccounts,
   getSalesforceAccountDetail,
   getSalesforceContacts,
+  getSalesforceAccountOpportunities,
   getSalesforceOpportunityHistory,
   getSalesforceEmployees,
   getSalesforceQuoteDetail,
@@ -274,6 +275,10 @@ import {
   getBCGSalesToday,
   getBCGBacklog,
 } from '@/lib/bigquery/queries/bcg-analytics'
+
+import {
+  getAIRoadmapDataCounts,
+} from '@/lib/bigquery/queries/ai-roadmap'
 
 import {
   getDataSummary,
@@ -537,6 +542,7 @@ const QUERY_REGISTRY: Record<string, (options: Record<string, unknown>) => Promi
   'salesforce-accounts': getSalesforceAccounts,
   'salesforce-account-detail': getSalesforceAccountDetail,
   'salesforce-contacts': getSalesforceContacts,
+  'salesforce-account-opportunities': getSalesforceAccountOpportunities,
   'salesforce-opportunity-history': getSalesforceOpportunityHistory,
   'salesforce-employees': getSalesforceEmployees,
   'salesforce-quote-detail': getSalesforceQuoteDetail,
@@ -725,6 +731,9 @@ const QUERY_REGISTRY: Record<string, (options: Record<string, unknown>) => Promi
   // Anomaly Detection - Acknowledge (1 query)
   'acknowledge-anomaly': (options: Record<string, unknown>) =>
     acknowledgeAnomaly(options.anomalyId as string),
+
+  // AI Roadmap (1 query) - __TABLES__ metadata for data readiness
+  'ai-roadmap-data-counts': getAIRoadmapDataCounts,
 }
 
 /**

@@ -144,8 +144,12 @@ async function verifyAllTables(): Promise<void> {
     })
 
     // Clear line and rewrite with result
-    process.stdout.clearLine(0)
-    process.stdout.cursorTo(0)
+    if (process.stdout.clearLine) {
+      process.stdout.clearLine(0)
+      process.stdout.cursorTo(0)
+    } else {
+      process.stdout.write('\n')
+    }
 
     const status = exists ? '✅' : '❌'
     const priorityBadge =

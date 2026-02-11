@@ -101,23 +101,6 @@ export default function ServiceSelectionStep({
     enabled: true,
   })
 
-  // Debug logging for data loading
-  useEffect(() => {
-    console.log('[ServiceSelection] Product catalog loaded:', {
-      isLoading: isLoadingProducts,
-      count: products.length,
-      sample: products.slice(0, 3),
-    })
-  }, [products, isLoadingProducts])
-
-  useEffect(() => {
-    console.log('[ServiceSelection] User most-used services loaded:', {
-      isLoading: isLoadingUserServices,
-      count: userMostUsedServices.length,
-      data: userMostUsedServices,
-    })
-  }, [userMostUsedServices, isLoadingUserServices])
-
   // Client-side search filter
   const filteredProducts = searchTerm.length > 0
     ? products.filter((p) =>
@@ -281,23 +264,15 @@ export default function ServiceSelectionStep({
   }
 
   const handleShowQuickAdd = () => {
-    console.log('[Quick Add] Starting Quick Add flow...')
-    console.log('[Quick Add] Products loaded:', products.length)
-    console.log('[Quick Add] User most-used services:', userMostUsedServices.length, userMostUsedServices)
-
     // Use personalized services if available, otherwise fall back to standard codes
     const serviceCodes = userMostUsedServices.length > 0
       ? userMostUsedServices.map((s) => s.product_code)
       : STANDARD_SERVICE_CODES
 
-    console.log('[Quick Add] Service codes to match:', serviceCodes)
-
     // Find services matching the codes
     const matchedServices = products.filter((p) =>
       serviceCodes.includes(p.product_code)
     )
-
-    console.log('[Quick Add] Matched services:', matchedServices.length, matchedServices)
 
     // Initialize template with services unselected, quantity 1, monthly frequency
     const template: TemplateService[] = matchedServices.map((product) => ({
@@ -307,11 +282,8 @@ export default function ServiceSelectionStep({
       frequency: 'MONTHLY' as const,
     }))
 
-    console.log('[Quick Add] Template services:', template.length, template)
-
     setTemplateServices(template)
     setShowQuickAdd(true)
-    console.log('[Quick Add] Modal should be visible now (showQuickAdd = true)')
   }
 
   const handleAddFromTemplate = () => {

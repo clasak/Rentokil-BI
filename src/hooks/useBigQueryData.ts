@@ -76,6 +76,7 @@ interface UseBigQueryDataResult<M> {
   isLoading: boolean
   dataSource: DataSourceStatus
   responseTime?: number
+  queryTimestamp?: string
   error?: string
   errorType?: 'auth' | 'network' | 'query' | 'timeout' | 'empty'
   isEmpty: boolean
@@ -115,6 +116,7 @@ export function useBigQueryData<T, M>({
   const [isLoading, setIsLoading] = useState(true)
   const [dataSource, setDataSource] = useState<DataSourceStatus>('loading')
   const [responseTime, setResponseTime] = useState<number | undefined>()
+  const [queryTimestamp, setQueryTimestamp] = useState<string | undefined>()
   const [error, setError] = useState<string | undefined>()
   const [errorType, setErrorType] = useState<'auth' | 'network' | 'query' | 'timeout' | 'empty' | undefined>()
   const [isEmpty, setIsEmpty] = useState(false)
@@ -204,6 +206,7 @@ export function useBigQueryData<T, M>({
       setData(transformed)
       setDataSource('bigquery')
       setResponseTime(cached.metadata?.responseTime)
+      setQueryTimestamp(cached.metadata?.timestamp)
       setError(undefined)
       setErrorType(undefined)
       const dataIsEmpty = Array.isArray(cached.data)
@@ -289,22 +292,28 @@ export function useBigQueryData<T, M>({
 
       const result: BigQueryResponse<T> = await response.json()
 
-      if (result.success && result.data) {
-        // Cache the raw result for future use
-        setCacheResult(cacheKey, result.data, result.metadata)
+      if (result.success) {
+        // Query succeeded - data may be null for single-record queries with no matches
+        if (result.data !== undefined && result.data !== null) {
+          setCacheResult(cacheKey, result.data, result.metadata)
+          const transformed = transformRef.current(result.data)
+          setData(transformed)
 
-        const transformed = transformRef.current(result.data)
-        setData(transformed)
+          const dataIsEmpty = Array.isArray(result.data)
+            ? result.data.length === 0
+            : Object.keys(result.data || {}).length === 0
+          setIsEmpty(dataIsEmpty)
+        } else {
+          // Success but no data (e.g. no matching records) - use default, not error
+          setData(stableDefaultData)
+          setIsEmpty(true)
+        }
+
         setDataSource('bigquery')
         setResponseTime(result.metadata?.responseTime)
+        setQueryTimestamp(result.metadata?.timestamp)
         setError(undefined)
         setErrorType(undefined)
-
-        // Check if data is empty
-        const dataIsEmpty = Array.isArray(result.data)
-          ? result.data.length === 0
-          : Object.keys(result.data || {}).length === 0
-        setIsEmpty(dataIsEmpty)
       } else {
         // BigQuery query failed (200 response but success=false)
         const errorCode = result.errorCode || 'UNKNOWN_ERROR'
@@ -376,6 +385,7 @@ export function useBigQueryData<T, M>({
     isLoading,
     dataSource,
     responseTime,
+    queryTimestamp,
     error,
     errorType,
     isEmpty,

@@ -207,15 +207,6 @@ export default function QuoteDetailPage() {
     ? quote.total_price
     : quote.line_items.reduce((sum, item) => sum + (item.total_cost || item.subtotal || 0), 0)
 
-  // Debug: Log product information
-  console.log('Line Items Product Info:', quote.line_items.map(item => ({
-    product_code: item.product_code,
-    product_name: item.product_name,
-    product_display_name: item.product_display_name,
-    product_description: item.product_description,
-    description: item.description
-  })))
-
   return (
     <div className="space-y-6">
       {/* Header */}

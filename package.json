@@ -30,6 +30,7 @@
     "demo:record": "npx tsx scripts/record-dashboard-demo.ts",
     "demo:record-auto": "npx tsx scripts/record-dashboard-demo.ts --record",
     "demo:generate-audio": "npx tsx scripts/generate-narration-audio.ts",
+    "demo:warmup": "npx tsx scripts/demo-warmup.ts",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

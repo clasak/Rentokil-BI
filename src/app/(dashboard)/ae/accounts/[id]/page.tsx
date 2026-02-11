@@ -24,6 +24,7 @@ import { useBigQueryData } from '@/hooks/useBigQueryData'
 import type {
   SalesforceAccountDetail,
   SalesforceContact,
+  SalesforceOpportunity,
 } from '@/lib/bigquery/queries/salesforce'
 import { DataSourceBadge } from '@/components/ui/data-source-badge'
 import Link from 'next/link'
@@ -31,6 +32,7 @@ import { useRecentPages } from '@/hooks/useRecentPages'
 
 const EMPTY_ACCOUNT: SalesforceAccountDetail | null = null
 const EMPTY_CONTACTS: SalesforceContact[] = []
+const EMPTY_OPPORTUNITIES: SalesforceOpportunity[] = []
 
 export default function AccountDetailPage() {
   const params = useParams()
@@ -79,8 +81,23 @@ export default function AccountDetailPage() {
     queryName: 'salesforce-contacts',
     filters: accountId && accountId.length > 0 ? { accountId } : {},
     defaultData: EMPTY_CONTACTS,
-    transformBigQueryData: (data) => data,
+    transformBigQueryData: (data) => (data || []),
     includeRoleFilters: false, // TODO: Salesforce tables need field mapping for role filters
+    enabled: !!accountId && accountId.length > 0,
+  })
+
+  // Fetch opportunities for this account
+  const {
+    data: opportunities,
+    isLoading: opportunitiesLoading,
+    error: opportunitiesError,
+    refetch: refetchOpportunities,
+  } = useBigQueryData<SalesforceOpportunity[], SalesforceOpportunity[]>({
+    queryName: 'salesforce-account-opportunities',
+    filters: accountId && accountId.length > 0 ? { accountId } : {},
+    defaultData: EMPTY_OPPORTUNITIES,
+    transformBigQueryData: (data) => (data || []),
+    includeRoleFilters: false, // Salesforce tables need field mapping for role filters
     enabled: !!accountId && accountId.length > 0,
   })
 
@@ -88,8 +105,8 @@ export default function AccountDetailPage() {
 
   if (!mounted) return null
 
-  const isLoading = accountLoading || contactsLoading
-  const hasError = accountError || contactsError
+  const isLoading = accountLoading || contactsLoading || opportunitiesLoading
+  const hasError = accountError || contactsError || opportunitiesError
 
   return (
     <div className="space-y-6 p-6">
@@ -117,6 +134,7 @@ export default function AccountDetailPage() {
             onClick={() => {
               refetchAccount()
               refetchContacts()
+              refetchOpportunities()
             }}
             disabled={isLoading}
           >
@@ -135,7 +153,7 @@ export default function AccountDetailPage() {
 
           <div className="space-y-3">
             <div className="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 p-2.5 rounded font-mono leading-relaxed">
-              {accountError || contactsError}
+              {accountError || contactsError || opportunitiesError}
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
@@ -155,6 +173,7 @@ export default function AccountDetailPage() {
               <Button variant="outline" size="sm" onClick={() => {
                 refetchAccount()
                 refetchContacts()
+                refetchOpportunities()
               }}>
                 <RefreshCw className="h-3 w-3 mr-1.5" />
                 Retry
@@ -212,15 +231,12 @@ export default function AccountDetailPage() {
                 <CardDescription>Opportunities</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{account.opportunity_count}</div>
+                <div className="text-2xl font-bold">{opportunities.length || account.opportunity_count}</div>
                 <p className="text-xs text-muted-foreground">
-                  {account.opportunity_won_count} won (
-                  {account.opportunity_count > 0
-                    ? Math.round(
-                        (account.opportunity_won_count / account.opportunity_count) * 100
-                      )
-                    : 0}
-                  %)
+                  {opportunities.filter(o => o.stage_name === 'Closed Won').length} won
+                  {opportunities.length > 0 && (
+                    <> ({Math.round((opportunities.filter(o => o.stage_name === 'Closed Won').length / opportunities.length) * 100)}%)</>
+                  )}
                 </p>
               </CardContent>
             </Card>
@@ -231,7 +247,13 @@ export default function AccountDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  ${Math.round(account.opportunity_won_sum).toLocaleString()}
+                  ${Math.round(
+                    opportunities.length > 0
+                      ? opportunities
+                          .filter(o => o.stage_name === 'Closed Won')
+                          .reduce((sum, o) => sum + (o.amount || 0), 0)
+                      : account.opportunity_won_sum
+                  ).toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground">Lifetime revenue</p>
               </CardContent>
@@ -264,7 +286,7 @@ export default function AccountDetailPage() {
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
               <TabsTrigger value="opportunities">
-                Opportunities ({account.opportunity_count})
+                Opportunities ({opportunities.length})
               </TabsTrigger>
             </TabsList>
 
@@ -499,31 +521,76 @@ export default function AccountDetailPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5" />
-                    Opportunities
+                    Opportunities ({opportunities.length})
                   </CardTitle>
                   <CardDescription>
-                    View opportunities in the{' '}
-                    <Link
-                      href="/ae/pipeline"
-                      className="text-blue-500 hover:underline"
-                    >
-                      Pipeline
-                    </Link>{' '}
-                    page
+                    Sales opportunities for this account
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-4">
-                      {account.opportunity_count} total opportunities
+                  {opportunitiesLoading && (
+                    <div className="animate-pulse space-y-3">
+                      <div className="h-12 bg-muted rounded" />
+                      <div className="h-12 bg-muted rounded" />
+                      <div className="h-12 bg-muted rounded" />
+                    </div>
+                  )}
+
+                  {!opportunitiesLoading && opportunities.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">
+                      No opportunities found for this account
                     </p>
-                    <Link href="/ae/pipeline">
-                      <Button>
-                        View Pipeline
-                        <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
-                      </Button>
-                    </Link>
-                  </div>
+                  )}
+
+                  {!opportunitiesLoading && opportunities.length > 0 && (
+                    <div className="space-y-4">
+                      {opportunities.map((opp) => (
+                        <div
+                          key={opp.opportunity_id}
+                          className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <h3 className="font-semibold text-lg">
+                                {opp.opportunity_name}
+                              </h3>
+                              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                {opp.type && <span>{opp.type}</span>}
+                                {opp.close_date && <span>Close: {opp.close_date}</span>}
+                                {opp.owner_name && <span>Owner: {opp.owner_name}</span>}
+                              </div>
+                              {opp.description && (
+                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                  {opp.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right space-y-1">
+                              <Badge
+                                variant={
+                                  opp.stage_name === 'Closed Won'
+                                    ? 'default'
+                                    : opp.stage_name === 'Closed Lost'
+                                      ? 'destructive'
+                                      : 'secondary'
+                                }
+                              >
+                                {opp.stage_name}
+                              </Badge>
+                              <p className="text-lg font-bold">
+                                ${Math.round(opp.amount).toLocaleString()}
+                              </p>
+                              {opp.probability > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                  {opp.probability}% probability
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

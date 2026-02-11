@@ -10,13 +10,24 @@ export type DataSourceStatus = 'mock' | 'bigquery' | 'loading' | 'error'
 interface DataSourceBadgeProps {
   status: DataSourceStatus
   responseTime?: number
+  timestamp?: string
   className?: string
   showLabel?: boolean
+}
+
+function formatTimestamp(ts: string): string {
+  try {
+    const d = new Date(ts)
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return ''
+  }
 }
 
 export function DataSourceBadge({
   status,
   responseTime,
+  timestamp,
   className,
   showLabel = true,
 }: DataSourceBadgeProps) {
@@ -35,7 +46,9 @@ export function DataSourceBadge({
     },
     bigquery: {
       icon: <Server className="h-3 w-3" />,
-      label: responseTime ? `Live (${responseTime}ms)` : 'Live Data',
+      label: responseTime
+        ? `Live (${responseTime}ms)${timestamp ? ` \u00B7 ${formatTimestamp(timestamp)}` : ''}`
+        : 'Live Data',
       variant: 'default',
       className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800',
     },
@@ -59,7 +72,7 @@ export function DataSourceBadge({
     switch (status) {
       case 'bigquery':
         return responseTime
-          ? `Query executed in ${responseTime}ms from BigQuery production database`
+          ? `Query executed in ${responseTime}ms from BigQuery production database${timestamp ? ` at ${timestamp}` : ''}`
           : 'Data fetched from BigQuery production database'
       case 'mock':
         return 'Using demo/mock data for development or offline mode'

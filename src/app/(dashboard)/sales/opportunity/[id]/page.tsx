@@ -106,7 +106,7 @@ export default function OpportunityDetailPage() {
       <div className="space-y-6">
         <Breadcrumb
           items={[
-            { label: 'Sales', href: '/sales' },
+            { label: 'Sales Hub', href: '/ae/sales' },
             { label: 'Opportunity Details' }
           ]}
         />
@@ -139,7 +139,7 @@ export default function OpportunityDetailPage() {
                 Retry
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <Link href="/sales">
+                <Link href="/ae/sales">
                   <ArrowLeft className="h-3 w-3 mr-1.5" />
                   Back to Sales
                 </Link>
@@ -170,7 +170,7 @@ export default function OpportunityDetailPage() {
           <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h2 className="text-lg font-semibold">Opportunity Not Found</h2>
           <Button asChild className="mt-4">
-            <Link href="/sales">Back to Sales</Link>
+            <Link href="/ae/sales">Back to Sales</Link>
           </Button>
         </div>
       </div>
@@ -218,7 +218,7 @@ export default function OpportunityDetailPage() {
       {/* Breadcrumb Navigation */}
       <Breadcrumb
         items={[
-          { label: 'Sales', href: '/sales' },
+          { label: 'Sales Hub', href: '/ae/sales' },
           { label: opportunity.name }
         ]}
       />
@@ -227,7 +227,7 @@ export default function OpportunityDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/sales">
+            <Link href="/ae/sales">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>

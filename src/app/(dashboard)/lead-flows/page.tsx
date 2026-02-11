@@ -288,7 +288,7 @@ export default function LeadFlowsPage() {
       )}
 
       {/* Summary Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div id="lf-match-rates" className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -383,7 +383,7 @@ export default function LeadFlowsPage() {
       {/* Flows by Category */}
       {Object.entries(flowsByCategory).map(([category, categoryFlows]) => (
         categoryFlows.length > 0 && (
-          <div key={category}>
+          <div id="lf-flow-diagram" key={category}>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               {categoryLabels[category]}
               <Badge variant="secondary">{categoryFlows.length} flows</Badge>
@@ -400,7 +400,7 @@ export default function LeadFlowsPage() {
       ))}
 
       {/* Source Systems Reference */}
-      <Card>
+      <Card id="lf-source-systems">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />

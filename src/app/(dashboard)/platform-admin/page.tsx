@@ -51,6 +51,7 @@ export default function PlatformAdminPage() {
     isLoading,
     dataSource,
     responseTime,
+    queryTimestamp,
   } = useBigQueryData<DataFreshnessSummary, DataFreshnessSummary>({
     queryName: 'data-freshness',
     defaultData: EMPTY_FRESHNESS,
@@ -122,7 +123,7 @@ export default function PlatformAdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <DataSourceBadge status={dataSource} responseTime={responseTime} timestamp={queryTimestamp} />
           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
             <ShieldCheck className="h-3 w-3 mr-1" />
             Product Owner View
@@ -174,11 +175,11 @@ export default function PlatformAdminPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="health" className="space-y-6">
+        <TabsContent id="pa-health-cards" value="health" className="space-y-6">
           <PlatformHealth />
         </TabsContent>
 
-        <TabsContent value="freshness" className="space-y-6">
+        <TabsContent id="pa-freshness-panel" value="freshness" className="space-y-6">
           <DataFreshnessSLA />
         </TabsContent>
 
@@ -194,7 +195,7 @@ export default function PlatformAdminPage() {
           <SchemaChangeAlerts />
         </TabsContent>
 
-        <TabsContent value="anomalies" className="space-y-6">
+        <TabsContent id="pa-anomaly-table" value="anomalies" className="space-y-6">
           <AnomalyDetection />
         </TabsContent>
       </Tabs>

@@ -230,6 +230,25 @@ export const PRESENTER_MODE_CONFIG: Record<DemoMode, {
         ]
       }
     ]
+  },
+  krishna_jha: {
+    name: 'Krishna Jha - Data Architecture',
+    persona: 'Krishna Jha',
+    description: 'Data architecture assessment - 8 stops + interstitials',
+    steps: [
+      { title: 'Live Production Infrastructure', route: '', script: ['Opening interstitial — connected to bidata-sharedus-production'] },
+      { title: 'Platform Health', route: '/platform-health', script: ['BigQuery connection status, 10 datasets, 37B rows'] },
+      { title: 'Data Dictionary', route: '/governance/data-dictionary', script: ['113 documented columns, business definitions'] },
+      { title: 'Data Quality', route: '/governance/data-quality', script: ['NULL rate monitoring, freshness SLAs, quality dimensions'] },
+      { title: 'The Traceability Challenge', route: '', script: ['Interstitial — 7 source systems, lead matching gap'] },
+      { title: 'Lead Traceability', route: '/lead-flows', script: ['7 source systems, 30-40% match rate'] },
+      { title: 'Lead Service Engine', route: '/lead-service-engine', script: ['S0_TMX.tmx_lead (2.2M rows), stage metrics'] },
+      { title: 'Live Production Analytics', route: '', script: ['Interstitial — BCG_RTD_DB, 70 tables, 596M rows'] },
+      { title: 'Sales Dashboard', route: '/sales', script: ['DR_ContractSales (78K/30d), DR_Leads (190K/30d)'] },
+      { title: 'Anomaly Detection', route: '/platform-admin', script: ['Z-score on T0_unf_Contract_All (7.8M rows)'] },
+      { title: 'The Untapped Asset', route: '', script: ['Interstitial — BCG_RTD_DB reveal'] },
+      { title: 'BCG Analytics + Summary', route: '/sales', script: ['70-table BCG_RTD_DB (596M rows), 3 assessment gaps'] },
+    ]
   }
 }
 
@@ -816,6 +835,22 @@ export const DEMO_MODE_CONFIG: Record<DemoMode, {
       { title: 'Operations Dashboard', description: 'Service quality and capacity overview', route: '/ops' },
       { title: 'Forecast & Scenarios', description: 'Review forecast with confidence bands and backtest', route: '/forecast' },
       { title: 'Governance', description: 'KPI dictionary, data quality, and lineage', route: '/governance' },
+    ],
+  },
+  krishna_jha: {
+    name: 'Krishna Jha - Data Architecture',
+    persona: 'Krishna Jha',
+    description: 'Data architecture assessment - 7 demo stops',
+    defaultRoute: '/platform-health',
+    highlightedKpis: [],
+    tourSteps: [
+      { title: 'Platform Health', description: 'BigQuery connection status, 10 datasets, 37B rows', route: '/platform-health' },
+      { title: 'Data Dictionary', description: '113 documented columns, business definitions', route: '/governance/data-dictionary' },
+      { title: 'Data Quality', description: 'NULL rate monitoring, freshness SLAs, quality dimensions', route: '/governance/data-quality' },
+      { title: 'Lead Traceability', description: '7 source systems, 30-40% match rate', route: '/lead-flows' },
+      { title: 'Lead Service Engine', description: 'S0_TMX.tmx_lead (2.2M rows), stage metrics', route: '/lead-service-engine' },
+      { title: 'Sales Dashboard', description: 'DR_ContractSales (78K/30d), DR_Leads (190K/30d)', route: '/sales' },
+      { title: 'Anomaly Detection', description: 'Z-score on T0_unf_Contract_All (7.8M rows)', route: '/platform-admin' },
     ],
   },
 }

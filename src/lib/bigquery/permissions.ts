@@ -71,6 +71,7 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
   'salesforce-accounts': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'salesforce-account-detail': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'salesforce-contacts': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
+  'salesforce-account-opportunities': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'salesforce-opportunity-history': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'salesforce-employees': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],
   'salesforce-quote-detail': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager', 'manager', 'sales_manager', 'rep'],

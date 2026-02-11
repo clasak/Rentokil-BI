@@ -214,7 +214,7 @@ export default function AdminPage() {
           setHealthMetrics(result.data)
         }
       } catch (e) {
-        console.log('Failed to fetch health metrics:', e)
+        // Silently fail - non-critical metrics
       }
     }
 
@@ -230,7 +230,7 @@ export default function AdminPage() {
           setAdoptionMetrics(result.data)
         }
       } catch (e) {
-        console.log('Failed to fetch adoption metrics:', e)
+        // Silently fail - non-critical metrics
       }
     }
 
@@ -246,7 +246,7 @@ export default function AdminPage() {
           setAnomalyAlerts(result.data)
         }
       } catch (e) {
-        console.log('Failed to fetch anomaly alerts:', e)
+        // Silently fail - non-critical metrics
       }
     }
 
@@ -278,7 +278,7 @@ export default function AdminPage() {
         setLoginEvents(data as LoginEvent[])
       }
     } catch (e) {
-      console.log('Failed to fetch login events:', e)
+      // Silently fail - non-critical activity log
     } finally {
       setLoadingEvents(false)
     }

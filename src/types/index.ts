@@ -12,7 +12,7 @@ export type Role =
   | 'rep'
   | 'technician'
 
-export type DemoMode = 'bi_leadership'
+export type DemoMode = 'bi_leadership' | 'krishna_jha'
 
 export type Scenario = 'base' | 'upside' | 'downside'
 

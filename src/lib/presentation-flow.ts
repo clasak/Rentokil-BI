@@ -1,6 +1,9 @@
 /**
  * Presentation Flow Configuration
  *
+ * NOTE: Krishna Jha demo flow is configured in DemoSpotlight.tsx DEMO_CONFIG['krishna_jha']
+ * This PRESENTATION_FLOW is used by PresentationOverlay.tsx (backup system)
+ *
  * Defines the 7-step guided presentation script with talking points,
  * transition narratives, element focus targets, and sub-step navigation.
  * Sourced from DEMO_FLOW_WITH_COMPARISON.md.

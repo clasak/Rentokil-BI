@@ -145,14 +145,16 @@ export class BigQueryClient {
       this.config.projectId = getProjectIdForEnvironment(this.config.environment)
     }
 
-    // Log initialization for debugging
-    console.log('[BigQuery] Initializing client:', {
-      environment: this.config.environment,
-      projectId: this.config.projectId,
-      authMethod: this.config.keyFilename ? 'service-account' : 'ADC',
-      vercelEnv: process.env.VERCEL_ENV || 'not-vercel',
-      nodeEnv: process.env.NODE_ENV,
-    })
+    // Log initialization for debugging (development only)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[BigQuery] Initializing client:', {
+        environment: this.config.environment,
+        projectId: this.config.projectId,
+        authMethod: this.config.keyFilename ? 'service-account' : 'ADC',
+        vercelEnv: process.env.VERCEL_ENV || 'not-vercel',
+        nodeEnv: process.env.NODE_ENV,
+      })
+    }
 
     // Initialize BigQuery client
     this.client = new BigQuery({

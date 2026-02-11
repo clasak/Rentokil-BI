@@ -59,6 +59,7 @@ export default function PlatformHealthPage() {
     isLoading: isLoadingMetrics,
     dataSource,
     responseTime,
+    queryTimestamp,
     error: metricsError,
     refetch: refetchMetrics,
   } = useBigQueryData<PlatformHealthMetrics, PlatformHealthMetrics>({
@@ -206,7 +207,7 @@ export default function PlatformHealthPage() {
           <span className="text-sm text-muted-foreground">
             Last refresh: {formatDistanceToNow(metrics.lastUpdated, { addSuffix: true })}
           </span>
-          <DataSourceBadge status={dataSource} responseTime={responseTime} />
+          <DataSourceBadge status={dataSource} responseTime={responseTime} timestamp={queryTimestamp} />
           <Button variant="outline" onClick={handleRefresh}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -240,7 +241,7 @@ export default function PlatformHealthPage() {
       )}
 
       {/* System Vitals */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div id="bq-connection-status" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Pipeline Uptime */}
         <Card className={metrics.restricted ? 'opacity-50' : ''}>
           <CardContent className="pt-6">
@@ -374,7 +375,7 @@ export default function PlatformHealthPage() {
             </TabsList>
 
             {/* Data Freshness Tab */}
-            <TabsContent value="freshness" className="mt-6">
+            <TabsContent id="bq-dataset-list" value="freshness" className="mt-6">
               {freshnessData.sources.length === 0 ? (
                 <div className="text-center py-8">
                   <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -443,7 +444,7 @@ export default function PlatformHealthPage() {
             </TabsContent>
 
             {/* ETL Monitor Tab */}
-            <TabsContent value="etl" className="mt-6">
+            <TabsContent id="bq-table-count" value="etl" className="mt-6">
               {metrics.restricted ? (
                 <div className="text-center py-8">
                   <Shield className="h-12 w-12 mx-auto text-amber-500 mb-4" />

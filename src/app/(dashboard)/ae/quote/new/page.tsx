@@ -181,9 +181,6 @@ function QuoteBuilderContent() {
 
     if (customerSource === 'new-customer') {
       // New Customer flow: Create Lead → Account → Opportunity → Quote
-      console.log('=== NEW CUSTOMER CREATION - 4 OBJECTS ===')
-      console.log('Source: Cold call / New customer entry')
-      console.log('')
 
       // 1. Lead object (would be created first)
       const leadPayload = {
@@ -202,9 +199,6 @@ function QuoteBuilderContent() {
         OwnerId: userId,
         CreatedDate: timestamp,
       }
-      console.log('1️⃣  LEAD (would be created):')
-      console.log(JSON.stringify(leadPayload, null, 2))
-      console.log('')
 
       // 2. Account object (converted from Lead)
       const accountPayload = {
@@ -219,9 +213,6 @@ function QuoteBuilderContent() {
         CreatedDate: timestamp,
         ConvertedFromLeadId: leadId,
       }
-      console.log('2️⃣  ACCOUNT (converted from Lead):')
-      console.log(JSON.stringify(accountPayload, null, 2))
-      console.log('')
 
       // 3. Opportunity object (created with Account)
       const opportunityPayload = {
@@ -236,9 +227,6 @@ function QuoteBuilderContent() {
         CreatedDate: timestamp,
         ConvertedFromLeadId: leadId,
       }
-      console.log('3️⃣  OPPORTUNITY (created with Account):')
-      console.log(JSON.stringify(opportunityPayload, null, 2))
-      console.log('')
 
       // 4. Quote object
       const quotePayload = {
@@ -256,15 +244,8 @@ function QuoteBuilderContent() {
         OwnerId: userId,
         CreatedDate: timestamp,
       }
-      console.log('4️⃣  QUOTE (attached to Opportunity):')
-      console.log(JSON.stringify(quotePayload, null, 2))
-      console.log('')
-      console.log('=========================================')
     } else if (customerSource === 'lead') {
       // Existing Lead flow: Convert Lead → Account + Opportunity, Create Quote
-      console.log('=== LEAD CONVERSION - 3 OBJECTS ===')
-      console.log('Source: Existing Lead conversion')
-      console.log('')
 
       // 1. Account object (converted from existing Lead)
       const accountPayload = {
@@ -279,9 +260,6 @@ function QuoteBuilderContent() {
         CreatedDate: timestamp,
         ConvertedFromLeadId: selectedAccount?.account_id || leadId,
       }
-      console.log('1️⃣  ACCOUNT (converted from existing Lead):')
-      console.log(JSON.stringify(accountPayload, null, 2))
-      console.log('')
 
       // 2. Opportunity object (created with Account)
       const opportunityPayload = {
@@ -295,9 +273,6 @@ function QuoteBuilderContent() {
         OwnerId: userId,
         CreatedDate: timestamp,
       }
-      console.log('2️⃣  OPPORTUNITY (created with Account):')
-      console.log(JSON.stringify(opportunityPayload, null, 2))
-      console.log('')
 
       // 3. Quote object
       const quotePayload = {
@@ -314,15 +289,8 @@ function QuoteBuilderContent() {
         OwnerId: userId,
         CreatedDate: timestamp,
       }
-      console.log('3️⃣  QUOTE (attached to Opportunity):')
-      console.log(JSON.stringify(quotePayload, null, 2))
-      console.log('')
-      console.log('====================================')
     } else {
       // Existing Account flow: Just create Quote (Opportunity already exists)
-      console.log('=== EXISTING ACCOUNT - QUOTE ONLY ===')
-      console.log('Source: Existing Account')
-      console.log('')
 
       const quotePayload = {
         Id: quoteId,
@@ -338,10 +306,6 @@ function QuoteBuilderContent() {
         OwnerId: userId,
         CreatedDate: timestamp,
       }
-      console.log('QUOTE (attached to existing Account/Opportunity):')
-      console.log(JSON.stringify(quotePayload, null, 2))
-      console.log('')
-      console.log('=====================================')
     }
 
     // Show success message and redirect

@@ -10,7 +10,7 @@ import {
   CalendarDays, Target, ClipboardList, Truck, Upload, Book,
   Shield, GitBranch, ClipboardCheck, Workflow, Database,
   Bug, Layers, BarChart3, BookOpen, Briefcase, Building,
-  UserX, Eye, Activity, UserCog, Gauge, Star
+  UserX, Eye, Activity, UserCog, Gauge, Star, Brain
 } from 'lucide-react'
 import { Role } from '@/types'
 
@@ -392,6 +392,12 @@ export const GOVERNANCE_NAV: NavItem[] = [
     href: '/governance/field-lineage',
     icon: GitBranch,
     description: 'Data lineage and dependencies'
+  },
+  {
+    name: 'AI Roadmap',
+    href: '/ai-roadmap',
+    icon: Brain,
+    description: 'AI & Data Science strategic roadmap'
   },
   {
     name: 'WBR',

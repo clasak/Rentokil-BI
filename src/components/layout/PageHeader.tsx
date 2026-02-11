@@ -10,6 +10,7 @@ interface PageHeaderProps {
   breadcrumbs: BreadcrumbItem[]
   dataSource?: DataSourceStatus
   responseTime?: number
+  timestamp?: string
   error?: string
   onRefresh?: () => void
   isLoading?: boolean
@@ -21,6 +22,7 @@ export function PageHeader({
   breadcrumbs,
   dataSource,
   responseTime,
+  timestamp,
   error,
   onRefresh,
   isLoading,
@@ -33,7 +35,7 @@ export function PageHeader({
         <h1 className="text-2xl font-bold dark:text-gray-100">{title}</h1>
         <div className="flex items-center gap-3">
           {dataSource && (
-            <DataSourceBadge status={dataSource} responseTime={responseTime} />
+            <DataSourceBadge status={dataSource} responseTime={responseTime} timestamp={timestamp} />
           )}
           {onRefresh && (
             <Button

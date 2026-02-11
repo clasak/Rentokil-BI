@@ -52,6 +52,7 @@ export default function LeadServiceEnginePage() {
     isLoading: stageLoading,
     dataSource,
     responseTime,
+    queryTimestamp,
     error,
     refetch,
   } = useBigQueryData<BQStageMetricsRow[], StageMetrics[]>({
@@ -115,6 +116,7 @@ export default function LeadServiceEnginePage() {
         ]}
         dataSource={dataSource}
         responseTime={responseTime}
+        timestamp={queryTimestamp}
         error={error}
         onRefresh={refetch}
         isLoading={isLoading}
@@ -141,7 +143,7 @@ export default function LeadServiceEnginePage() {
 
 
       {/* KPI Summary Cards - Now with Value Metrics (J2) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div id="lse-stage-metrics" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Pipeline Value - Leadership Request */}
         <Card className="bg-gradient-to-br from-green-600 to-green-700 text-white">
           <CardContent className="pt-6">
@@ -222,7 +224,7 @@ export default function LeadServiceEnginePage() {
       </div>
 
       {/* Pipeline Visual */}
-      <Card>
+      <Card id="lse-pipeline">
         <CardHeader>
           <CardTitle>Pipeline Overview</CardTitle>
           <CardDescription>
@@ -254,7 +256,7 @@ export default function LeadServiceEnginePage() {
       )}
 
       {/* Handoff Summary Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div id="lse-handoffs" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {handoffMetrics.map(metrics => (
           <HandoffCard key={metrics.type} metrics={metrics} showChart={false} />
         ))}

@@ -352,6 +352,8 @@ export default function DataQualityPage() {
     data: realIssues,
     isLoading: issuesLoading,
     dataSource: issuesDataSource,
+    responseTime: issuesResponseTime,
+    queryTimestamp: issuesTimestamp,
     error: issuesError,
   } = useBigQueryData<DataQualityIssueReal[], DataQualityIssueReal[]>({
     queryName: 'data-quality-issues',
@@ -461,6 +463,8 @@ export default function DataQualityPage() {
               (issuesError || scoreError || healthError) ? 'error' :
               issuesDataSource
             }
+            responseTime={issuesResponseTime}
+            timestamp={issuesTimestamp}
           />
           <Button variant="outline" className="gap-2" onClick={() => window.location.reload()}>
             <RefreshCw className="h-4 w-4" />
@@ -537,7 +541,7 @@ export default function DataQualityPage() {
       </div>
 
       {/* Dimension Scores */}
-      <Card>
+      <Card id="dq-dimensions">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Activity className="h-5 w-5" />
@@ -745,7 +749,7 @@ export default function DataQualityPage() {
         {/* Issues Tab */}
         <TabsContent value="issues" className="space-y-4">
           {/* Issue Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div id="dq-null-rates" className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-3">

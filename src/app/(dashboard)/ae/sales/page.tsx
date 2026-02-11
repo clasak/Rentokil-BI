@@ -435,33 +435,35 @@ function PipelineView() {
                 </Card>
               ) : (
                 stageOpps.map(opp => (
-                  <Card key={opp.opportunityId} className="hover:border-blue-500 transition-colors cursor-pointer">
-                    <CardHeader className="p-4 pb-2">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-sm font-medium line-clamp-2">
-                          {opp.opportunityName}
-                        </CardTitle>
-                        {opp.probability > 0 && (
-                          <Badge variant="outline" className="ml-2 shrink-0 text-xs">
-                            {opp.probability}%
-                          </Badge>
-                        )}
-                      </div>
-                      <CardDescription className="text-xs mt-1">{opp.accountName}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-2 space-y-2">
-                      {opp.amount > 0 && (
-                        <div className="flex items-center gap-1 text-sm">
-                          <DollarSign className="h-3 w-3 text-green-600" />
-                          <span className="font-semibold text-green-600">{formatCurrency(opp.amount)}</span>
+                  <Link key={opp.opportunityId} href={opp.accountId ? `/ae/accounts/${opp.accountId}` : `/sales/opportunity/${opp.opportunityId}`}>
+                    <Card className="hover:border-blue-500 transition-colors cursor-pointer">
+                      <CardHeader className="p-4 pb-2">
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-sm font-medium line-clamp-2">
+                            {opp.opportunityName}
+                          </CardTitle>
+                          {opp.probability > 0 && (
+                            <Badge variant="outline" className="ml-2 shrink-0 text-xs">
+                              {opp.probability}%
+                            </Badge>
+                          )}
                         </div>
-                      )}
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        Close: {opp.closeDate}
-                      </div>
-                    </CardContent>
-                  </Card>
+                        <CardDescription className="text-xs mt-1">{opp.accountName}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-2 space-y-2">
+                        {opp.amount > 0 && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <DollarSign className="h-3 w-3 text-green-600" />
+                            <span className="font-semibold text-green-600">{formatCurrency(opp.amount)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          Close: {opp.closeDate}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))
               )}
             </div>

@@ -78,6 +78,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/tech/tickets': 'Tech Tickets',
   '/termite/pni': 'PNI Inspections',
   '/termite/renewals': 'Termite Renewals',
+  '/ai-roadmap': 'AI & Data Science Roadmap',
   '/wbr': 'Weekly Business Review',
   '/workforce/tech-productivity': 'Tech Productivity',
 }

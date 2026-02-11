@@ -265,6 +265,7 @@ export async function getNewStarts(
       GROUP BY customer_name, sell_date, sales_person_nm, assigned_branch_code, region_cd, market_cd
     ),
     -- SERVICE ADDRESS CTE: Links via location_id (PRIMARY source for addresses)
+    -- Deduplicate to one row per locationid to prevent JOIN fan-out
     PestPacServiceLocations AS (
       SELECT
         CAST(pl.locationid AS STRING) as location_id,
@@ -273,10 +274,15 @@ export async function getNewStarts(
         TRIM(COALESCE(pl.zip, '')) as zip,
         TRIM(COALESCE(pl.address, '')) as address,
         TRIM(COALESCE(pl.address2, '')) as address2
-      FROM \`${PROJECT}.S0.pestpac_Locations\` pl
-      WHERE pl.locationid IS NOT NULL
+      FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY locationid ORDER BY locationid) as rn
+        FROM \`${PROJECT}.S0.pestpac_Locations\`
+        WHERE locationid IS NOT NULL
+      ) pl
+      WHERE pl.rn = 1
     ),
     -- BILLING ADDRESS CTE: Links via bill_to_id (FALLBACK for addresses)
+    -- Deduplicate to one row per billtoid to prevent JOIN fan-out
     PestPacBillTos AS (
       SELECT
         CAST(bt.billtoid AS STRING) as billto_id,
@@ -284,17 +290,30 @@ export async function getNewStarts(
         TRIM(COALESCE(bt.state, '')) as state,
         TRIM(COALESCE(bt.zip, '')) as zip,
         TRIM(COALESCE(bt.address, '')) as address
-      FROM \`${PROJECT}.S0.pestpac_BillTos\` bt
-      WHERE bt.billtoid IS NOT NULL
+      FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY billtoid ORDER BY billtoid) as rn
+        FROM \`${PROJECT}.S0.pestpac_BillTos\`
+        WHERE billtoid IS NOT NULL
+      ) bt
+      WHERE bt.rn = 1
     ),
     -- SERVICE SETUP CTE: Links via location_id (service instructions/notes)
+    -- Deduplicate to one row per locationid to prevent JOIN fan-out
+    -- (a location can have multiple service setups - take the one with the longest comment)
     PestPacServiceSetups AS (
       SELECT
         CAST(ss.locationid AS STRING) as location_id,
         ss.comment as setup_comment,
         ss.excessmessage as setup_excessmessage
-      FROM \`${PROJECT}.S0.pestpac_ServiceSetups\` ss
-      WHERE ss.locationid IS NOT NULL
+      FROM (
+        SELECT *, ROW_NUMBER() OVER (
+          PARTITION BY locationid
+          ORDER BY LENGTH(COALESCE(comment, '')) DESC
+        ) as rn
+        FROM \`${PROJECT}.S0.pestpac_ServiceSetups\`
+        WHERE locationid IS NOT NULL
+      ) ss
+      WHERE ss.rn = 1
     ),
     Branches AS (
       SELECT
@@ -304,13 +323,18 @@ export async function getNewStarts(
       FROM \`${PROJECT}.S2.VwUnf_Branch\` b
     ),
     -- EMPLOYEE/SUPERVISOR CTE: Links via employee number to get ops manager
+    -- Deduplicate to one row per employee number to prevent JOIN fan-out
     TMXEmployees AS (
       SELECT
         CAST(e.Employee_Number AS STRING) as employee_number,
         COALESCE(e.Supervisor_Name, '') as supervisor_name,
         COALESCE(CAST(e.Supervisor_ID AS STRING), '') as supervisor_id
-      FROM \`${PROJECT}.S0_TMX.Employees_Main\` e
-      WHERE e.Employee_Number IS NOT NULL
+      FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY Employee_Number ORDER BY Employee_Number) as rn
+        FROM \`${PROJECT}.S0_TMX.Employees_Main\`
+        WHERE Employee_Number IS NOT NULL
+      ) e
+      WHERE e.rn = 1
     )
     SELECT
       CAST(agg.salesID AS STRING) as id,

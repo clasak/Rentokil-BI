@@ -834,7 +834,7 @@ export default function DataDictionaryPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
+            <div id="dd-search" className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search fields by name, definition, or tags..."
@@ -871,10 +871,10 @@ export default function DataDictionaryPage() {
       </Card>
 
       {/* Field Table */}
-      <Card>
+      <Card id="dd-column-table">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
+            <div id="dd-business-defs">
               <CardTitle>Field Definitions</CardTitle>
               <CardDescription>
                 {filteredFields.length} of {DATA_DICTIONARY.length} fields

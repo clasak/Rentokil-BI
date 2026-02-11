@@ -232,11 +232,6 @@ Equipment & Service Notes:
      *
      * For now, logging data structure for reference:
      */
-    console.log('Save payload (implement backend to persist):', {
-      salesId: editingEntry.id,
-      pestPacId: editingEntry.pestPacId,
-      ...editForm,
-    })
 
     // Simulate save for UX feedback
     await new Promise(resolve => setTimeout(resolve, 500))

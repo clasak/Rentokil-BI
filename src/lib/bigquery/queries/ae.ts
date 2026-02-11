@@ -993,6 +993,7 @@ export async function getNewStartLogSummary(
 export interface SalesforceOpportunity {
   opportunityId: string
   opportunityName: string
+  accountId: string
   accountName: string
   stageName: string
   amount: number
@@ -1035,6 +1036,7 @@ export async function getSalesforceOpportunities(
     SELECT
       o.Id as opportunityId,
       o.Name as opportunityName,
+      COALESCE(o.AccountId, '') as accountId,
       COALESCE(a.Name, '') as accountName,
       o.StageName as stageName,
       COALESCE(o.Amount, 0) as amount,
