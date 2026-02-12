@@ -278,6 +278,9 @@ export const QUERY_PERMISSIONS: Record<string, Role[]> = {
 
   // Anomaly Detection queries - exec only (admin dashboard)
   'anomaly-alerts': ['exec'],
+
+  // AI Roadmap queries - exec and leadership roles
+  'ai-roadmap-data-counts': ['exec', 'market_vp', 'market_sales_director', 'region_director', 'region_sales_manager'],
 }
 
 /**
